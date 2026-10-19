@@ -109,7 +109,8 @@ p { margin: 0; }
 .home h1 span { color: var(--accent-strong); }
 .lede { max-width: 44ch; font-size: 17px; color: var(--muted); margin-top: 16px; }
 .group-label { margin: 0 0 10px; font-size: 11px; font-weight: 500; letter-spacing: .12em; text-transform: uppercase; color: var(--muted); }
-.modes { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 10px; }
+.modes { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; }
+@media (min-width: 900px) { .modes { grid-template-columns: repeat(4, 1fr); } }
 .mode {
   display: grid;
   gap: 6px;
@@ -358,10 +359,24 @@ dialog[open] { animation: rise .18s ease-out; }
 .skin i { width: 18px; height: 18px; border-radius: 50%; display: block; }
 .skin[aria-pressed="true"] { border-color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent); }
 .skin:focus-visible { outline: 2px solid var(--focus); outline-offset: 3px; }
+  .chase-actions { display: flex; gap: 10px; margin-top: 12px; }
+.chase-actions[hidden] { display: none; }
+.chase-actions .btn { flex: 1; min-height: 52px; font-size: 16px; }
+.chase-actions .btn[disabled] { opacity: .45; cursor: default; }
+.legend .l-peel { color: #F2D14B; } .legend .l-decoy { color: #E5594F; } .legend .l-dash { color: var(--boost); }
 @keyframes ovLate { from { opacity: 0; } to { opacity: 1; } }
 .overlay.late { animation: ovLate .35s ease .95s both; }
 @keyframes scorePop { 0% { transform: scale(1); } 35% { transform: scale(1.28); color: var(--accent, #5CD6A0); } 100% { transform: scale(1); } }
 .pop { display: inline-block; animation: scorePop .32s ease-out; }
+input[type="range"] { width: 100%; max-width: 260px; accent-color: var(--accent, #5CD6A0); height: 28px; }
+.vol-row { display: flex; align-items: center; gap: 12px; margin-top: 10px; }
+.vol-row output { min-width: 3.2em; font-variant-numeric: tabular-nums; color: var(--muted); font-size: 14px; }
+.btn--danger { border-color: #E5594F; color: #E5594F; }
+.btn--danger.armed { background: #E5594F; color: #fff; }
+details.help { border: 1px solid var(--line); border-radius: 12px; padding: 10px 14px; margin-top: 8px; }
+details.help summary { cursor: pointer; font-weight: 600; }
+details.help p, details.help li { font-size: 14px; color: var(--muted); }
+html[data-motion="off"] *, html[data-motion="off"] *::before, html[data-motion="off"] *::after { animation: none !important; transition: none !important; }
 @media (prefers-reduced-motion: reduce) {
   .pop { animation: none; }
   .overlay, dialog[open], .toast { animation: none; }
@@ -439,15 +454,20 @@ dialog[open] { animation: rise .18s ease-out; }
         <button class="btn" id="gameSettingsBtn" type="button">Settings</button>
       </div>
       <details class="legend" id="legend" hidden>
-        <summary>Pick-ups</summary>
+        <summary id="legendSummary">Pick-ups</summary>
         <ul id="legendList"></ul>
         <p class="note" id="legendNote"></p>
       </details>
       <ul class="keys">
         <li class="kbd-only"><kbd>←</kbd> <kbd>↑</kbd> <kbd>↓</kbd> <kbd>→</kbd> or <kbd>W</kbd> <kbd>A</kbd> <kbd>S</kbd> <kbd>D</kbd> to steer</li>
         <li class="kbd-only"><kbd>Space</kbd> pauses and resumes</li>
+        <li class="kbd-only" id="chaseKeys" hidden><kbd>Shift</kbd> dash · <kbd>E</kbd> use item</li>
         <li>Swipe on the board to steer</li>
       </ul>
+      <div class="chase-actions" id="chaseActions" hidden>
+        <button class="btn" id="dashBtn" type="button">Dash</button>
+        <button class="btn" id="useBtn" type="button">Use item</button>
+      </div>
       <div class="pad" aria-label="Direction pad">
         <button type="button" class="up" data-dx="0" data-dy="-1" aria-label="Up">↑</button>
         <button type="button" class="left" data-dx="-1" data-dy="0" aria-label="Left">←</button>
@@ -480,13 +500,37 @@ dialog[open] { animation: rise .18s ease-out; }
     </div>
     <p class="dlg-note">Short sound effects for eating, pick-ups, level-ups and game over. They start after your first tap or key press.</p>
   </div>
+  <div class="dlg-section" id="volSection">
+    <h3>Volume</h3>
+    <div class="vol-row">
+      <input type="range" id="volume" min="0" max="100" step="5" value="100" aria-label="Sound volume">
+      <output id="volumeOut" for="volume">100%</output>
+    </div>
+  </div>
+  <div class="dlg-section" id="hapticSection" hidden>
+    <h3>Vibration</h3>
+    <div class="seg" role="group" aria-label="Vibration">
+      <button type="button" id="hapticOff" aria-pressed="false">Off</button>
+      <button type="button" id="hapticOn" aria-pressed="true">On</button>
+    </div>
+    <p class="dlg-note">A short buzz when you crash or get caught. Only on devices that support it.</p>
+  </div>
+  <div class="dlg-section">
+    <h3>Animations</h3>
+    <div class="seg" role="group" aria-label="Animations">
+      <button type="button" id="motionAuto" aria-pressed="true">Auto</button>
+      <button type="button" id="motionOn" aria-pressed="false">On</button>
+      <button type="button" id="motionOff" aria-pressed="false">Off</button>
+    </div>
+    <p class="dlg-note">Auto follows your device's "reduce motion" setting. Off removes slides, bursts, shaking and the crash animation.</p>
+  </div>
   <div class="dlg-section">
     <h3>Golden apples</h3>
     <div class="seg" role="group" aria-label="Golden apples">
       <button type="button" id="goldOff" aria-pressed="true">Off</button>
       <button type="button" id="goldOn" aria-pressed="false">On</button>
     </div>
-    <p class="dlg-note">When on, a golden apple appears after every 10 new points. It stays for 5 seconds, then disappears. Eating it adds 5 golden segments to your snake and 5 points; those 5 points do not count towards the next apple. Changing this restarts the current run, and best scores are kept separately for golden games.</p>
+    <p class="dlg-note">When on, a golden apple appears after every 10 new points. It stays for 5 seconds, then disappears. Eating it adds 5 golden segments to your snake and 5 points; those 5 points do not count towards the next apple. It does not apply to Apple Run. Changing this restarts the current run, and best scores are kept separately for golden games.</p>
   </div>
   <div class="dlg-section">
     <h3>Snake colour</h3>
@@ -500,10 +544,28 @@ dialog[open] { animation: rise .18s ease-out; }
     <p class="dlg-note">These only change how the game looks. Scores and rules stay the same.</p>
   </div>
   <div class="dlg-section">
+    <h3>Help and about</h3>
+    <details class="help"><summary>How to play</summary>
+      <p><strong>Classic.</strong> Eat food, grow, and do not hit walls or yourself. Wrap mode lets you pass through the edges.</p>
+      <p><strong>Time Attack.</strong> Score as much as you can before the clock runs out.</p>
+      <p><strong>Survival.</strong> It gets harder as time passes, with obstacles and pick-ups to help.</p>
+      <p><strong>Apple Run.</strong> You are the apple. Outrun the snake, use Dash, and drop banana peels and decoys to make it slip.</p>
+    </details>
+    <details class="help"><summary>About and privacy</summary>
+      <p>Grid Snake <span id="appVersion">1.0.0</span>. Made with plain HTML, CSS and JavaScript. No ads, no accounts, no tracking.</p>
+      <p>Your scores, achievements and settings are stored only on this device, in your browser's local storage. Nothing is sent anywhere.</p>
+    </details>
+    <div style="margin-top:12px">
+      <button class="btn btn--danger" id="resetBtn" type="button">Reset progress</button>
+      <p class="dlg-note" id="resetNote">Clears best scores, totals and achievements. Your settings stay.</p>
+    </div>
+  </div>
+  <div class="dlg-section">
     <h3>Controls</h3>
     <ul class="keys">
       <li><kbd>←</kbd> <kbd>↑</kbd> <kbd>↓</kbd> <kbd>→</kbd> or <kbd>W</kbd> <kbd>A</kbd> <kbd>S</kbd> <kbd>D</kbd> to steer</li>
       <li><kbd>Space</kbd> pauses and resumes</li>
+      <li>Apple Run: <kbd>Shift</kbd> dashes, <kbd>E</kbd> drops an item</li>
       <li>Swipe on the board or use the direction pad on touch screens</li>
     </ul>
   </div>
@@ -957,6 +1019,13 @@ var SnakeAchievements = (function () {
     { id: 'survivor',     group: 'Modes',    scope: 'run',   goal: 90,  name: 'Survivor',      desc: 'Last 90 seconds in Survival.',
       value: function (c) { return run(c).mode === 'survival' ? Math.floor(num(run(c).elapsed) / 1000) : 0; } },
 
+    { id: 'slip_n_slide', group: 'Apple Run', scope: 'run', goal: 1,  name: 'Slip and Slide', desc: 'Make the snake slip on a banana peel.',
+      value: function (c) { return num(run(c).slips); } },
+    { id: 'fake_out',     group: 'Apple Run', scope: 'run', goal: 1,  name: 'Fake Out',      desc: 'Fool the snake with a decoy apple.',
+      value: function (c) { return num(run(c).fooled); } },
+    { id: 'apple_of_steel', group: 'Apple Run', scope: 'run', goal: 60, name: 'Apple of Steel', desc: 'Survive 60 seconds in Apple Run.',
+      value: function (c) { return run(c).mode === 'chase' ? Math.floor(num(run(c).elapsed) / 1000) : 0; } },
+
     { id: 'close_call',   group: 'Power-ups', scope: 'run',  goal: 1,   name: 'Close Call',    desc: 'Survive a collision with a Shield.',
       value: function (c) { return num(run(c).shieldSaves); } },
     { id: 'bonus_hunter', group: 'Power-ups', scope: 'total', goal: 5,  name: 'Bonus Hunter',  desc: 'Collect 5 Bonus Foods in total.',
@@ -997,6 +1066,7 @@ var SnakeProfile = (function () {
 
   var KEY = 'gridsnake-profile-v2';
   var EDGES = ['walls', 'wrap'];
+  var MOTIONS = ['auto', 'on', 'off'];
 
   function create(storage, opts) {
     opts = opts || {};
@@ -1023,13 +1093,16 @@ var SnakeProfile = (function () {
     function count(v) { return typeof v === 'number' && isFinite(v) && v > 0 ? Math.floor(v) : 0; }
 
     function sanitize(d) {
-      var out = { prefs: { mode: modes[0], edge: 'walls', skin: skins[0], style: LOOKS.style[0], board: LOOKS.board[0], food: LOOKS.food[0], golden: false, sound: true }, totals: { foods: 0, bonus: 0, runs: 0 }, unlocked: {} };
+      var out = { prefs: { mode: modes[0], edge: 'walls', skin: skins[0], style: LOOKS.style[0], board: LOOKS.board[0], food: LOOKS.food[0], golden: false, sound: true, volume: 1, haptics: true, motion: 'auto' }, totals: { foods: 0, bonus: 0, runs: 0 }, unlocked: {} };
       if (!d || typeof d !== 'object') return out;
       if (d.prefs && modes.indexOf(d.prefs.mode) >= 0) out.prefs.mode = d.prefs.mode;
       if (d.prefs && EDGES.indexOf(d.prefs.edge) >= 0) out.prefs.edge = d.prefs.edge;
       LOOK_KEYS.forEach(function (k) { if (d.prefs && LOOKS[k].indexOf(d.prefs[k]) >= 0) out.prefs[k] = d.prefs[k]; });
       if (d.prefs && d.prefs.golden === true) out.prefs.golden = true;
       if (d.prefs && d.prefs.sound === false) out.prefs.sound = false;
+      if (d.prefs && typeof d.prefs.volume === 'number' && d.prefs.volume >= 0 && d.prefs.volume <= 1) out.prefs.volume = Math.round(d.prefs.volume * 20) / 20;
+      if (d.prefs && d.prefs.haptics === false) out.prefs.haptics = false;
+      if (d.prefs && MOTIONS.indexOf(d.prefs.motion) >= 0) out.prefs.motion = d.prefs.motion;
       if (d.totals && typeof d.totals === 'object') {
         out.totals.foods = count(d.totals.foods);
         out.totals.bonus = count(d.totals.bonus);
@@ -1072,6 +1145,9 @@ var SnakeProfile = (function () {
         LOOK_KEYS.forEach(function (k) { if (p && LOOKS[k].indexOf(p[k]) >= 0) data.prefs[k] = p[k]; });
         if (p && typeof p.golden === 'boolean') data.prefs.golden = p.golden;
         if (p && typeof p.sound === 'boolean') data.prefs.sound = p.sound;
+        if (p && typeof p.volume === 'number' && p.volume >= 0 && p.volume <= 1) data.prefs.volume = Math.round(p.volume * 20) / 20;
+        if (p && typeof p.haptics === 'boolean') data.prefs.haptics = p.haptics;
+        if (p && MOTIONS.indexOf(p.motion) >= 0) data.prefs.motion = p.motion;
         save();
       },
       getTotals: function () { return { foods: data.totals.foods, bonus: data.totals.bonus, runs: data.totals.runs }; },
@@ -1091,7 +1167,21 @@ var SnakeProfile = (function () {
       unlockedMap: function () { return Object.assign({}, data.unlocked); },
       unlockedCount: function () { return Object.keys(data.unlocked).length; },
       getBest: getBest,
-      setBest: setBest
+      setBest: setBest,
+      /* Forget scores, totals and achievements. Preferences (looks, sound, mode) are kept. */
+      resetProgress: function () {
+        data.totals = { foods: 0, bonus: 0, runs: 0 };
+        data.unlocked = {};
+        save();
+        modes.forEach(function (m) {
+          EDGES.forEach(function (e) {
+            [false, true].forEach(function (g) {
+              var k = bestKey(m, e, g);
+              if (read(k) !== null) write(k, '0');
+            });
+          });
+        });
+      }
     };
   }
 
@@ -1140,6 +1230,9 @@ var SnakeTracker = (function () {
       } else if (e.type === 'pickup') {
         if (e.kind === 'bonus') { profile.addTotal('bonus', 1); bump(); }
         check();
+      } else if (e.type === 'score') {
+        bump();                              // Apple Run scores as time passes
+        check();
       } else if (e.type === 'gold') {
         bump();
         check();
@@ -1184,6 +1277,12 @@ var SnakeSound = (function () {
     level:      [{ f: 523, at: 0, d: 0.09, w: 'triangle', v: 0.8 }, { f: 659, at: 0.09, d: 0.09, w: 'triangle', v: 0.8 }, { f: 784, at: 0.18, d: 0.16, w: 'triangle', v: 0.8 }],
     achievement:[{ f: 880, at: 0, d: 0.1, w: 'sine', v: 0.7 }, { f: 1108, at: 0.1, d: 0.1, w: 'sine', v: 0.7 }, { f: 1318, at: 0.2, d: 0.22, w: 'sine', v: 0.7 }],
     timeUp:     [{ f: 523, at: 0, d: 0.14, w: 'triangle', v: 0.8 }, { f: 392, at: 0.14, d: 0.24, w: 'triangle', v: 0.8 }],
+    dash:       [{ f: 220, to: 900, at: 0, d: 0.18, w: 'sawtooth', v: 0.3 }],
+    slip:       [{ f: 900, to: 200, at: 0, d: 0.35, w: 'sine', v: 0.8 }, { f: 160, at: 0.35, d: 0.1, w: 'square', v: 0.4 }],
+    fooled:     [{ f: 300, at: 0, d: 0.1, w: 'square', v: 0.4 }, { f: 220, at: 0.12, d: 0.1, w: 'square', v: 0.4 }, { f: 330, to: 440, at: 0.26, d: 0.18, w: 'triangle', v: 0.6 }],
+    bonk:       [{ f: 150, to: 70, at: 0, d: 0.1, w: 'square', v: 0.5 }],
+    crunch:     [{ f: 500, to: 80, at: 0, d: 0.16, w: 'sawtooth', v: 0.7 }, { f: 90, at: 0.14, d: 0.2, w: 'square', v: 0.5 }, { f: 220, to: 120, at: 0.3, d: 0.25, w: 'triangle', v: 0.7 }],
+    dropItem:   [{ f: 500, to: 380, at: 0, d: 0.09, w: 'triangle', v: 0.7 }],
     over:       [{ f: 330, at: 0, d: 0.16, w: 'triangle', v: 0.9 }, { f: 262, at: 0.16, d: 0.16, w: 'triangle', v: 0.9 }, { f: 196, at: 0.32, d: 0.34, w: 'triangle', v: 0.9 }]
   };
 
@@ -1195,14 +1294,14 @@ var SnakeSound = (function () {
     var Ctor = opts.AudioContext !== undefined ? opts.AudioContext
       : (typeof window !== 'undefined' ? (window.AudioContext || window.webkitAudioContext) : null);
     var enabled = opts.enabled !== false;
-    var ctx = null, master = null, lastAt = {}, failed = false;
+    var ctx = null, master = null, lastAt = {}, failed = false, volume = typeof opts.volume === 'number' ? Math.max(0, Math.min(1, opts.volume)) : 1;
 
     function ensure() {
       if (ctx || failed || !Ctor) return !!ctx;
       try {
         ctx = new Ctor();
         master = ctx.createGain();
-        master.gain.value = MASTER;
+        master.gain.value = MASTER * volume;
         master.connect(ctx.destination);
       } catch (e) { ctx = null; failed = true; }
       return !!ctx;
@@ -1239,10 +1338,11 @@ var SnakeSound = (function () {
       return n;
     }
 
+    function setVolume(v) { volume = Math.max(0, Math.min(1, +v || 0)); if (master) master.gain.value = MASTER * volume; }
     function setEnabled(on) { enabled = !!on; if (enabled) unlock(); }
 
     return {
-      play: play, unlock: unlock, setEnabled: setEnabled,
+      play: play, unlock: unlock, setEnabled: setEnabled, setVolume: setVolume, getVolume: function () { return volume; },
       isEnabled: function () { return enabled; },
       isReady: function () { return !!ctx && ctx.state !== 'suspended'; },
       names: function () { return Object.keys(EFFECTS); }
@@ -1253,6 +1353,403 @@ var SnakeSound = (function () {
 })();
 if (typeof module !== 'undefined' && module.exports) module.exports = SnakeSound;
 
+/* Grid Snake: Apple Run
+ * A comic chase mode. You are the apple; an AI snake hunts you. No DOM, no timers, no global
+ * randomness: time only moves when update(dt) is called, random numbers come from opts.rng.
+ * The surface matches SnakeEngine (state, on, start, pause, resume, turn, update, interval, snapshot)
+ * so the page and the profile/achievement code can treat both the same way.
+ *
+ * Rules in short
+ *  - The apple runs in the direction you choose and never stops. It cannot pass through the snake's
+ *    body or (with Walls) the edge: it just bonks and loses a step. Only the snake's HEAD catches it.
+ *  - Dash: a burst of speed, then a cooldown.
+ *  - Items appear on the board; the apple carries one at a time and drops it with useItem():
+ *      peel  - the snake slides three cells and is dizzy afterwards
+ *      decoy - a fake apple; the snake goes for it, bites it, and is dizzy
+ *  - The snake finds a path to the apple, but it is not very bright: it sometimes wanders off, and it
+ *    can tie itself in a knot. It also gets faster and longer as the run goes on.
+ *  - Score: one point per second survived, plus bonuses for slips, fooled bites and knots.
+ */
+var SnakeChase = (function () {
+  'use strict';
+
+  var TUNING = {
+    cols: 20, rows: 20,
+    maxDt: 100,
+    chase: {
+      appleStep: 150, dashStep: 70, dashMs: 700, dashCooldown: 4500,
+      snakeStart: 175, snakeStep: 10, snakeFloor: 95, levelMs: 12000,
+      snakeLen: 5, growEveryMs: 8000, maxLen: 22,
+      dumbStart: 0.2, dumbStep: 0.03, dumbFloor: 0.03, wanderSteps: 3,
+      stunPeel: 2000, stunDecoy: 2200, stunKnot: 1600,
+      slideCells: 3, slideStep: 55,
+      itemEveryMs: 6000, itemLife: 9000, decoyMs: 5000, peelMs: 20000, maxPeels: 3,
+      itemDistance: 4,
+      scorePerSecond: 1, slipPoints: 5, foolPoints: 10, knotPoints: 5
+    }
+  };
+
+  var DIRS = [{ x: 1, y: 0 }, { x: 0, y: 1 }, { x: -1, y: 0 }, { x: 0, y: -1 }];
+
+  function clamp(v, lo, hi) { return Math.min(hi, Math.max(lo, v)); }
+  function tune(over) {
+    var out = JSON.parse(JSON.stringify(TUNING));
+    if (over) Object.keys(over).forEach(function (k) {
+      if (over[k] && typeof over[k] === 'object' && out[k] && typeof out[k] === 'object') Object.assign(out[k], over[k]);
+      else out[k] = over[k];
+    });
+    return out;
+  }
+
+  function create(opts) {
+    opts = opts || {};
+    var edge = opts.edge === 'wrap' ? 'wrap' : 'walls';
+    var T = tune(opts.tuning), C = T.chase;
+    var rng = opts.rng || Math.random;
+    var COLS = T.cols, ROWS = T.rows;
+    var listeners = [];
+    if (opts.onEvent) listeners.push(opts.onEvent);
+
+    var apple = { x: 14, y: 15 };
+    var S = {
+      mode: 'chase', edge: edge, cols: COLS, rows: ROWS,
+      phase: 'ready', reason: null,
+      apple: apple, food: apple, appleDir: { x: -1, y: 0 }, applePrev: { x: 14, y: 15 },
+      snake: [], dir: { x: 1, y: 0 }, snakePrev: [],
+      peels: [], decoy: null, pickup: null, item: null,
+      dashLeft: 0, dashCd: 0, stun: 0, slideLeft: 0, stunAfterSlide: 0, wanderLeft: 0,
+      appleT: 0, snakeT: 0, itemT: 0, nearCd: 0,
+      score: 0, foods: 0, level: 1, maxLength: C.snakeLen, elapsed: 0, nextSecond: 1000,
+      obstacles: [], goldSegs: [], gold: null, effect: null, shield: false, timeLeft: null,
+      bonusEaten: 0, shieldSaves: 0, goldEaten: 0,
+      slips: 0, fooled: 0, knots: 0, dashes: 0, bonks: 0, itemsUsed: 0
+    };
+    for (var i = 0; i < C.snakeLen; i++) S.snake.push({ x: 5 - i, y: 3 });
+    S.snakePrev = S.snake.map(function (q) { return { x: q.x, y: q.y }; });
+
+    function emit(type, data) {
+      var e = data || {};
+      e.type = type;
+      for (var k = 0; k < listeners.length; k++) listeners[k](e, S);
+    }
+    function quip(who, key) { emit('quip', { who: who, key: key }); }
+
+    /* ---------- grid helpers ---------- */
+
+    function step(x, y, d) {                              // the cell one step away, or null past a wall
+      var nx = x + d.x, ny = y + d.y;
+      if (nx < 0 || ny < 0 || nx >= COLS || ny >= ROWS) {
+        if (edge === 'walls') return null;
+        nx = (nx + COLS) % COLS; ny = (ny + ROWS) % ROWS;
+      }
+      return { x: nx, y: ny };
+    }
+    function same(a, b) { return a && b && a.x === b.x && a.y === b.y; }
+    function snakeAt(x, y, skipTail) {
+      var n = skipTail ? S.snake.length - 1 : S.snake.length;
+      for (var k = 0; k < n; k++) if (S.snake[k].x === x && S.snake[k].y === y) return k;
+      return -1;
+    }
+    function peelAt(x, y) {
+      for (var k = 0; k < S.peels.length; k++) if (S.peels[k].x === x && S.peels[k].y === y) return k;
+      return -1;
+    }
+    function wrapDist(a, b) {
+      var dx = Math.abs(a.x - b.x), dy = Math.abs(a.y - b.y);
+      if (edge === 'wrap') { dx = Math.min(dx, COLS - dx); dy = Math.min(dy, ROWS - dy); }
+      return dx + dy;
+    }
+
+    /* ---------- tuning curves ---------- */
+
+    function snakeInterval() {
+      if (S.slideLeft > 0) return C.slideStep;
+      return clamp(Math.max(C.snakeFloor, C.snakeStart - (S.level - 1) * C.snakeStep), 60, 400);
+    }
+    function appleInterval() { return clamp(S.dashLeft > 0 ? C.dashStep : C.appleStep, 40, 400); }
+    function dumbChance() { return Math.max(C.dumbFloor, C.dumbStart - (S.level - 1) * C.dumbStep); }
+    function targetLength() { return Math.min(C.maxLen, C.snakeLen + Math.floor(S.elapsed / C.growEveryMs)); }
+
+    function addScore(n, why) {
+      if (!n) return;
+      S.score += n;
+      emit('score', { score: S.score, points: n, why: why });
+    }
+    function finish(reason) {
+      if (S.phase === 'over') return;
+      S.phase = 'over';
+      S.reason = reason;
+      emit('over', { reason: reason });
+    }
+
+    /* ---------- the apple ---------- */
+
+    function stepApple() {
+      S.applePrev = { x: apple.x, y: apple.y };
+      var n = step(apple.x, apple.y, S.appleDir);
+      if (!n) { S.bonks++; emit('bonk', { x: apple.x, y: apple.y }); quip('apple', 'bonk'); return; }
+      if (same(n, S.snake[0])) { apple.x = n.x; apple.y = n.y; finish('caught'); quip('snake', 'caught'); return; }
+      if (snakeAt(n.x, n.y, false) >= 0) { S.bonks++; emit('bonk', { x: apple.x, y: apple.y }); quip('apple', 'bonk'); return; }
+      apple.x = n.x; apple.y = n.y;
+      if (S.pickup && same(S.pickup, apple) && !S.item) {
+        var p = S.pickup;
+        S.item = p.type;
+        S.pickup = null;
+        emit('pickup', { kind: p.type, x: p.x, y: p.y });
+        quip('apple', 'pickup');
+      }
+    }
+
+    /* ---------- the snake ---------- */
+
+    function target() { return S.decoy || apple; }
+
+    /* Shortest way to the target, going round its own body. Returns a direction or null.
+       The search starts at the target, so among equally short ways the snake keeps going straight. */
+    function pathDir() {
+      var head = S.snake[0], goal = target(), growing = S.snake.length < targetLength();
+      var dist = {}, queue = [{ x: goal.x, y: goal.y }], qi = 0;
+      dist[goal.x + ',' + goal.y] = 0;
+      while (qi < queue.length) {
+        var cur = queue[qi++], cd = dist[cur.x + ',' + cur.y];
+        for (var k = 0; k < 4; k++) {
+          var n = step(cur.x, cur.y, DIRS[k]);
+          if (!n) continue;
+          var key = n.x + ',' + n.y;
+          if (dist[key] !== undefined) continue;
+          if (!(n.x === head.x && n.y === head.y) && snakeAt(n.x, n.y, !growing) >= 0) continue;
+          dist[key] = cd + 1;
+          queue.push(n);
+        }
+      }
+      var best = null, bestD = 1e9, start = dirIndex(S.dir);
+      for (var m = 0; m < 4; m++) {
+        var d = DIRS[(m + start) % 4], nn = step(head.x, head.y, d);
+        if (!nn || snakeAt(nn.x, nn.y, !growing) >= 0) continue;
+        var dd = dist[nn.x + ',' + nn.y];
+        if (dd !== undefined && dd < bestD) { bestD = dd; best = d; }
+      }
+      return best;
+    }
+    function dirIndex(d) { for (var k = 0; k < 4; k++) if (DIRS[k].x === d.x && DIRS[k].y === d.y) return k; return 0; }
+
+    function safeDirs() {
+      var head = S.snake[0], growing = S.snake.length < targetLength(), out = [];
+      DIRS.forEach(function (d) {
+        var n = step(head.x, head.y, d);
+        if (n && snakeAt(n.x, n.y, !growing) < 0) out.push(d);
+      });
+      return out;
+    }
+
+    function chooseDir() {
+      var safe = safeDirs();
+      if (!safe.length) return null;
+      if (S.wanderLeft > 0) { S.wanderLeft--; return safe[Math.floor(rng() * safe.length)]; }
+      if (rng() < dumbChance()) {                                       // loses the plot for a few steps
+        S.wanderLeft = C.wanderSteps - 1;
+        quip('snake', 'wander');
+        return safe[Math.floor(rng() * safe.length)];
+      }
+      var d = pathDir();
+      if (d) return d;
+      var goal = target(), best = null, bestD = 1e9;                    // no clear path: get as close as possible
+      safe.forEach(function (c) {
+        var n = step(S.snake[0].x, S.snake[0].y, c), dd = wrapDist(n, goal);
+        if (dd < bestD) { bestD = dd; best = c; }
+      });
+      return best;
+    }
+
+    function tieKnot() {                                                // no way forward: it turns round, dizzy
+      S.knots++;
+      S.snake.reverse();
+      var a = S.snake[0], b = S.snake[1] || { x: a.x - 1, y: a.y };
+      var dx = a.x - b.x, dy = a.y - b.y;
+      S.dir = { x: Math.abs(dx) > 1 ? -Math.sign(dx) : Math.sign(dx), y: Math.abs(dy) > 1 ? -Math.sign(dy) : Math.sign(dy) };
+      S.stun = C.stunKnot;
+      S.snakeT = 0;
+      emit('knot', { x: a.x, y: a.y });
+      quip('snake', 'knot');
+      addScore(C.knotPoints, 'knot');
+    }
+
+    function stepSnake() {
+      S.snakePrev = S.snake.map(function (q) { return { x: q.x, y: q.y }; });
+      var d;
+      if (S.slideLeft > 0) {                                            // skidding on a peel: no steering
+        d = S.dir;
+      } else {
+        d = chooseDir();
+        if (!d) { tieKnot(); return; }
+      }
+      var head = S.snake[0], n = step(head.x, head.y, d);
+      if (!n || snakeAt(n.x, n.y, S.snake.length >= targetLength()) >= 0) {
+        if (S.slideLeft > 0) { S.slideLeft = 0; S.stun = S.stunAfterSlide; }   // the slide ends against something
+        else tieKnot();
+        return;
+      }
+      S.dir = d;
+      S.snake.unshift({ x: n.x, y: n.y });
+      if (S.snake.length > targetLength()) S.snake.pop();                // grows only while shorter than its target
+      if (S.snake.length > S.maxLength) S.maxLength = S.snake.length;
+
+      if (same(n, apple)) { finish('caught'); quip('snake', 'caught'); return; }
+      if (S.decoy && same(n, S.decoy)) {
+        emit('fooled', { x: n.x, y: n.y });
+        S.fooled++;
+        S.decoy = null;
+        S.stun = C.stunDecoy;
+        S.snakeT = 0;
+        quip('snake', 'fooled');
+        addScore(C.foolPoints, 'fooled');
+        return;
+      }
+      var pi = peelAt(n.x, n.y);
+      if (pi >= 0 && S.slideLeft === 0) {
+        S.peels.splice(pi, 1);
+        S.slips++;
+        S.slideLeft = C.slideCells;
+        S.stunAfterSlide = C.stunPeel;
+        emit('slip', { x: n.x, y: n.y });
+        quip('snake', 'slip');
+        addScore(C.slipPoints, 'slip');
+        return;
+      }
+      if (S.slideLeft > 0) {
+        S.slideLeft--;
+        if (S.slideLeft === 0) { S.stun = S.stunAfterSlide; S.snakeT = 0; }
+      }
+    }
+
+    /* ---------- items ---------- */
+
+    function freeCell() {
+      var free = [], head = S.snake[0];
+      for (var y = 0; y < ROWS; y++) for (var x = 0; x < COLS; x++) {
+        if (snakeAt(x, y, false) >= 0 || (x === apple.x && y === apple.y)) continue;
+        if (peelAt(x, y) >= 0 || (S.decoy && S.decoy.x === x && S.decoy.y === y)) continue;
+        if (wrapDist({ x: x, y: y }, head) < C.itemDistance) continue;
+        free.push({ x: x, y: y });
+      }
+      return free.length ? free[Math.floor(rng() * free.length)] : null;
+    }
+    function spawnItem() {
+      var cell = freeCell();
+      if (!cell) return;
+      var type = rng() < 0.55 ? 'peel' : 'decoy';
+      S.pickup = { type: type, x: cell.x, y: cell.y, ttl: C.itemLife, life: C.itemLife };
+      emit('itemSpawn', { kind: type, x: cell.x, y: cell.y });
+    }
+
+    function useItem() {
+      if (S.phase !== 'running' || !S.item) return false;
+      var kind = S.item;
+      S.item = null;
+      S.itemsUsed++;
+      if (kind === 'peel') {
+        if (S.peels.length >= C.maxPeels) S.peels.shift();
+        S.peels.push({ x: apple.x, y: apple.y, ttl: C.peelMs, life: C.peelMs });
+      } else {
+        S.decoy = { x: apple.x, y: apple.y, ttl: C.decoyMs, life: C.decoyMs };
+        S.wanderLeft = 0;
+      }
+      emit('use', { kind: kind, x: apple.x, y: apple.y });
+      quip('apple', 'use');
+      return true;
+    }
+
+    function dash() {
+      if (S.phase !== 'running' || S.dashCd > 0 || S.dashLeft > 0) return false;
+      S.dashLeft = C.dashMs;
+      S.dashCd = C.dashCooldown;
+      S.dashes++;
+      emit('dash', { x: apple.x, y: apple.y });
+      quip('apple', 'dash');
+      return true;
+    }
+
+    /* ---------- time ---------- */
+
+    function tickTimers(dt) {
+      S.elapsed += dt;
+      if (S.dashLeft > 0) S.dashLeft = Math.max(0, S.dashLeft - dt);
+      if (S.dashCd > 0) S.dashCd = Math.max(0, S.dashCd - dt);
+      if (S.nearCd > 0) S.nearCd = Math.max(0, S.nearCd - dt);
+      if (S.stun > 0) {
+        S.stun -= dt;
+        if (S.stun <= 0) { S.stun = 0; S.snakeT = 0; quip('snake', 'recover'); }
+      }
+      if (S.decoy) { S.decoy.ttl -= dt; if (S.decoy.ttl <= 0) { S.decoy = null; emit('decoyExpire', {}); } }
+      for (var k = S.peels.length - 1; k >= 0; k--) {
+        S.peels[k].ttl -= dt;
+        if (S.peels[k].ttl <= 0) { S.peels.splice(k, 1); emit('peelExpire', {}); }
+      }
+      if (S.pickup) {
+        S.pickup.ttl -= dt;
+        if (S.pickup.ttl <= 0) { var g = S.pickup; S.pickup = null; emit('itemExpire', { kind: g.type }); }
+      } else {
+        S.itemT += dt;
+        if (S.itemT >= C.itemEveryMs) { S.itemT = 0; spawnItem(); }
+      }
+      while (S.elapsed >= S.nextSecond && S.phase === 'running') {
+        S.nextSecond += 1000;
+        addScore(C.scorePerSecond, 'time');
+      }
+      var lv = 1 + Math.floor(S.elapsed / C.levelMs);
+      while (S.level < lv) { S.level++; emit('level', { level: S.level }); quip('snake', 'level'); }
+      if (S.nearCd <= 0 && S.phase === 'running' && wrapDist(apple, S.snake[0]) <= 2 && S.stun <= 0) {
+        S.nearCd = 3500;
+        quip('apple', 'near');
+      }
+    }
+
+    function update(dt) {
+      if (S.phase !== 'running') return;
+      dt = Math.min(Math.max(dt || 0, 0), T.maxDt);
+      tickTimers(dt);
+      S.appleT += dt;
+      var iv = appleInterval(), n = 0;
+      while (S.appleT >= iv && S.phase === 'running' && n < 6) { S.appleT -= iv; stepApple(); iv = appleInterval(); n++; }
+      if (S.phase !== 'running') return;
+      if (S.stun > 0) S.snakeT = 0; else S.snakeT += dt;
+      iv = snakeInterval(); n = 0;
+      while (S.snakeT >= iv && S.phase === 'running' && S.stun <= 0 && n < 6) { S.snakeT -= iv; stepSnake(); iv = snakeInterval(); n++; }
+    }
+
+    /* ---------- control ---------- */
+
+    function turn(dx, dy) {
+      if (S.phase === 'over') return false;
+      if (Math.abs(dx) + Math.abs(dy) !== 1) return false;
+      S.appleDir = { x: dx, y: dy };                                    // the apple has no neck: it may turn straight back
+      return true;
+    }
+    function start() { if (S.phase !== 'ready') return; S.phase = 'running'; S.appleT = 0; S.snakeT = 0; emit('start'); quip('apple', 'start'); }
+    function pause() { if (S.phase !== 'running') return; S.phase = 'paused'; emit('pause'); }
+    function resume() { if (S.phase !== 'paused') return; S.phase = 'running'; emit('resume'); }
+
+    function snapshot() {
+      return {
+        mode: 'chase', edge: edge, phase: S.phase, reason: S.reason,
+        score: S.score, foods: 0, level: S.level, length: S.snake.length, maxLength: S.maxLength,
+        elapsed: S.elapsed, timeLeft: null, bonusEaten: 0, shieldSaves: 0, goldEaten: 0,
+        slips: S.slips, fooled: S.fooled, knots: S.knots, dashes: S.dashes
+      };
+    }
+
+    return {
+      state: S, mode: 'chase', edge: edge, golden: false, tuning: T,
+      on: function (fn) { listeners.push(fn); },
+      start: start, pause: pause, resume: resume, turn: turn, dash: dash, useItem: useItem,
+      update: update, interval: snakeInterval, appleInterval: appleInterval, snapshot: snapshot
+    };
+  }
+
+  return { TUNING: TUNING, create: create };
+})();
+if (typeof module !== 'undefined' && module.exports) module.exports = SnakeChase;
+
 
 /* ===================== Page: wires the pure modules to the DOM ===================== */
 (function () {
@@ -1261,16 +1758,19 @@ if (typeof module !== 'undefined' && module.exports) module.exports = SnakeSound
   var $ = function (id) { return document.getElementById(id); };
   var COLS = Engine.TUNING.cols, ROWS = Engine.TUNING.rows;
   var P = Engine.TUNING.power;
-  var MODE_IDS = Object.keys(Engine.MODES);
+  var Chase = SnakeChase;
+  /* Apple Run has its own engine; it joins the others here so the menu, saved data and HUD treat it alike. */
+  var MODES = Object.assign({}, Engine.MODES, { chase: { id: 'chase', label: 'Apple Run', timed: false, powerups: false, obstacles: false } });
+  var MODE_IDS = Object.keys(MODES);
   var EDGE_NOTE = {
     walls: 'Walls: hitting an edge ends the run.',
     wrap: 'Wrap: leave one edge and come back on the opposite one.'
   };
   var REASON_TEXT = {
     wall: 'You hit the wall.', tail: 'You ran into your own tail.', obstacle: 'You hit an obstacle.',
-    time: 'The clock ran out.', cleared: 'Every cell is filled.'
+    time: 'The clock ran out.', cleared: 'Every cell is filled.', caught: 'The snake had you for lunch.'
   };
-  var PICKUP_NAME = { boost: 'Speed Boost', slow: 'Slow Motion', bonus: 'Bonus Food', shield: 'Shield' };
+  var PICKUP_NAME = { boost: 'Speed Boost', slow: 'Slow Motion', bonus: 'Bonus Food', shield: 'Shield', peel: 'Banana peel', decoy: 'Decoy apple' };
 
   function secs(ms) { return Math.round(ms / 1000); }
   var MODE_COPY = {
@@ -1285,6 +1785,10 @@ if (typeof module !== 'undefined' && module.exports) module.exports = SnakeSound
     survival: {
       desc: 'No clock. Every ' + secs(Engine.TUNING.survival.levelMs) + ' seconds you level up: faster, with a new obstacle. Power-ups appear.',
       ready: 'Last as long as you can. It gets harder every ' + secs(Engine.TUNING.survival.levelMs) + ' seconds.'
+    },
+    chase: {
+      desc: 'You are the apple. A not-very-bright snake is hunting you. Dash, drop banana peels and decoys, and stay un-eaten.',
+      ready: 'Press an arrow key and run! Shift dashes, E drops your item.'
     }
   };
 
@@ -1315,7 +1819,9 @@ if (typeof module !== 'undefined' && module.exports) module.exports = SnakeSound
   });
   var prefs = profile.getPrefs();
   var mode = prefs.mode, edge = prefs.edge, look = { skin: prefs.skin, style: prefs.style, board: prefs.board, food: prefs.food }, golden = prefs.golden, soundOn = prefs.sound;
-  var sfx = SnakeSound.create({ enabled: soundOn });
+  var sfx = SnakeSound.create({ enabled: soundOn, volume: prefs.volume });
+  motionPref = prefs.motion; hapticsOn = prefs.haptics;
+  document.documentElement.setAttribute('data-motion', motionPref);
 
   /* ---------- page state ---------- */
   var game = null, tracker = null;
@@ -1335,7 +1841,8 @@ if (typeof module !== 'undefined' && module.exports) module.exports = SnakeSound
     board: '#181B1A', grid: '#1F2422', snake: '#34B07A', head: '#5CD6A0', food: '#F2B84B', eye: '#0B1510',
     tile: '#222826', obstacle: '#4A5450', obstacleEdge: '#6E7A75',
     boost: '#5AA9F2', slow: '#A58BFA', shield: '#4FD6E3', bonus: '#FFD98A',
-    gold: '#F7C52B', goldEdge: '#B98A0C'
+    gold: '#F7C52B', goldEdge: '#B98A0C',
+    peel: '#F2D14B', decoy: '#E5594F', dash: '#5AA9F2', apple: '#E5594F'
   };
 
   var LOOK_TABLES = { skin: SKINS, style: STYLES, board: BOARDS, food: FOODS };
@@ -1390,14 +1897,21 @@ if (typeof module !== 'undefined' && module.exports) module.exports = SnakeSound
   }
 
   /* ---------- visual effects (drawing only; the engine knows nothing about them) ---------- */
-  var FX = { list: [], texts: [], confetti: [], death: null, clock: 0, shake: 0, flash: 0, flashColor: '#E5594F', glow: 0, pop: 0 };
-  function motionOk() { return !(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches); }
-  function fxReset() { FX.list = []; FX.texts = []; FX.confetti = []; FX.death = null; FX.shake = 0; FX.flash = 0; FX.glow = 0; FX.pop = 0; MOVE.prev = null; MOVE.cur = null; SPAWN.food = null; SPAWN.pickup = null; SPAWN.gold = null; }
+  var FX = { quips: {}, list: [], texts: [], confetti: [], death: null, clock: 0, shake: 0, flash: 0, flashColor: '#E5594F', glow: 0, pop: 0 };
+  var motionPref;
+  function motionOk() {
+    if (motionPref === 'on') return true;
+    if (motionPref === 'off') return false;
+    return !(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
+  }
+  var hapticsOn;
+  function buzz(ms) { if (hapticsOn && navigator.vibrate) { try { navigator.vibrate(ms); } catch (e) {} } }
+  function fxReset() { FX.quips = {}; FX.list = []; FX.texts = []; FX.confetti = []; FX.death = null; FX.shake = 0; FX.flash = 0; FX.glow = 0; FX.pop = 0; MOVE.prev = null; MOVE.cur = null; SPAWN.food = null; SPAWN.pickup = null; SPAWN.gold = null; }
   /* Smooth movement: the engine moves in whole cells; the drawing slides each segment from its old cell to the new one. */
   var MOVE = { prev: null, cur: null, t0: 0 };
   var SPAWN = { food: null, pickup: null, gold: null, foodT: 0, pickupT: 0, goldT: 0 };
   function slideProgress() {
-    if (!motionOk() || !game || game.state.phase !== 'playing' || !MOVE.prev) return 1;
+    if (!motionOk() || !game || game.state.phase !== 'running' || !MOVE.prev) return 1;
     return Math.min(1, (FX.clock - MOVE.t0) / Math.max(60, game.interval()));
   }
   function trackMotion() {
@@ -1484,6 +1998,7 @@ if (typeof module !== 'undefined' && module.exports) module.exports = SnakeSound
     FX.flash = Math.max(0, FX.flash - dt / 420);
     FX.glow = Math.max(0, FX.glow - dt / 700);
     FX.pop = Math.max(0, FX.pop - dt / 200);
+    ['apple', 'snake'].forEach(function (w) { var q = FX.quips[w]; if (q && (q.age += dt) > q.dur) delete FX.quips[w]; });
   }
   function popScore() {
     if (!motionOk()) return;
@@ -1547,7 +2062,10 @@ if (typeof module !== 'undefined' && module.exports) module.exports = SnakeSound
     boost: 'M0.25 -1 L-0.6 0.15 L-0.08 0.15 L-0.25 1 L0.6 -0.2 L0.08 -0.2 Z',
     slow: 'M-0.65 -0.95 H0.65 V-0.75 L0.12 0 L0.65 0.75 V0.95 H-0.65 V0.75 L-0.12 0 L-0.65 -0.75 Z',
     shield: 'M0 -1 L0.85 -0.65 V0.1 C0.85 0.65 0.35 0.9 0 1 C-0.35 0.9 -0.85 0.65 -0.85 0.1 V-0.65 Z',
-    bonus: starPath()
+    bonus: starPath(),
+    peel: 'M-0.9 0.55 C-0.9 -0.7 0.1 -1 0.95 -0.55 C0.2 -0.55 -0.3 -0.2 -0.35 0.7 Z M-0.1 0.9 C0 0.2 0.4 -0.05 0.85 0.05 C0.55 0.3 0.45 0.6 0.5 0.95 Z',
+    decoy: 'M0 -0.45 C0.3 -0.95 0.95 -0.7 0.9 0 C0.85 0.7 0.35 1 0 0.85 C-0.35 1 -0.85 0.7 -0.9 0 C-0.95 -0.7 -0.3 -0.95 0 -0.45 Z',
+    dash: 'M0.25 -1 L-0.6 0.15 L-0.08 0.15 L-0.25 1 L0.6 -0.2 L0.08 -0.2 Z'
   };
   var PATH2D = {};
   function glyph(k) { return PATH2D[k] || (PATH2D[k] = new Path2D(GLYPH[k])); }
@@ -1564,7 +2082,7 @@ if (typeof module !== 'undefined' && module.exports) module.exports = SnakeSound
       b.type = 'button';
       b.className = 'mode';
       b.setAttribute('data-mode', id);
-      var n = document.createElement('span'); n.className = 'mode-name'; n.textContent = Engine.MODES[id].label;
+      var n = document.createElement('span'); n.className = 'mode-name'; n.textContent = MODES[id].label;
       var d = document.createElement('span'); d.className = 'mode-desc'; d.textContent = MODE_COPY[id].desc;
       b.appendChild(n); b.appendChild(d);
       b.addEventListener('click', function () { setMode(id); });
@@ -1576,7 +2094,12 @@ if (typeof module !== 'undefined' && module.exports) module.exports = SnakeSound
       b.setAttribute('aria-pressed', b.getAttribute('data-mode') === mode ? 'true' : 'false');
     });
     setText($('homeEdge'), edge === 'walls' ? 'Walls' : 'Wrap');
-    setText($('homeBest'), profile.getBest(mode, edge, golden));
+    setText($('homeBest'), profile.getBest(mode, edge, mode === 'chase' ? false : golden));
+    $('hapticSection').hidden = !navigator.vibrate;
+    $('hapticOff').setAttribute('aria-pressed', hapticsOn ? 'false' : 'true');
+    $('hapticOn').setAttribute('aria-pressed', hapticsOn ? 'true' : 'false');
+    ['auto', 'on', 'off'].forEach(function (m) { $('motion' + m[0].toUpperCase() + m.slice(1)).setAttribute('aria-pressed', motionPref === m ? 'true' : 'false'); });
+    $('volume').value = Math.round(sfx.getVolume() * 100); $('volumeOut').textContent = Math.round(sfx.getVolume() * 100) + '%';
     $('soundOff').setAttribute('aria-pressed', soundOn ? 'false' : 'true');
     $('soundOn').setAttribute('aria-pressed', soundOn ? 'true' : 'false');
     $('goldOff').setAttribute('aria-pressed', golden ? 'false' : 'true');
@@ -1588,13 +2111,19 @@ if (typeof module !== 'undefined' && module.exports) module.exports = SnakeSound
   }
 
   /* ---------- legend (only for modes that have pick-ups) ---------- */
-  function buildLegend() {
-    var rows = [
+  function fillLegend() {
+    var chase = mode === 'chase', C = chase ? Chase.TUNING.chase : null;
+    var rows = chase ? [
+      ['dash', 'Dash (Shift)', 'A short burst of speed, then ' + (C.dashCooldown / 1000).toFixed(1) + ' s to recharge.'],
+      ['peel', 'Banana peel', 'Pick it up, then drop it (E). The snake slides, gets dizzy, and you score ' + C.slipPoints + '.'],
+      ['decoy', 'Decoy apple', 'The snake goes for the fake for ' + secs(C.decoyMs) + ' s, bites it, and gets dizzy. +' + C.foolPoints + '.']
+    ] : [
       ['boost', 'Speed Boost', 'Faster for ' + secs(P.effectMs) + ' s. Each food is worth ' + P.boostFoodMult + '.'],
       ['slow', 'Slow Motion', 'Slower for ' + secs(P.effectMs) + ' s. Easier to steer.'],
       ['bonus', 'Bonus Food', '+' + P.bonusPoints + ' points. Gone after ' + secs(P.bonusLifetime) + ' s.'],
       ['shield', 'Shield', 'Absorbs one crash. A wall wraps you through, an obstacle is smashed, your tail lets you pass.']
     ];
+    setText($('legendSummary'), chase ? 'Items and tricks' : 'Pick-ups');
     var ul = $('legendList');
     ul.textContent = '';
     rows.forEach(function (r) {
@@ -1606,7 +2135,7 @@ if (typeof module !== 'undefined' && module.exports) module.exports = SnakeSound
       li.appendChild(t);
       ul.appendChild(li);
     });
-    setText($('legendNote'), 'A pick-up appears after every ' + P.everyFoods + 'rd food and waits ' + secs(P.lifetime) + ' s. Only one at a time.');
+    setText($('legendNote'), chase ? 'You can carry one item at a time. The snake only catches you with its head; its body just blocks the way.' : 'A pick-up appears after every ' + P.everyFoods + 'rd food and waits ' + secs(P.lifetime) + ' s. Only one at a time.');
   }
 
   /* ---------- toasts ---------- */
@@ -1628,17 +2157,21 @@ if (typeof module !== 'undefined' && module.exports) module.exports = SnakeSound
 
   /* ---------- a new run ---------- */
   function applyModeUi() {
-    var M = Engine.MODES[mode];
+    var M = MODES[mode], chase = mode === 'chase';
     setText($('modeTag'), M.label);
     setText($('edgeTag'), edge === 'walls' ? 'Walls' : 'Wrap');
-    el.strip.hidden = !M.timed && mode !== 'survival';
+    el.strip.hidden = !M.timed && mode !== 'survival' && !chase;
     el.strip.classList.remove('urgent');
-    el.effects.hidden = !M.powerups;
-    $('legend').hidden = !M.powerups;
+    el.effects.hidden = !M.powerups && !chase;
+    $('legend').hidden = !M.powerups && !chase;
+    $('chaseActions').hidden = !chase;
+    $('chaseKeys').hidden = !chase;
+    setText(el.idle, chase ? 'No item' : 'No active effects');
+    fillLegend();
   }
 
   function newGame() {
-    game = Engine.create({ mode: mode, edge: edge, golden: golden });
+    game = mode === 'chase' ? Chase.create({ edge: edge }) : Engine.create({ mode: mode, edge: edge, golden: golden });
     tracker = SnakeTracker.attach(game, profile, { onUnlock: onUnlock });   // first, so it has updated the profile before the page reacts
     game.on(onEvent);
     fxReset();
@@ -1657,7 +2190,59 @@ if (typeof module !== 'undefined' && module.exports) module.exports = SnakeSound
     updateHome();
   }
 
+  function chaseEvent(e) {
+    var S = game.state;
+    switch (e.type) {
+      case 'start': sfx.play('start'); break;
+      case 'quip': chaseQuip(e.who, e.key); break;
+      case 'dash': sfx.play('dash'); fxBurst(e.x, e.y, PAL.dash, 8); break;
+      case 'bonk':
+        sfx.play('bonk'); fxBurst(e.x, e.y, '#FFFFFF', 6);
+        break;
+      case 'pickup':
+        sfx.play('bonus'); fxBurst(e.x, e.y, PAL[e.kind], 14); FX.pop = 1;
+        toast(PICKUP_NAME[e.kind], 'Press E (or the button) to drop it.');
+        announce(PICKUP_NAME[e.kind] + ' collected');
+        break;
+      case 'use':
+        sfx.play('dropItem'); fxBurst(e.x, e.y, PAL[e.kind], 10);
+        announce(PICKUP_NAME[e.kind] + ' dropped');
+        break;
+      case 'itemSpawn': announce(PICKUP_NAME[e.kind] + ' appeared'); break;
+      case 'slip':
+        sfx.play('slip'); fxBurst(e.x, e.y, PAL.peel, 14); fxText(e.x, e.y, '+' + game.tuning.chase.slipPoints, PAL.peel);
+        toast('Slip!', 'The snake stepped on a banana peel.'); announce('The snake slipped');
+        break;
+      case 'fooled':
+        sfx.play('fooled'); fxBurst(e.x, e.y, PAL.decoy, 14); fxText(e.x, e.y, '+' + game.tuning.chase.foolPoints, PAL.decoy);
+        toast('Fooled!', 'The snake bit the decoy.'); announce('The snake was fooled');
+        break;
+      case 'knot':
+        sfx.play('slip'); fxBurst(e.x, e.y, PAL.gold, 12, true);
+        toast('Knotted', 'The snake tied itself up.'); announce('The snake tied itself in a knot');
+        break;
+      case 'score': popScore(); break;
+      case 'level':
+        sfx.play('level'); if (motionOk()) FX.glow = 1;
+        toast('Level ' + e.level, 'The snake is getting hungrier.'); announce('Level ' + e.level);
+        break;
+      case 'over':
+        sfx.play('crunch'); buzz([40, 30, 80]);
+        if (motionOk()) {
+          var A = S.apple;
+          fxBurst(A.x, A.y, PAL.apple, 22, true); fxText(A.x, A.y, 'CRUNCH!', '#FFFFFF');
+          FX.shake = 1; FX.flashColor = '#E5594F'; FX.flash = 1;
+        }
+        if (tracker.info.newBest) fxConfetti();
+        showOverlay('over');
+        overlay.classList.toggle('late', motionOk());
+        announce('Caught. You survived ' + fmt(S.elapsed / 1000) + '. Score ' + S.score + '.');
+        break;
+    }
+  }
+
   function onEvent(e) {
+    if (mode === 'chase') return chaseEvent(e);
     switch (e.type) {
       case 'start':
         sfx.play('start');
@@ -1709,6 +2294,7 @@ if (typeof module !== 'undefined' && module.exports) module.exports = SnakeSound
         break;
       case 'over':
         sfx.play(game.state.reason === 'time' || game.state.reason === 'cleared' ? 'timeUp' : 'over');
+        if (game.state.reason !== 'time' && game.state.reason !== 'cleared') buzz([40, 30, 80]);
         if (motionOk() && game.state.reason !== 'time' && game.state.reason !== 'cleared') { FX.shake = 1; FX.flashColor = '#E5594F'; FX.flash = 1; }
         var crash = game.state.reason === 'wall' || game.state.reason === 'tail' || game.state.reason === 'obstacle';
         if (crash) fxDeath(game.state.snake, game.state.goldSegs);
@@ -1739,10 +2325,11 @@ if (typeof module !== 'undefined' && module.exports) module.exports = SnakeSound
       ovText.textContent = 'Your run is safe. Resume when you are ready.';
       ovBtn.textContent = 'Resume'; ovSec.textContent = 'Restart'; ovSecAction = 'restart';
     } else {
-      ovTitle.textContent = S.reason === 'time' ? "Time's up" : S.reason === 'cleared' ? 'Board cleared' : 'Game over';
+      ovTitle.textContent = S.reason === 'time' ? "Time's up" : S.reason === 'cleared' ? 'Board cleared' : S.reason === 'caught' ? 'Gotcha!' : 'Game over';
       ovText.textContent = REASON_TEXT[S.reason] || '';
       ovStats.textContent = 'Score ' + S.score + '  ·  Best ' + tracker.info.best + '  ·  Level ' + S.level +
-        '\nLength ' + S.snake.length + '  ·  Time ' + fmt(S.elapsed / 1000);
+        (mode === 'chase' ? '\nSurvived ' + fmt(S.elapsed / 1000) + '  ·  Slips ' + S.slips + '  ·  Fooled ' + S.fooled
+          : '\nLength ' + S.snake.length + '  ·  Time ' + fmt(S.elapsed / 1000));
       tracker.info.unlocked.forEach(function (d) {
         var li = document.createElement('li'); li.textContent = d.name; ovAch.appendChild(li);
       });
@@ -1817,6 +2404,39 @@ if (typeof module !== 'undefined' && module.exports) module.exports = SnakeSound
     profile.setPrefs({ mode: mode, edge: edge, sound: on });
     updateHome();
     if (on) sfx.play('food');                              // a small confirmation beep
+  }
+  function setVolume(v) {
+    sfx.setVolume(v / 100);
+    profile.setPrefs({ volume: v / 100 });
+    $('volumeOut').textContent = Math.round(v) + '%';
+  }
+  function setHaptics(on) {
+    hapticsOn = on;
+    profile.setPrefs({ haptics: on });
+    updateHome();
+    if (on) buzz(30);
+  }
+  function setMotion(m) {
+    motionPref = m;
+    document.documentElement.setAttribute('data-motion', m);
+    profile.setPrefs({ motion: m });
+    updateHome();
+  }
+  var resetTimer = 0;
+  function resetProgress() {
+    var b = $('resetBtn');
+    if (!b.classList.contains('armed')) {                  // first tap arms it, second tap confirms
+      b.classList.add('armed'); b.textContent = 'Tap again to confirm';
+      clearTimeout(resetTimer);
+      resetTimer = setTimeout(function () { b.classList.remove('armed'); b.textContent = 'Reset progress'; }, 4000);
+      return;
+    }
+    clearTimeout(resetTimer);
+    b.classList.remove('armed'); b.textContent = 'Reset progress';
+    profile.resetProgress();
+    newGame();
+    announce('Progress reset');
+    $('resetNote').textContent = 'Done. Scores, totals and achievements were cleared.';
   }
   function setGolden(on) {
     if (golden === on) return;
@@ -2153,6 +2773,135 @@ if (typeof module !== 'undefined' && module.exports) module.exports = SnakeSound
     });
   }
 
+
+  /* ---------- Apple Run: the hero apple, the items and the speech bubbles ---------- */
+  var QUIPS = {
+    apple: { start: ['Here we go!', 'Catch me!'], near: ['Eep!', 'Too close!'], dash: ['Zoom!', 'Wheee!'], bonk: ['Ouch!', 'Who put that wall there?'], pickup: ['Ooh, shiny!', 'Mine!'], use: ['Surprise!', 'Hehe.'] },
+    snake: { wander: ['Where did it go?', 'Hmm... this way?'], slip: ['Whoaaa!', 'Slippery!'], fooled: ['Wait, that is not an apple!', 'You tricked me!'], knot: ['I tied myself up...', 'Oops.'], recover: ['I am fine. Totally fine.', 'Who turned the board?'], level: ['Getting hungrier.', 'Faster now.'], caught: ['Gotcha!', 'Yum.'] }
+  };
+  function chaseQuip(who, key) {
+    if (!motionOk()) return;
+    var cur = FX.quips[who];
+    if (cur && cur.age < cur.dur * 0.5) return;           // let a bubble be read before replacing it
+    var list = QUIPS[who] && QUIPS[who][key];
+    if (!list) return;
+    FX.quips[who] = { text: list[Math.floor(Math.random() * list.length)], age: 0, dur: 1700 };
+  }
+  function drawBubble(text, x, y, age, dur) {
+    var c = cell, a = Math.min(1, age / 140, (dur - age) / 260);
+    ctx.save();
+    ctx.globalAlpha = Math.max(0, a);
+    ctx.font = '600 ' + Math.max(10, Math.round(c * 0.5)) + 'px system-ui, sans-serif';
+    var w = ctx.measureText(text).width + c * 0.5, h = c * 0.8, bx = Math.min(size - w - 2, Math.max(2, x - w / 2)), by = Math.max(2, y - c * 1.35);
+    rr(bx, by, w, h, c * 0.25);
+    ctx.fillStyle = '#FFFFFF'; ctx.fill();
+    ctx.strokeStyle = '#2A2F3A'; ctx.lineWidth = 1.5; ctx.stroke();
+    ctx.fillStyle = '#2A2F3A'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillText(text, bx + w / 2, by + h / 2 + 1);
+    ctx.restore();
+  }
+  function drawPeel(p) {
+    var c = cell, cx = (p.x + 0.5) * c, cy = (p.y + 0.5) * c, fade = p.ttl < 3000 ? 0.45 + 0.4 * Math.sin(FX.clock / 120) : 1;
+    ctx.save(); ctx.globalAlpha = fade; ctx.translate(cx, cy); ctx.rotate(0.5); ctx.scale(c * 0.36, c * 0.36);
+    ctx.fillStyle = PAL.peel; ctx.fill(glyph('peel'));
+    ctx.restore();
+  }
+  function drawAppleChar(x, y, face, dir, runPhase, dashing, scale) {      // x, y in pixels
+    var c = cell * scale, r = c * 0.36, bob = motionOk() ? Math.abs(Math.sin(runPhase)) * c * 0.08 : 0, i;
+    ctx.save();
+    ctx.translate(x, y - bob);
+    if (dashing && motionOk()) {                                            // speed lines behind the apple
+      ctx.strokeStyle = PAL.dash; ctx.lineWidth = Math.max(2, c * 0.06); ctx.lineCap = 'round';
+      for (i = -1; i <= 1; i++) {
+        ctx.beginPath();
+        ctx.moveTo(-dir.x * c * 0.5 + dir.y * i * c * 0.22, -dir.y * c * 0.5 - dir.x * i * c * 0.22);
+        ctx.lineTo(-dir.x * c * 0.95 + dir.y * i * c * 0.22, -dir.y * c * 0.95 - dir.x * i * c * 0.22);
+        ctx.stroke();
+      }
+    }
+    var sw = motionOk() ? Math.sin(runPhase * 2) : 0;                       // little running legs
+    ctx.strokeStyle = '#7A2E28'; ctx.lineWidth = Math.max(2, c * 0.07); ctx.lineCap = 'round';
+    [-1, 1].forEach(function (sd) {
+      ctx.beginPath(); ctx.moveTo(sd * r * 0.4, r * 0.8); ctx.lineTo(sd * r * 0.4 + sw * sd * r * 0.45, r * 1.2 + bob); ctx.stroke();
+    });
+    ctx.fillStyle = PAL.apple;
+    ctx.beginPath(); ctx.arc(0, 0, r, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = 'rgba(255,255,255,0.28)'; ctx.beginPath(); ctx.arc(-r * 0.35, -r * 0.4, r * 0.22, 0, Math.PI * 2); ctx.fill();
+    ctx.strokeStyle = '#5B8A3C'; ctx.lineWidth = Math.max(2, c * 0.06);                       // stem and leaf
+    ctx.beginPath(); ctx.moveTo(0, -r * 0.9); ctx.lineTo(r * 0.1, -r * 1.3); ctx.stroke();
+    ctx.fillStyle = '#6FB04A'; ctx.beginPath(); ctx.ellipse(r * 0.45, -r * 1.15, r * 0.34, r * 0.17, -0.5, 0, Math.PI * 2); ctx.fill();
+    var ex = r * 0.42, ey = -r * 0.1, look = { x: dir.x * r * 0.08, y: dir.y * r * 0.08 };
+    ctx.fillStyle = '#FFFFFF';
+    [-1, 1].forEach(function (sd) {
+      ctx.beginPath(); ctx.arc(sd * ex, ey, r * (face === 'scared' ? 0.3 : 0.25), 0, Math.PI * 2); ctx.fill();
+    });
+    ctx.fillStyle = '#1B1E27';
+    [-1, 1].forEach(function (sd) {
+      ctx.beginPath(); ctx.arc(sd * ex + look.x, ey + look.y, r * 0.12, 0, Math.PI * 2); ctx.fill();
+    });
+    ctx.strokeStyle = '#1B1E27'; ctx.lineWidth = Math.max(1.5, c * 0.05);
+    ctx.beginPath();
+    if (face === 'scared') ctx.ellipse(0, r * 0.45, r * 0.16, r * 0.2, 0, 0, Math.PI * 2);
+    else if (face === 'smug') { ctx.moveTo(-r * 0.3, r * 0.35); ctx.quadraticCurveTo(0, r * 0.65, r * 0.4, r * 0.25); }
+    else if (face === 'dash') { ctx.moveTo(-r * 0.3, r * 0.4); ctx.lineTo(r * 0.3, r * 0.4); }
+    else ctx.arc(0, r * 0.3, r * 0.3, 0.2 * Math.PI, 0.8 * Math.PI);
+    ctx.stroke();
+    if (face === 'scared' && motionOk()) {                                                   // sweat drop
+      ctx.fillStyle = '#8FD3F4'; ctx.beginPath(); ctx.arc(r * 0.95, -r * 0.5 + Math.sin(FX.clock / 90) * r * 0.1, r * 0.13, 0, Math.PI * 2); ctx.fill();
+    }
+    ctx.restore();
+  }
+  function drawDecoy(d) {
+    var c = cell, cx = (d.x + 0.5) * c, cy = (d.y + 0.5) * c, r = c * 0.36;
+    ctx.fillStyle = PAL.decoy; ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = '#1B1E27';                                                                // sunglasses and a moustache
+    rr(cx - r * 0.75, cy - r * 0.3, r * 0.65, r * 0.38, r * 0.12); ctx.fill();
+    rr(cx + r * 0.1, cy - r * 0.3, r * 0.65, r * 0.38, r * 0.12); ctx.fill();
+    ctx.fillRect(cx - r * 0.1, cy - r * 0.2, r * 0.2, r * 0.08);
+    ctx.beginPath(); ctx.moveTo(cx - r * 0.5, cy + r * 0.45); ctx.quadraticCurveTo(cx, cy + r * 0.2, cx + r * 0.5, cy + r * 0.45);
+    ctx.quadraticCurveTo(cx, cy + r * 0.6, cx - r * 0.5, cy + r * 0.45); ctx.fill();
+    ctx.strokeStyle = PAL.decoy; ctx.lineWidth = 2; ctx.lineCap = 'round';                   // remaining lifetime
+    ctx.beginPath(); ctx.arc(cx, cy, c * 0.47, -Math.PI / 2, -Math.PI / 2 + Math.max(0, d.ttl / d.life) * Math.PI * 2); ctx.stroke();
+  }
+  function drawDizzy(h, c) {
+    var hx = (h.x + 0.5) * c, hy = (h.y + 0.5) * c, i, a;
+    ctx.fillStyle = PAL.gold;
+    for (i = 0; i < 3; i++) {
+      a = FX.clock / 260 + i * Math.PI * 2 / 3;
+      ctx.save(); ctx.translate(hx + Math.cos(a) * c * 0.5, hy - c * 0.65 + Math.sin(a) * c * 0.14); ctx.scale(c * 0.16, c * 0.16);
+      ctx.fill(glyph('bonus')); ctx.restore();
+    }
+  }
+  function drawChaseScene(S, c, vs) {
+    var A = S.apple, iv = Math.max(1, game.appleInterval()), k = 1, ap = S.applePrev, ax, ay, i;
+    if (S.pickup) {
+      var ps = popScale(SPAWN.pickupT), pcx = (S.pickup.x + 0.5) * c, pcy = (S.pickup.y + 0.5) * c;
+      ctx.save(); ctx.translate(pcx, pcy); ctx.scale(ps, ps); ctx.translate(-pcx, -pcy);
+      drawPickup(S.pickup);
+      ctx.restore();
+    }
+    S.peels.forEach(drawPeel);
+    if (S.decoy) drawDecoy(S.decoy);
+    var dead = S.phase === 'over' && S.reason === 'caught';
+    if (!dead) drawSnake(vs, S, c, 0, null);
+    if (S.stun > 0 && S.phase !== 'over') drawDizzy(vs[0], c);
+    if (motionOk() && S.phase === 'running') k = Math.min(1, S.appleT / iv);
+    if (Math.abs(ap.x - A.x) + Math.abs(ap.y - A.y) > 1) k = 1;                     // wrapped: no sliding across the board
+    ax = (ap.x + (A.x - ap.x) * k + 0.5) * c; ay = (ap.y + (A.y - ap.y) * k + 0.5) * c;
+    if (!dead) {
+      var h = S.snake[0], dist = Math.abs(h.x - A.x) + Math.abs(h.y - A.y), dashing = S.dashLeft > 0;
+      var face = dashing ? 'dash' : dist <= 4 && S.stun <= 0 ? 'scared' : S.stun > 0 ? 'smug' : 'calm';
+      drawAppleChar(ax, ay, face, S.appleDir, FX.clock / 90, dashing, 1);
+      if (S.phase === 'running' && dist <= 3 && S.stun <= 0) chaseQuip('apple', 'near');
+    }
+    ['apple', 'snake'].forEach(function (w) {
+      var q = FX.quips[w];
+      if (!q) return;
+      var pos = w === 'apple' ? { x: ax, y: ay } : { x: (vs[0].x + 0.5) * c, y: (vs[0].y + 0.5) * c };
+      drawBubble(q.text, pos.x, pos.y, q.age, q.dur);
+    });
+  }
+
   function draw() {
     if (!size || !game) return;
     var S = game.state, c = cell, i;
@@ -2171,6 +2920,12 @@ if (typeof module !== 'undefined' && module.exports) module.exports = SnakeSound
     }
     ctx.stroke();
 
+    if (mode === 'chase') {
+      drawChaseScene(S, c, vs);
+      drawFx(c);
+      ctx.restore();
+      return;
+    }
     S.obstacles.forEach(drawObstacle);
     if (S.pickup) {
       var ps = popScale(SPAWN.pickupT), pcx = (S.pickup.x + 0.5) * c, pcy = (S.pickup.y + 0.5) * c;
@@ -2208,7 +2963,7 @@ if (typeof module !== 'undefined' && module.exports) module.exports = SnakeSound
 
   /* ---------- scoreboard ---------- */
   function syncHud() {
-    var S = game.state, M = Engine.MODES[mode];
+    var S = game.state, M = MODES[mode];
     setText(el.score, S.score);
     setText(el.best, Math.max(tracker.info.best, 0));
     setText(el.level, S.level);
@@ -2227,7 +2982,26 @@ if (typeof module !== 'undefined' && module.exports) module.exports = SnakeSound
       el.bar.style.transform = 'scaleX(' + (into / lv).toFixed(4) + ')';
     }
 
-    if (M.powerups) {
+    if (mode === 'chase') {
+      var lvMs = game.tuning.chase.levelMs, into2 = S.elapsed % lvMs, C = game.tuning.chase;
+      setText(el.stripL, 'Survived ' + fmt(S.elapsed / 1000));
+      setText(el.stripR, 'Level ' + (S.level + 1) + ' in ' + Math.ceil((lvMs - into2) / 1000) + ' s');
+      el.bar.style.transform = 'scaleX(' + (into2 / lvMs).toFixed(4) + ')';
+      var dashing = S.dashLeft > 0, cd = S.dashCd > 0;
+      el.chipSpeed.className = 'chip chip--' + (dashing ? 'boost' : cd ? 'idle' : 'slow');
+      el.chipSpeed.innerHTML = svgIcon('dash') + '<span></span>';
+      el.chipSpeed.lastChild.textContent = dashing ? 'Dashing!' : cd ? 'Dash ' + (S.dashCd / 1000).toFixed(1) + ' s' : 'Dash ready';
+      el.chipSpeed.hidden = false;
+      el.chipShield.className = 'chip chip--shield';
+      el.chipShield.innerHTML = (S.item ? svgIcon(S.item) : '') + '<span></span>';
+      el.chipShield.lastChild.textContent = S.item ? PICKUP_NAME[S.item] + ' (E)' : '';
+      el.chipShield.hidden = !S.item;
+      el.idle.hidden = !!S.item;
+      $('dashBtn').disabled = S.phase !== 'running' || dashing || cd;
+      $('useBtn').disabled = S.phase !== 'running' || !S.item;
+      $('useBtn').textContent = S.item ? 'Drop ' + PICKUP_NAME[S.item].toLowerCase() : 'No item';
+      setText(el.speed, game.tuning ? (1000 / game.interval()).toFixed(1) : '');
+    } else if (M.powerups) {
       var ef = S.effect;
       if (ef) {
         el.chipSpeed.className = 'chip chip--' + ef.type;
@@ -2278,6 +3052,8 @@ if (typeof module !== 'undefined' && module.exports) module.exports = SnakeSound
     if (view !== 'game' || dialogOpen()) return;
     if (KEYS[e.key]) { e.preventDefault(); steer(KEYS[e.key][0], KEYS[e.key][1]); }
     else if (e.key === ' ' || e.code === 'Space') { e.preventDefault(); toggleRun(); }
+    else if (mode === 'chase' && (e.key === 'Shift' || e.key === 'z' || e.key === 'Z')) { e.preventDefault(); if (game.state.phase === 'running') game.dash(); }
+    else if (mode === 'chase' && (e.key === 'e' || e.key === 'E' || e.key === 'x' || e.key === 'X')) { e.preventDefault(); if (game.state.phase === 'running') game.useItem(); }
   });
   document.addEventListener('keyup', function (e) {
     if (view === 'game' && !dialogOpen() && (e.key === ' ' || e.code === 'Space')) e.preventDefault();
@@ -2301,6 +3077,13 @@ if (typeof module !== 'undefined' && module.exports) module.exports = SnakeSound
     b.addEventListener('pointerdown', function (e) {
       e.preventDefault();
       steer(parseInt(b.getAttribute('data-dx'), 10), parseInt(b.getAttribute('data-dy'), 10));
+    });
+  });
+
+  [['dashBtn', 'dash'], ['useBtn', 'useItem']].forEach(function (p) {
+    $(p[0]).addEventListener('pointerdown', function (e) {
+      e.preventDefault();
+      if (mode === 'chase' && game.state.phase === 'running') game[p[1]]();
     });
   });
 
@@ -2330,6 +3113,12 @@ if (typeof module !== 'undefined' && module.exports) module.exports = SnakeSound
   buildLooks();
   $('soundOff').addEventListener('click', function () { setSound(false); });
   $('soundOn').addEventListener('click', function () { setSound(true); });
+  $('volume').addEventListener('input', function () { setVolume(parseInt(this.value, 10)); });
+  $('volume').addEventListener('change', function () { if (soundOn) sfx.play('food'); });
+  $('hapticOff').addEventListener('click', function () { setHaptics(false); });
+  $('hapticOn').addEventListener('click', function () { setHaptics(true); });
+  ['auto', 'on', 'off'].forEach(function (m) { $('motion' + m[0].toUpperCase() + m.slice(1)).addEventListener('click', function () { setMotion(m); }); });
+  $('resetBtn').addEventListener('click', resetProgress);
   $('goldOff').addEventListener('click', function () { setGolden(false); });
   $('goldOn').addEventListener('click', function () { setGolden(true); });
   $('modeWalls').addEventListener('click', function () { setEdge('walls'); });
@@ -2354,7 +3143,6 @@ if (typeof module !== 'undefined' && module.exports) module.exports = SnakeSound
   setTimeout(markReady, 1500);
 
   buildModes();
-  buildLegend();
   $('legend').open = window.matchMedia && window.matchMedia('(min-width: 781px)').matches;
   newGame();
   setView('home');
