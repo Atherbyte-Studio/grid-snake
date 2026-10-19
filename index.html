@@ -359,7 +359,8 @@ dialog[open] { animation: rise .18s ease-out; }
 .skin i { width: 18px; height: 18px; border-radius: 50%; display: block; }
 .skin[aria-pressed="true"] { border-color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent); }
 .skin:focus-visible { outline: 2px solid var(--focus); outline-offset: 3px; }
-  .chase-actions { display: flex; gap: 10px; margin-top: 12px; }
+  .touch-zone { display: contents; }
+.chase-actions { display: flex; gap: 10px; margin-top: 12px; }
 .chase-actions[hidden] { display: none; }
 .chase-actions .btn { flex: 1; min-height: 52px; font-size: 16px; }
 .chase-actions .btn[disabled] { opacity: .45; cursor: default; }
@@ -377,6 +378,65 @@ details.help { border: 1px solid var(--line); border-radius: 12px; padding: 10px
 details.help summary { cursor: pointer; font-weight: 600; }
 details.help p, details.help li { font-size: 14px; color: var(--muted); }
 html[data-motion="off"] *, html[data-motion="off"] *::before, html[data-motion="off"] *::after { animation: none !important; transition: none !important; }
+#shopDlg { width: min(560px, calc(100vw - 32px)); }
+.shop-coins { margin: 0 0 6px; font-size: 15px; }
+.shop-coins b { color: var(--accent-strong, #5CD6A0); font-variant-numeric: tabular-nums; }
+.shop-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 12px; margin-top: 16px; }
+.shop-item { border: 1px solid var(--line); border-radius: 14px; padding: 10px; background: var(--surface-2); display: flex; flex-direction: column; gap: 6px; }
+.shop-item canvas { width: 100%; height: 64px; border-radius: 10px; display: block; }
+.shop-item h4 { margin: 4px 0 0; font-size: 15px; font-weight: 600; }
+.shop-item p { margin: 0; font-size: 13px; color: var(--muted); flex: 1; }
+.shop-item .btn { min-height: 40px; }
+.shop-item .btn[disabled] { opacity: .55; cursor: default; }
+
+/* Phones (touch screens): the whole game fits on one screen with no scrolling. Stats on top, the board in the
+   middle, and the controls at the bottom where thumbs rest. Swiping anywhere steers; the pad is the alternative. */
+@media (pointer: coarse) and (max-width: 780px) {
+  html.in-game, html.in-game body { overflow: hidden; height: 100%; overscroll-behavior: none; }
+  html.in-game body { padding: calc(8px + env(safe-area-inset-top, 0px)) max(12px, env(safe-area-inset-left, 0px)) calc(10px + env(safe-area-inset-bottom, 0px)) max(12px, env(safe-area-inset-right, 0px)); }
+  #game { height: 100%; touch-action: none; -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
+  .game-grid { display: flex; flex-direction: column; height: 100%; gap: 8px; align-items: stretch; }
+  .top { gap: 6px; }
+  .wordmark { font-size: 17px; }
+  .stats { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; }
+  .stat { padding: 5px 8px; border-radius: 10px; }
+  .stat dt { font-size: 9px; }
+  .stat dd { font-size: 18px; margin: 0; }
+  .strip { padding: 6px 12px; }
+  .strip-text strong { font-size: 15px; }
+  .bar { margin-top: 5px; height: 5px; }
+  .effects { min-height: 28px; }
+  .chip { padding: 2px 9px; font-size: 12px; }
+  .board-wrap { flex: none; align-self: center; width: min(100%, max(200px, calc(100dvh - var(--reserve, 330px)))); }
+  .controls { display: contents; }
+  .btn-grid { order: -1; width: 100%; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+  .touch-zone { flex: 1; min-height: 0; display: flex; justify-content: center; align-items: flex-end; gap: 18px; }
+  .btn-grid #restartBtn { display: none; }
+  .btn-grid .btn { min-height: 36px; font-size: 14px; }
+  .legend, .keys { display: none; }
+  .pad { grid-template-columns: repeat(3, 68px); grid-template-rows: repeat(2, 68px); gap: 8px; }
+  .pad button { font-size: 30px; border-radius: 18px; }
+  .chase-actions { flex-direction: column; margin: 0; gap: 8px; width: 120px; height: 144px; }
+  .chase-actions .btn { min-height: 0; flex: 1; font-size: 17px; border-radius: 18px; }
+  .chase-actions .btn:active:not([disabled]) { background: var(--accent); color: var(--on-accent); }
+}
+/* Phone turned sideways: stats on the left, the board in the middle, the thumbs' controls on the right. */
+@media (pointer: coarse) and (orientation: landscape) and (max-height: 520px) {
+  html.in-game body { padding-block: 6px; }
+  .game-grid { display: grid; grid-template-columns: minmax(120px, 1fr) auto minmax(196px, 1fr); grid-template-areas: "top board controls"; grid-template-rows: 100%; gap: 12px; align-items: stretch; }
+  .top { grid-area: top; align-content: start; }
+  .stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .board-wrap { grid-area: board; width: auto; height: calc(100dvh - 14px); align-self: center; }
+  .controls { display: grid; grid-area: controls; align-content: center; justify-items: center; gap: 10px; }
+  .touch-zone { display: flex; flex-direction: column; align-items: center; gap: 10px; }
+  .btn-grid { order: 0; }
+  .btn-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .pad { grid-template-columns: repeat(3, 56px); grid-template-rows: repeat(2, 56px); }
+  .controls, .touch-zone, .btn-grid { min-width: 0; width: 100%; }
+  .btn-grid .btn { padding: 0 4px; font-size: 13px; }
+  .chase-actions { flex-direction: row; width: 100%; height: 52px; }
+  .chase-actions .btn { min-height: 52px; flex: 1; }
+}
 @media (prefers-reduced-motion: reduce) {
   .pop { animation: none; }
   .overlay, dialog[open], .toast { animation: none; }
@@ -401,6 +461,7 @@ html[data-motion="off"] *, html[data-motion="off"] *::before, html[data-motion="
     <div class="home-actions">
       <button class="btn btn--primary btn--lg" id="playBtn" type="button" disabled><span class="spin" aria-hidden="true"></span>Loading</button>
       <button class="btn btn--lg" id="homeAchBtn" type="button">Achievements<span class="count" id="homeAchCount">0/0</span></button>
+      <button class="btn btn--lg" id="homeShopBtn" type="button">Shop<span class="count" id="homeCoins">0</span></button>
       <button class="btn btn--lg" id="homeSettingsBtn" type="button">Settings</button>
     </div>
     <p class="home-meta"><span>Edges: <b id="homeEdge">Walls</b></span><span>Best in this mode: <b id="homeBest">0</b></span><span>Arrow keys or WASD. Swipe on touch screens.</span></p>
@@ -462,8 +523,9 @@ html[data-motion="off"] *, html[data-motion="off"] *::before, html[data-motion="
         <li class="kbd-only"><kbd>←</kbd> <kbd>↑</kbd> <kbd>↓</kbd> <kbd>→</kbd> or <kbd>W</kbd> <kbd>A</kbd> <kbd>S</kbd> <kbd>D</kbd> to steer</li>
         <li class="kbd-only"><kbd>Space</kbd> pauses and resumes</li>
         <li class="kbd-only" id="chaseKeys" hidden><kbd>Shift</kbd> dash · <kbd>E</kbd> use item</li>
-        <li>Swipe on the board to steer</li>
+        <li>Swipe anywhere on the screen to steer</li>
       </ul>
+      <div class="touch-zone">
       <div class="chase-actions" id="chaseActions" hidden>
         <button class="btn" id="dashBtn" type="button">Dash</button>
         <button class="btn" id="useBtn" type="button">Use item</button>
@@ -473,6 +535,7 @@ html[data-motion="off"] *, html[data-motion="off"] *::before, html[data-motion="
         <button type="button" class="left" data-dx="-1" data-dy="0" aria-label="Left">←</button>
         <button type="button" class="down" data-dx="0" data-dy="1" aria-label="Down">↓</button>
         <button type="button" class="right" data-dx="1" data-dy="0" aria-label="Right">→</button>
+      </div>
       </div>
     </aside>
   </div>
@@ -535,8 +598,6 @@ html[data-motion="off"] *, html[data-motion="off"] *::before, html[data-motion="
   <div class="dlg-section">
     <h3>Snake colour</h3>
     <div class="skins" id="look-skin" role="group" aria-label="Snake colour"></div>
-    <h3 class="sub">Snake style</h3>
-    <div class="skins" id="look-style" role="group" aria-label="Snake style"></div>
     <h3 class="sub">Board</h3>
     <div class="skins" id="look-board" role="group" aria-label="Board theme"></div>
     <h3 class="sub">Food</h3>
@@ -557,7 +618,7 @@ html[data-motion="off"] *, html[data-motion="off"] *::before, html[data-motion="
     </details>
     <div style="margin-top:12px">
       <button class="btn btn--danger" id="resetBtn" type="button">Reset progress</button>
-      <p class="dlg-note" id="resetNote">Clears best scores, totals and achievements. Your settings stay.</p>
+      <p class="dlg-note" id="resetNote">Clears best scores, totals, achievements, coins and shop purchases. Your settings stay.</p>
     </div>
   </div>
   <div class="dlg-section">
@@ -569,6 +630,16 @@ html[data-motion="off"] *, html[data-motion="off"] *::before, html[data-motion="
       <li>Swipe on the board or use the direction pad on touch screens</li>
     </ul>
   </div>
+</dialog>
+
+<dialog id="shopDlg" aria-labelledby="shopTitle">
+  <div class="dlg-head">
+    <h2 id="shopTitle">Shop</h2>
+    <button class="btn" id="shopClose" type="button">Close</button>
+  </div>
+  <p class="shop-coins">Your coins: <b id="shopCoins">0</b></p>
+  <p class="dlg-note">Every point you score earns one coin when a run ends, and each achievement pays 30 more. Spend them on looks. Looks never change the rules.</p>
+  <div class="shop-grid" id="shopBody"></div>
 </dialog>
 
 <dialog id="achDialog" aria-labelledby="achTitle">
@@ -1076,6 +1147,8 @@ var SnakeProfile = (function () {
     /* Looks only: each is one of a fixed list, the first being the default. */
     var LOOKS = { skin: skins, style: opts.styles || ['solid'], board: opts.boards || ['midnight'], food: opts.foods || ['dot'] };
     var LOOK_KEYS = Object.keys(LOOKS);
+    var premium = opts.premium || [];            // shop items such as 'skin:jordan': usable only once bought
+    function allowed(k, id, owned) { return premium.indexOf(k + ':' + id) < 0 || !!owned[k + ':' + id]; }
     var now = opts.now || function () { return Date.now(); };
     var mem = {};
 
@@ -1093,11 +1166,13 @@ var SnakeProfile = (function () {
     function count(v) { return typeof v === 'number' && isFinite(v) && v > 0 ? Math.floor(v) : 0; }
 
     function sanitize(d) {
-      var out = { prefs: { mode: modes[0], edge: 'walls', skin: skins[0], style: LOOKS.style[0], board: LOOKS.board[0], food: LOOKS.food[0], golden: false, sound: true, volume: 1, haptics: true, motion: 'auto' }, totals: { foods: 0, bonus: 0, runs: 0 }, unlocked: {} };
+      var out = { prefs: { mode: modes[0], edge: 'walls', skin: skins[0], style: LOOKS.style[0], board: LOOKS.board[0], food: LOOKS.food[0], golden: false, sound: true, volume: 1, haptics: true, motion: 'auto' }, totals: { foods: 0, bonus: 0, runs: 0 }, unlocked: {}, coins: 0, owned: {} };
       if (!d || typeof d !== 'object') return out;
       if (d.prefs && modes.indexOf(d.prefs.mode) >= 0) out.prefs.mode = d.prefs.mode;
       if (d.prefs && EDGES.indexOf(d.prefs.edge) >= 0) out.prefs.edge = d.prefs.edge;
-      LOOK_KEYS.forEach(function (k) { if (d.prefs && LOOKS[k].indexOf(d.prefs[k]) >= 0) out.prefs[k] = d.prefs[k]; });
+      if (d.coins !== undefined) out.coins = count(d.coins);
+      if (d.owned && typeof d.owned === 'object') premium.forEach(function (id) { if (d.owned[id] === true) out.owned[id] = true; });
+      LOOK_KEYS.forEach(function (k) { if (d.prefs && LOOKS[k].indexOf(d.prefs[k]) >= 0 && allowed(k, d.prefs[k], out.owned)) out.prefs[k] = d.prefs[k]; });
       if (d.prefs && d.prefs.golden === true) out.prefs.golden = true;
       if (d.prefs && d.prefs.sound === false) out.prefs.sound = false;
       if (d.prefs && typeof d.prefs.volume === 'number' && d.prefs.volume >= 0 && d.prefs.volume <= 1) out.prefs.volume = Math.round(d.prefs.volume * 20) / 20;
@@ -1142,7 +1217,7 @@ var SnakeProfile = (function () {
       setPrefs: function (p) {
         if (p && modes.indexOf(p.mode) >= 0) data.prefs.mode = p.mode;
         if (p && EDGES.indexOf(p.edge) >= 0) data.prefs.edge = p.edge;
-        LOOK_KEYS.forEach(function (k) { if (p && LOOKS[k].indexOf(p[k]) >= 0) data.prefs[k] = p[k]; });
+        LOOK_KEYS.forEach(function (k) { if (p && LOOKS[k].indexOf(p[k]) >= 0 && allowed(k, p[k], data.owned)) data.prefs[k] = p[k]; });
         if (p && typeof p.golden === 'boolean') data.prefs.golden = p.golden;
         if (p && typeof p.sound === 'boolean') data.prefs.sound = p.sound;
         if (p && typeof p.volume === 'number' && p.volume >= 0 && p.volume <= 1) data.prefs.volume = Math.round(p.volume * 20) / 20;
@@ -1164,6 +1239,15 @@ var SnakeProfile = (function () {
         save();
         return true;
       },
+      getCoins: function () { return data.coins; },
+      addCoins: function (n) { n = count(n); if (n) { data.coins += n; save(); } return data.coins; },
+      owns: function (id) { return premium.indexOf(id) < 0 || !!data.owned[id]; },
+      /* Spend coins on a shop item. False when unknown, already owned, or too expensive. */
+      buy: function (id, price) {
+        if (premium.indexOf(id) < 0 || data.owned[id] || !(price >= 0) || data.coins < price) return false;
+        data.coins -= Math.floor(price); data.owned[id] = true; save();
+        return true;
+      },
       unlockedMap: function () { return Object.assign({}, data.unlocked); },
       unlockedCount: function () { return Object.keys(data.unlocked).length; },
       getBest: getBest,
@@ -1172,6 +1256,8 @@ var SnakeProfile = (function () {
       resetProgress: function () {
         data.totals = { foods: 0, bonus: 0, runs: 0 };
         data.unlocked = {};
+        data.coins = 0; data.owned = {};
+        LOOK_KEYS.forEach(function (k) { if (!allowed(k, data.prefs[k], data.owned)) data.prefs[k] = LOOKS[k][0]; });
         save();
         modes.forEach(function (m) {
           EDGES.forEach(function (e) {
@@ -1200,15 +1286,18 @@ var SnakeTracker = (function () {
   var Achievements = (typeof module !== 'undefined' && module.exports && typeof require === 'function')
     ? require('./achievements.js') : SnakeAchievements;
 
+  var COINS = { perPoint: 1, achievement: 30 };   // the shop currency: one coin per point, and a bonus for each achievement
+
   function attach(game, profile, hooks) {
     hooks = hooks || {};
-    var info = { best: profile.getBest(game.mode, game.edge, game.golden), newBest: false, unlocked: [] };
+    var info = { best: profile.getBest(game.mode, game.edge, game.golden), newBest: false, unlocked: [], coins: 0 };
 
     function check() {
       var ctx = { totals: profile.getTotals(), run: game.snapshot() };
       Achievements.evaluate(ctx, profile.unlockedMap()).forEach(function (def) {
         if (!profile.unlock(def.id)) return;
         info.unlocked.push(def);
+        profile.addCoins(COINS.achievement); info.coins += COINS.achievement;
         if (hooks.onUnlock) hooks.onUnlock(def);
       });
     }
@@ -1240,6 +1329,8 @@ var SnakeTracker = (function () {
         check();
       } else if (e.type === 'over') {
         profile.addTotal('runs', 1);
+        var won = Math.max(0, Math.floor(game.state.score)) * COINS.perPoint;
+        profile.addCoins(won); info.coins += won;
         bump();
         check();
       }
@@ -1248,7 +1339,7 @@ var SnakeTracker = (function () {
     return { info: info, tick: check };
   }
 
-  return { attach: attach };
+  return { attach: attach, COINS: COINS };
 })();
 if (typeof module !== 'undefined' && module.exports) module.exports = SnakeTracker;
 
@@ -1799,21 +1890,40 @@ if (typeof module !== 'undefined' && module.exports) module.exports = SnakeChase
     sunset:  { name: 'Sunset',  snake: '#E0764A', head: '#FFA77C', accent: '#E0764A', strong: '#FFA77C' },
     violet:  { name: 'Violet',  snake: '#8F6FE0', head: '#BDA6FA', accent: '#8F6FE0', strong: '#BDA6FA' },
     rose:    { name: 'Rose',    snake: '#D95C8A', head: '#F59BBB', accent: '#D95C8A', strong: '#F59BBB' },
-    mint:    { name: 'Mint',    snake: '#3FC1B0', head: '#8DEBDD', accent: '#3FC1B0', strong: '#8DEBDD' }
+    mint:    { name: 'Mint',    snake: '#3FC1B0', head: '#8DEBDD', accent: '#3FC1B0', strong: '#8DEBDD' },
+    /* Shop skins: each has its own body decoration and head gear (see skinBody / skinHead). */
+    jordan:    { premium: true, deco: 'jordan',    name: 'Jordanian Keffiyeh',   snake: '#2FB7A4', head: '#5ED9C6', accent: '#D23A44', strong: '#F0727A' },
+    palestine: { premium: true, deco: 'palestine', name: 'Palestinian Keffiyeh', snake: '#2FB7A4', head: '#5ED9C6', accent: '#E4E4DF', strong: '#FFFFFF' },
+    cyber:     { premium: true, deco: 'cyber',     name: 'Cyberpunk',            snake: '#3AC9B8', head: '#7CEBDD', accent: '#33E1F0', strong: '#C35BFF' },
+    galaxy:    { premium: true, deco: 'galaxy',    name: 'Galaxy',               snake: '#4A3C9C', head: '#8C78E8', accent: '#8C78E8', strong: '#C7B8FF' },
+    dragon:    { premium: true, deco: 'dragon',    name: 'Golden Dragon',        snake: '#D49A1E', head: '#F2C65A', accent: '#E0A82E', strong: '#FFD76E' }
   };
-  var STYLES = { realistic: { name: 'Realistic' }, solid: { name: 'Solid' }, stripes: { name: 'Stripes' }, rainbow: { name: 'Rainbow' } };
+  var STYLES = { realistic: { name: 'Realistic' } };   // the only snake body style
   var BOARDS = {
     midnight: { name: 'Midnight', bg: '#121413', board: '#181B1A', grid: '#1F2422', tile: '#222826' },
     forest:   { name: 'Forest',   bg: '#0E1611', board: '#13201A', grid: '#1B2B22', tile: '#1F3027' },
     ocean:    { name: 'Deep sea', bg: '#0D141F', board: '#121C2B', grid: '#1A2739', tile: '#1E2C41' },
-    dusk:     { name: 'Dusk',     bg: '#16111B', board: '#1C1524', grid: '#291F35', tile: '#2E233C' }
+    dusk:     { name: 'Dusk',     bg: '#16111B', board: '#1C1524', grid: '#291F35', tile: '#2E233C' },
+    desert:   { premium: true, name: 'Desert night', bg: '#17110B', board: '#241A11', grid: '#33261A', tile: '#40301F' },
+    neon:     { premium: true, name: 'Neon grid',    bg: '#0A0716', board: '#0F0A24', grid: '#2B1B66', tile: '#2A1A5C' }
   };
+  /* The shop: id is kind:key, price is in coins (1 coin per point scored, 30 per achievement). */
+  var SHOP = [
+    { id: 'skin:jordan',    price: 150, desc: 'A red and white keffiyeh wrapped around the head.' },
+    { id: 'skin:palestine', price: 150, desc: 'A black and white keffiyeh wrapped around the head.' },
+    { id: 'skin:cyber',     price: 300, desc: 'Neon circuit lines on the body and a glowing visor.' },
+    { id: 'skin:galaxy',    price: 450, desc: 'A twinkling night-sky body with a star halo.' },
+    { id: 'skin:dragon',    price: 600, desc: 'Gold scales, spines and a pair of horns.' },
+    { id: 'board:desert',   price: 200, desc: 'A warm sandy board for late-night runs.' },
+    { id: 'board:neon',     price: 250, desc: 'A dark board with a glowing purple grid.' }
+  ];
   var FOODS = { dot: { name: 'Dot', color: '#F2B84B' }, apple: { name: 'Apple', color: '#E5594F' }, berry: { name: 'Berry', color: '#B06CF0' } };
 
   /* ---------- saved data ---------- */
   function storage() { try { return window.localStorage; } catch (e) { return null; } }
   var profile = SnakeProfile.create(storage(), {
     modes: MODE_IDS,
+    premium: SHOP.map(function (i) { return i.id; }),
     skins: Object.keys(SKINS), styles: Object.keys(STYLES), boards: Object.keys(BOARDS), foods: Object.keys(FOODS),
     achievementIds: Ach.LIST.map(function (a) { return a.id; })
   });
@@ -1830,7 +1940,7 @@ if (typeof module !== 'undefined' && module.exports) module.exports = SnakeChase
   var canvas = $('board'), ctx = canvas.getContext('2d'), wrap = $('boardWrap');
   var overlay = $('overlay'), ovTitle = $('ovTitle'), ovText = $('ovText'), ovStats = $('ovStats'), ovBest = $('ovBest'), ovAch = $('ovAch');
   var ovBtn = $('ovBtn'), ovSec = $('ovSec'), pauseBtn = $('pauseBtn'), playBtn = $('playBtn');
-  var dlg = $('settings'), achDlg = $('achDialog');
+  var dlg = $('settings'), achDlg = $('achDialog'), shopDlg = $('shopDlg');
   var el = {
     score: $('score'), best: $('best'), level: $('level'), speed: $('speed'),
     strip: $('strip'), stripL: $('stripL'), stripR: $('stripR'), bar: $('barFill'),
@@ -1845,7 +1955,7 @@ if (typeof module !== 'undefined' && module.exports) module.exports = SnakeChase
     peel: '#F2D14B', decoy: '#E5594F', dash: '#5AA9F2', apple: '#E5594F'
   };
 
-  var LOOK_TABLES = { skin: SKINS, style: STYLES, board: BOARDS, food: FOODS };
+  var LOOK_TABLES = { skin: SKINS, board: BOARDS, food: FOODS };
   function applyLook(key, id) {
     var T = LOOK_TABLES[key], k = T[id] ? T[id] : T[Object.keys(T)[0]], root = document.documentElement.style;
     look[key] = T[id] ? id : Object.keys(T)[0];
@@ -1865,6 +1975,7 @@ if (typeof module !== 'undefined' && module.exports) module.exports = SnakeChase
     Object.keys(LOOK_TABLES).forEach(function (key) {
       var box = $('look-' + key), T = LOOK_TABLES[key];
       Object.keys(T).forEach(function (id) {
+        if (T[id].premium) return;                            // shop items are chosen in the shop
         var b = document.createElement('button');
         b.type = 'button'; b.className = 'skin'; b.setAttribute('data-id', id); b.setAttribute('aria-pressed', 'false');
         var swatch = key === 'skin' ? T[id].snake : key === 'board' ? T[id].board : key === 'food' ? T[id].color : null;
@@ -1890,12 +2001,6 @@ if (typeof module !== 'undefined' && module.exports) module.exports = SnakeChase
     var x = hexRgb(a), y = hexRgb(b);
     return toHex(x[0] + (y[0] - x[0]) * k, x[1] + (y[1] - x[1]) * k, x[2] + (y[2] - x[2]) * k);
   }
-  function segColor(idx) {                               // body colour of segment idx for the chosen style
-    if (look.style === 'stripes') return idx % 2 ? shade(PAL.snake, 0.7) : PAL.snake;
-    if (look.style === 'rainbow') return 'hsl(' + Math.round((idx * 24 + (motionOk() ? FX.clock / 14 : 0)) % 360) + ',68%,56%)';
-    return PAL.snake;
-  }
-
   /* ---------- visual effects (drawing only; the engine knows nothing about them) ---------- */
   var FX = { quips: {}, list: [], texts: [], confetti: [], death: null, clock: 0, shake: 0, flash: 0, flashColor: '#E5594F', glow: 0, pop: 0 };
   var motionPref;
@@ -2104,6 +2209,7 @@ if (typeof module !== 'undefined' && module.exports) module.exports = SnakeChase
     $('soundOn').setAttribute('aria-pressed', soundOn ? 'true' : 'false');
     $('goldOff').setAttribute('aria-pressed', golden ? 'false' : 'true');
     $('goldOn').setAttribute('aria-pressed', golden ? 'true' : 'false');
+    setText($('homeCoins'), profile.getCoins());
     setText($('homeAchCount'), profile.unlockedCount() + '/' + Ach.LIST.length);
     $('modeWalls').setAttribute('aria-pressed', edge === 'walls' ? 'true' : 'false');
     $('modeWrap').setAttribute('aria-pressed', edge === 'wrap' ? 'true' : 'false');
@@ -2168,6 +2274,7 @@ if (typeof module !== 'undefined' && module.exports) module.exports = SnakeChase
     $('chaseKeys').hidden = !chase;
     setText(el.idle, chase ? 'No item' : 'No active effects');
     fillLegend();
+    document.documentElement.style.setProperty('--reserve', (330 + (!el.strip.hidden ? 46 : 0) + (!el.effects.hidden ? 36 : 0)) + 'px');
   }
 
   function newGame() {
@@ -2185,7 +2292,7 @@ if (typeof module !== 'undefined' && module.exports) module.exports = SnakeChase
 
   function onUnlock(def) {
     sfx.play('achievement');
-    toast('Achievement unlocked', def.name + ': ' + def.desc, true);
+    toast('Achievement unlocked', def.name + ': ' + def.desc + ' (+' + SnakeTracker.COINS.achievement + ' coins)', true);
     announce('Achievement unlocked: ' + def.name);
     updateHome();
   }
@@ -2329,7 +2436,8 @@ if (typeof module !== 'undefined' && module.exports) module.exports = SnakeChase
       ovText.textContent = REASON_TEXT[S.reason] || '';
       ovStats.textContent = 'Score ' + S.score + '  ·  Best ' + tracker.info.best + '  ·  Level ' + S.level +
         (mode === 'chase' ? '\nSurvived ' + fmt(S.elapsed / 1000) + '  ·  Slips ' + S.slips + '  ·  Fooled ' + S.fooled
-          : '\nLength ' + S.snake.length + '  ·  Time ' + fmt(S.elapsed / 1000));
+          : '\nLength ' + S.snake.length + '  ·  Time ' + fmt(S.elapsed / 1000)) +
+        '\n+' + tracker.info.coins + ' coins  ·  Total ' + profile.getCoins();
       tracker.info.unlocked.forEach(function (d) {
         var li = document.createElement('li'); li.textContent = d.name; ovAch.appendChild(li);
       });
@@ -2372,6 +2480,7 @@ if (typeof module !== 'undefined' && module.exports) module.exports = SnakeChase
 
   function setView(v) {
     view = v;
+    document.documentElement.classList.toggle('in-game', v === 'game');
     $('home').hidden = v !== 'home';
     $('game').hidden = v !== 'game';
     if (v === 'game') resize(); else updateHome();
@@ -2434,6 +2543,7 @@ if (typeof module !== 'undefined' && module.exports) module.exports = SnakeChase
     clearTimeout(resetTimer);
     b.classList.remove('armed'); b.textContent = 'Reset progress';
     profile.resetProgress();
+    var pf = profile.getPrefs(); applyLook('skin', pf.skin); applyLook('board', pf.board);
     newGame();
     announce('Progress reset');
     $('resetNote').textContent = 'Done. Scores, totals and achievements were cleared.';
@@ -2489,6 +2599,67 @@ if (typeof module !== 'undefined' && module.exports) module.exports = SnakeChase
       body.appendChild(sec);
     });
   }
+  /* ---------- shop ---------- */
+  function shopMeta(item) { var p = item.id.split(':'); return { kind: p[0], key: p[1], T: LOOK_TABLES[p[0]] }; }
+  function drawPreview(cv, item) {                         // a tiny still picture of the item, drawn with the real drawing code
+    var m = shopMeta(item), dpr = Math.min(2, window.devicePixelRatio || 1), W = 200, H = 64;
+    cv.width = W * dpr; cv.height = H * dpr;
+    var saved = { ctx: ctx, cell: cell, skin: look.skin, snake: PAL.snake, head: PAL.head, board: PAL.board, grid: PAL.grid };
+    try {
+      ctx = cv.getContext('2d'); ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      var bd = m.kind === 'board' ? m.T[m.key] : BOARDS[look.board] || BOARDS.midnight;
+      ctx.fillStyle = bd.board; ctx.fillRect(0, 0, W, H);
+      ctx.strokeStyle = bd.grid; ctx.lineWidth = 1; ctx.beginPath();
+      for (var gx = 0; gx <= W; gx += 20) { ctx.moveTo(gx + 0.5, 0); ctx.lineTo(gx + 0.5, H); }
+      for (var gy = 0; gy <= H; gy += 20) { ctx.moveTo(0, gy + 0.5); ctx.lineTo(W, gy + 0.5); }
+      ctx.stroke();
+      PAL.board = bd.board;
+      var sk = m.kind === 'skin' ? SKINS[m.key] : SKINS[look.skin] && !SKINS[look.skin].premium ? SKINS[look.skin] : SKINS.emerald;
+      look.skin = m.kind === 'skin' ? m.key : 'emerald';
+      PAL.snake = sk.snake; PAL.head = sk.head;
+      cell = 22; var c = 22, pts = [], i;
+      for (i = 0; i < 9; i++) pts.push({ x: 8.1 - i * 0.9, y: 1.4 + Math.sin(i * 0.8) * 0.12 });
+      drawRealisticBody(pts, { food: null }, c, sk.snake, false);
+      drawRealisticHead((pts[0].x + 0.5) * c, (pts[0].y + 0.5) * c, { x: 1, y: 0 }, c, sk.snake, sk.head, { food: null }, pts[0], null);
+    } finally {
+      ctx = saved.ctx; cell = saved.cell; look.skin = saved.skin; PAL.snake = saved.snake; PAL.head = saved.head; PAL.board = saved.board; PAL.grid = saved.grid;
+    }
+  }
+  function equipItem(item) {
+    var m = shopMeta(item), o = { mode: mode, edge: edge };
+    applyLook(m.kind, m.key); o[m.kind] = m.key; profile.setPrefs(o);
+  }
+  function renderShop() {
+    var box = $('shopBody'), coins = profile.getCoins();
+    setText($('shopCoins'), coins);
+    box.textContent = '';
+    SHOP.forEach(function (item) {
+      var m = shopMeta(item), meta = m.T[m.key], owned = profile.owns(item.id), on = owned && look[m.kind] === m.key;
+      var card = document.createElement('div'); card.className = 'shop-item'; card.setAttribute('data-id', item.id);
+      var cv = document.createElement('canvas'); cv.setAttribute('aria-hidden', 'true'); card.appendChild(cv);
+      var h = document.createElement('h4'); h.textContent = meta.name; card.appendChild(h);
+      var d = document.createElement('p'); d.textContent = item.desc; card.appendChild(d);
+      var b = document.createElement('button'); b.type = 'button'; b.className = 'btn';
+      if (!owned) { b.textContent = 'Buy for ' + item.price; b.disabled = coins < item.price; if (b.disabled) b.title = 'Not enough coins yet'; }
+      else if (on) { b.textContent = 'Equipped'; b.disabled = true; }
+      else b.textContent = 'Equip';
+      b.addEventListener('click', function () {
+        if (!profile.owns(item.id)) {
+          if (!profile.buy(item.id, item.price)) return;
+          sfx.play('achievement'); announce(meta.name + ' bought');
+        }
+        equipItem(item); renderShop(); updateHome();
+      });
+      card.appendChild(b);
+      box.appendChild(card);
+      drawPreview(cv, item);
+    });
+  }
+  function openShop() {
+    renderShop();
+    if (shopDlg.showModal) shopDlg.showModal(); else shopDlg.setAttribute('open', '');
+  }
+
   function openAchievements() {
     renderAchievements();
     if (achDlg.showModal) achDlg.showModal(); else achDlg.setAttribute('open', '');
@@ -2663,6 +2834,123 @@ if (typeof module !== 'undefined' && module.exports) module.exports = SnakeChase
       [-1, 1].forEach(function (sd) { ctx.beginPath(); ctx.arc(c * 0.4, sd * q.w * 0.36, Math.max(0.8, c * 0.028), 0, Math.PI * 2); ctx.fill(); });
       ctx.restore();
     });
+    skinBody(samples, c, base);
+  }
+
+  /* ----- shop skins: body decoration and head gear ----- */
+  function skinDeco() { var k = SKINS[look.skin]; return k && k.deco; }
+  function polyline(samples, side, w, lw, col, alpha) {
+    ctx.strokeStyle = col; ctx.lineWidth = lw; ctx.lineCap = 'round'; ctx.lineJoin = 'round'; ctx.globalAlpha = alpha;
+    ctx.beginPath();
+    var prev = null;
+    samples.forEach(function (q) {
+      if (q.t < 0.06 || q.t > 0.93) { prev = null; return; }
+      var x = q.x - Math.sin(q.a) * q.w * side * w, y = q.y + Math.cos(q.a) * q.w * side * w;
+      if (prev && Math.abs(prev.x - x) + Math.abs(prev.y - y) < cell * 0.5) ctx.lineTo(x, y); else ctx.moveTo(x, y);
+      prev = { x: x, y: y };
+    });
+    ctx.stroke(); ctx.globalAlpha = 1;
+  }
+  function skinBody(samples, c, base) {
+    var deco = skinDeco(), next, k = FX.clock;
+    if (deco === 'cyber') {
+      polyline(samples, -1, 0.32, Math.max(3, c * 0.13), '#33E1F0', 0.22);
+      polyline(samples, 1, 0.32, Math.max(3, c * 0.13), '#C35BFF', 0.22);
+      polyline(samples, -1, 0.32, Math.max(1.2, c * 0.05), '#33E1F0', 1);
+      polyline(samples, 1, 0.32, Math.max(1.2, c * 0.05), '#C35BFF', 1);
+      next = 0.4 * c;
+      samples.forEach(function (q) {                       // little circuit nodes
+        if (q.s < next || q.t < 0.08 || q.t > 0.9) return;
+        next = q.s + c * 0.8;
+        ctx.fillStyle = '#9FFBFF'; ctx.beginPath(); ctx.arc(q.x - Math.sin(q.a) * q.w * 0.32, q.y + Math.cos(q.a) * q.w * 0.32, Math.max(1, c * 0.04), 0, Math.PI * 2); ctx.fill();
+      });
+    } else if (deco === 'galaxy') {
+      next = 0.2 * c; var n = 0;
+      samples.forEach(function (q) {
+        if (q.s < next || q.t > 0.95) return;
+        next = q.s + c * 0.32; n++;
+        var ph = n * 1.7, tw = motionOk() ? 0.55 + 0.45 * Math.sin(k / 320 + ph) : 0.85;
+        var off = Math.sin(n * 2.3) * q.w * 0.3;
+        ctx.globalAlpha = tw; ctx.fillStyle = n % 3 ? '#FFFFFF' : '#FFB8F0';
+        ctx.beginPath(); ctx.arc(q.x - Math.sin(q.a) * off, q.y + Math.cos(q.a) * off, Math.max(0.9, c * (n % 4 ? 0.025 : 0.045)), 0, Math.PI * 2); ctx.fill();
+      });
+      ctx.globalAlpha = 1;
+    } else if (deco === 'dragon') {
+      next = 0.3 * c; var m = 0;
+      var scale = shade(base, 0.7), spine = shade(base, 0.45);
+      samples.forEach(function (q) {
+        if (q.s < next || q.t < 0.07 || q.t > 0.94) return;
+        next = q.s + c * 0.34; m++;
+        ctx.save(); ctx.translate(q.x, q.y); ctx.rotate(q.a);
+        ctx.strokeStyle = scale; ctx.lineWidth = Math.max(1, c * 0.035); ctx.lineCap = 'round';
+        [-1, 1].forEach(function (sd) { ctx.beginPath(); ctx.arc(-c * 0.08, sd * q.w * 0.22, q.w * 0.17, -1.2, 1.2); ctx.stroke(); });
+        if (m % 2 === 0) {                                  // back spines
+          ctx.fillStyle = spine; ctx.beginPath();
+          ctx.moveTo(-c * 0.1, -q.w * 0.06); ctx.lineTo(c * 0.02, 0); ctx.lineTo(-c * 0.1, q.w * 0.06); ctx.closePath(); ctx.fill();
+        }
+        ctx.restore();
+      });
+    }
+  }
+  function clothPattern(kind, x0, y0, x1, y1, c) {          // fills the current clip with keffiyeh cloth
+    var red = kind === 'jordan', bg = red ? '#D23A44' : '#F4F4EF', fg = red ? '#FFFFFF' : '#1B1B1B', st = c * 0.1, row = 0, x, y;
+    ctx.fillStyle = bg; ctx.fillRect(x0, y0, x1 - x0, y1 - y0);
+    ctx.fillStyle = fg;
+    for (y = y0; y < y1; y += st, row++) {
+      for (x = x0 + (row % 2) * st / 2; x < x1; x += st) { ctx.beginPath(); ctx.arc(x, y, Math.max(0.7, c * 0.022), 0, Math.PI * 2); ctx.fill(); }
+    }
+    ctx.strokeStyle = fg; ctx.lineWidth = Math.max(1, c * 0.025);       // woven bands
+    [-0.2, 0.2].forEach(function (yy) { ctx.beginPath(); ctx.moveTo(x0, yy * c); ctx.lineTo(x1, yy * c); ctx.stroke(); });
+  }
+  function skinHead(c, base, headCol) {                      // drawn in head space: x forward, y to the side
+    var deco = skinDeco(), k = FX.clock, i;
+    if (!deco) return;
+    ctx.save(); ctx.scale(1.15, 1.15);                      // gear is drawn a little larger than the head so it reads at small sizes
+    if (deco === 'jordan' || deco === 'palestine') {
+      var sw = motionOk() ? Math.sin(k / 260) * c * 0.05 : 0, edge = deco === 'jordan' ? '#8E1F28' : '#2A2A2A';
+      ctx.save();
+      ctx.beginPath();                                      // the loose end trailing behind the head
+      ctx.moveTo(-c * 0.1, -c * 0.34); ctx.lineTo(-c * 0.78, -c * 0.12 + sw); ctx.lineTo(-c * 0.7, c * 0.3 + sw); ctx.lineTo(-c * 0.1, c * 0.34); ctx.closePath();
+      ctx.clip(); clothPattern(deco, -c * 0.9, -c * 0.5, c * 0.2, c * 0.5, c);
+      ctx.restore();
+      ctx.strokeStyle = edge; ctx.lineWidth = Math.max(1, c * 0.03);
+      ctx.beginPath(); ctx.moveTo(-c * 0.1, -c * 0.34); ctx.lineTo(-c * 0.78, -c * 0.12 + sw); ctx.lineTo(-c * 0.7, c * 0.3 + sw); ctx.lineTo(-c * 0.1, c * 0.34); ctx.stroke();
+      for (i = 0; i <= 6; i++) {                            // fringe on the loose end
+        var fy = -c * 0.12 + sw + (c * 0.42) * i / 6, fx = -c * 0.78 + (c * 0.08) * i / 6;
+        ctx.beginPath(); ctx.moveTo(fx, fy); ctx.lineTo(fx - c * 0.07, fy + c * 0.02); ctx.stroke();
+      }
+      ctx.save();                                           // the wrap over the head
+      ctx.beginPath(); ctx.ellipse(-c * 0.1, 0, c * 0.3, c * 0.43, 0, 0, Math.PI * 2); ctx.clip();
+      clothPattern(deco, -c * 0.5, -c * 0.5, c * 0.3, c * 0.5, c);
+      ctx.restore();
+      ctx.strokeStyle = edge; ctx.lineWidth = Math.max(1.2, c * 0.035);
+      ctx.beginPath(); ctx.ellipse(-c * 0.1, 0, c * 0.3, c * 0.43, 0, 0, Math.PI * 2); ctx.stroke();
+    } else if (deco === 'cyber') {
+      ctx.fillStyle = '#14122B'; ctx.strokeStyle = '#33E1F0'; ctx.lineWidth = Math.max(1.2, c * 0.04);
+      rr(-c * 0.26, -c * 0.4, c * 0.26, c * 0.8, c * 0.06); ctx.fill(); ctx.stroke();
+      ctx.fillStyle = '#33E1F0'; ctx.fillRect(-c * 0.15, -c * 0.34, Math.max(1.5, c * 0.04), c * 0.68);
+      ctx.fillStyle = '#C35BFF';
+      [-1, 1].forEach(function (sd) { ctx.fillRect(-c * 0.26, sd * c * 0.4 - (sd > 0 ? c * 0.07 : 0), c * 0.26, c * 0.07); });
+    } else if (deco === 'galaxy') {
+      ctx.strokeStyle = '#C7B8FF'; ctx.lineWidth = Math.max(1, c * 0.03);
+      ctx.globalAlpha = motionOk() ? 0.35 + 0.25 * Math.sin(k / 400) : 0.5;
+      ctx.beginPath(); ctx.arc(-c * 0.05, 0, c * 0.6, 0, Math.PI * 2); ctx.stroke(); ctx.globalAlpha = 1;
+      for (i = 0; i < 4; i++) {
+        var a = i * 1.57 + (motionOk() ? k / 1500 : 0), tw = motionOk() ? 0.6 + 0.4 * Math.sin(k / 250 + i * 2) : 1;
+        ctx.globalAlpha = tw; ctx.fillStyle = i % 2 ? '#FFFFFF' : '#FFB8F0';
+        ctx.save(); ctx.translate(-c * 0.05 + Math.cos(a) * c * 0.6, Math.sin(a) * c * 0.6); ctx.scale(c * 0.1, c * 0.1); ctx.fill(glyph('bonus')); ctx.restore();
+      }
+      ctx.globalAlpha = 1;
+    } else if (deco === 'dragon') {
+      ctx.fillStyle = '#7A4A10'; ctx.strokeStyle = '#4A2A08'; ctx.lineWidth = Math.max(1, c * 0.025);
+      [-1, 1].forEach(function (sd) {
+        ctx.beginPath(); ctx.moveTo(c * 0.0, sd * c * 0.28); ctx.quadraticCurveTo(-c * 0.22, sd * c * 0.4, -c * 0.52, sd * c * 0.62);
+        ctx.quadraticCurveTo(-c * 0.3, sd * c * 0.28, -c * 0.12, sd * c * 0.18); ctx.closePath(); ctx.fill(); ctx.stroke();
+      });
+      ctx.strokeStyle = '#FFE08A'; ctx.lineWidth = Math.max(1, c * 0.03); ctx.globalAlpha = 0.7;
+      ctx.beginPath(); ctx.moveTo(c * 0.05, 0); ctx.lineTo(c * 0.4, 0); ctx.stroke(); ctx.globalAlpha = 1;
+    }
+    ctx.restore();
   }
 
   function drawRealisticHead(hx, hy, d, c, base, headCol, S, h, dead) {
@@ -2683,6 +2971,7 @@ if (typeof module !== 'undefined' && module.exports) module.exports = SnakeChase
     ctx.beginPath(); ctx.ellipse(-c * 0.1, 0, c * 0.14, c * 0.05, 0, 0, Math.PI * 2); ctx.fill();
     ctx.fillStyle = '#0B1510';                             // nostrils
     [-1, 1].forEach(function (sd) { ctx.beginPath(); ctx.arc(c * 0.46, sd * c * 0.09, Math.max(1, c * 0.025), 0, Math.PI * 2); ctx.fill(); });
+    skinHead(c, base, headCol);
     var lx = 0, ly = 0;                                    // pupils glance towards the food
     if (S.food && !dead) {
       var fx = S.food.x - h.x, fy = S.food.y - h.y, fl = Math.sqrt(fx * fx + fy * fy);
@@ -2706,39 +2995,15 @@ if (typeof module !== 'undefined' && module.exports) module.exports = SnakeChase
     ctx.restore();
   }
 
-  function drawClassicBody(pts, S, c, off, base, headCol, dead) {
-    var n = pts.length, taper = function (i) { return n < 2 ? 1 : 1 - 0.3 * (i / (n - 1)); };   // body thins slightly towards the tail
-    ctx.lineCap = 'round'; ctx.lineJoin = 'round';
-    pts.forEach(function (s, idx) {
-      var x = (s.x + 0.5) * c, y = (s.y + 0.5) * c, w = c * 0.66 * taper(idx);
-      ctx.globalAlpha = 1 - 0.35 * (n < 2 ? 0 : idx / (n - 1));
-      ctx.strokeStyle = ctx.fillStyle = dead ? base : (look.style === 'stripes' ? segColor(idx + off) : look.style === 'rainbow' ? segColor(idx + off) : base);
-      if (idx > 0) {
-        var pv = pts[idx - 1];
-        if (Math.abs(pv.x - s.x) + Math.abs(pv.y - s.y) <= 1.01) {
-          ctx.lineWidth = w;
-          ctx.beginPath(); ctx.moveTo((pv.x + 0.5) * c, (pv.y + 0.5) * c); ctx.lineTo(x, y); ctx.stroke();
-        }
-      }
-      ctx.beginPath(); ctx.arc(x, y, w / 2, 0, Math.PI * 2); ctx.fill();
-    });
-    ctx.globalAlpha = 1;
-    return taper;
-  }
-
   function drawSnake(vs, S, c, off, dead) {
     var pts = off ? vs.slice(off) : vs;
     if (!pts.length) return;
     var tint = dead ? Math.min(1, dead.age / 220) : 0;
     var base = tint ? mix(PAL.snake, '#E5594F', tint * 0.7) : PAL.snake;
     var headCol = tint ? mix(PAL.head, '#E5594F', tint * 0.7) : PAL.head;
-    var realistic = look.style === 'realistic', hasHead = off === 0, n = pts.length, taper;
-    if (realistic) {
-      drawRealisticBody(pts, S, c, base, !dead && S.phase === 'running' && motionOk());
-      taper = function (i) { return bodyWidth(n < 2 ? 0 : i / (n - 1)) / 0.66; };
-    } else {
-      taper = drawClassicBody(pts, S, c, off, base, headCol, dead);
-    }
+    var hasHead = off === 0, n = pts.length, taper;
+    drawRealisticBody(pts, S, c, base, !dead && S.phase === 'running' && motionOk());
+    taper = function (i) { return bodyWidth(n < 2 ? 0 : i / (n - 1)) / 0.66; };
     pts.forEach(function (s, idx) {                       // golden balls sit on top of the body
       if (!S.goldSegs[idx + off]) return;
       ctx.fillStyle = PAL.gold; ctx.strokeStyle = PAL.goldEdge; ctx.lineWidth = 1.5;
@@ -2749,7 +3014,7 @@ if (typeof module !== 'undefined' && module.exports) module.exports = SnakeChase
     if (motionOk() && S.phase !== 'over' && !dead) {      // a tongue flicks out now and then
       var tf = (FX.clock % 2200) / 320;
       if (tf < 1) {
-        var tb = realistic ? 0.52 : 0.4, len = Math.sin(tf * Math.PI) * c * 0.42, bx = hx + d.x * c * tb, by = hy + d.y * c * tb, ex = bx + d.x * len, ey = by + d.y * len;
+        var tb = 0.52, len = Math.sin(tf * Math.PI) * c * 0.42, bx = hx + d.x * c * tb, by = hy + d.y * c * tb, ex = bx + d.x * len, ey = by + d.y * len;
         ctx.strokeStyle = '#E5594F'; ctx.lineWidth = Math.max(1.5, c * 0.07); ctx.lineCap = 'round';
         ctx.beginPath(); ctx.moveTo(bx, by); ctx.lineTo(ex, ey);
         ctx.moveTo(ex, ey); ctx.lineTo(ex + (d.x + -d.y * 0.7) * c * 0.1, ey + (d.y + d.x * 0.7) * c * 0.1);
@@ -2757,20 +3022,7 @@ if (typeof module !== 'undefined' && module.exports) module.exports = SnakeChase
         ctx.stroke();
       }
     }
-    if (realistic) { drawRealisticHead(hx, hy, d, c, base, headCol, S, h, dead); return; }
-    ctx.fillStyle = look.style === 'rainbow' && !dead ? segColor(0) : headCol;
-    ctx.beginPath(); ctx.arc(hx, hy, c * 0.43 * (1 + (motionOk() ? FX.pop * 0.22 : 0)), 0, Math.PI * 2); ctx.fill();
-    var lx = 0, ly = 0;                                    // the eyes glance towards the food
-    if (S.food && !dead) {
-      var fx = S.food.x - h.x, fy = S.food.y - h.y, fl = Math.sqrt(fx * fx + fy * fy);
-      if (fl > 0.01) { lx = fx / fl * c * 0.035; ly = fy / fl * c * 0.035; }
-    }
-    ctx.fillStyle = PAL.eye;
-    [-1, 1].forEach(function (side) {
-      ctx.beginPath();
-      ctx.arc(hx + d.x * c * 0.1 + (-d.y) * side * c * 0.17 + lx, hy + d.y * c * 0.1 + d.x * side * c * 0.17 + ly, c * 0.075, 0, Math.PI * 2);
-      ctx.fill();
-    });
+    drawRealisticHead(hx, hy, d, c, base, headCol, S, h, dead);
   }
 
 
@@ -3043,7 +3295,7 @@ if (typeof module !== 'undefined' && module.exports) module.exports = SnakeChase
     ArrowUp: [0, -1], ArrowDown: [0, 1], ArrowLeft: [-1, 0], ArrowRight: [1, 0],
     w: [0, -1], s: [0, 1], a: [-1, 0], d: [1, 0], W: [0, -1], S: [0, 1], A: [-1, 0], D: [1, 0]
   };
-  function dialogOpen() { return dlg.open || achDlg.open; }
+  function dialogOpen() { return dlg.open || achDlg.open || shopDlg.open; }
   ['pointerdown', 'keydown', 'touchend'].forEach(function (n) {       // browsers allow sound only after a tap or key press
     document.addEventListener(n, function () { sfx.unlock(); }, true);
   });
@@ -3060,18 +3312,19 @@ if (typeof module !== 'undefined' && module.exports) module.exports = SnakeChase
   });
 
   var tx = 0, ty = 0, touching = false;
-  wrap.addEventListener('touchstart', function (e) {
+  var swipeArea = $('game');
+  swipeArea.addEventListener('touchstart', function (e) {
     if (e.target.closest && e.target.closest('button')) return;
     var t = e.changedTouches[0]; tx = t.clientX; ty = t.clientY; touching = true;
   }, { passive: true });
-  wrap.addEventListener('touchmove', function (e) {
+  swipeArea.addEventListener('touchmove', function (e) {
     if (!touching) return;
     var t = e.changedTouches[0], dx = t.clientX - tx, dy = t.clientY - ty;
-    if (Math.max(Math.abs(dx), Math.abs(dy)) < 24) return;
+    if (Math.max(Math.abs(dx), Math.abs(dy)) < 18) return;
     if (Math.abs(dx) > Math.abs(dy)) steer(dx > 0 ? 1 : -1, 0); else steer(0, dy > 0 ? 1 : -1);
     tx = t.clientX; ty = t.clientY;
   }, { passive: true });
-  wrap.addEventListener('touchend', function () { touching = false; }, { passive: true });
+  swipeArea.addEventListener('touchend', function () { touching = false; }, { passive: true });
 
   document.querySelectorAll('.pad button').forEach(function (b) {
     b.addEventListener('pointerdown', function (e) {
@@ -3094,7 +3347,9 @@ if (typeof module !== 'undefined' && module.exports) module.exports = SnakeChase
   $('homeAchBtn').addEventListener('click', openAchievements);
   $('settingsClose').addEventListener('click', function () { closeDialog(dlg); });
   $('achClose').addEventListener('click', function () { closeDialog(achDlg); });
-  [dlg, achDlg].forEach(function (d) { d.addEventListener('click', function (e) { if (e.target === d) closeDialog(d); }); });
+  $('homeShopBtn').addEventListener('click', openShop);
+  $('shopClose').addEventListener('click', function () { closeDialog(shopDlg); });
+  [dlg, achDlg, shopDlg].forEach(function (d) { d.addEventListener('click', function (e) { if (e.target === d) closeDialog(d); }); });
 
   ovBtn.addEventListener('click', function () {
     var ph = game.state.phase;
