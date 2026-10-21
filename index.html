@@ -437,6 +437,24 @@ html[data-motion="off"] *, html[data-motion="off"] *::before, html[data-motion="
   .chase-actions { flex-direction: row; width: 100%; height: 52px; }
   .chase-actions .btn { min-height: 52px; flex: 1; }
 }
+
+.profile-chip { display: inline-flex; align-items: center; gap: 10px; margin-top: 14px; padding: 6px 14px 6px 6px; border: 1px solid var(--line-strong); border-radius: 999px; background: var(--surface); color: var(--text); font: inherit; font-weight: 600; cursor: pointer; -webkit-tap-highlight-color: transparent; }
+.profile-chip:focus-visible { outline: 2px solid var(--focus); outline-offset: 3px; }
+.avatar { width: 30px; height: 30px; border-radius: 50%; background: var(--accent); color: var(--on-accent); display: grid; place-items: center; font-weight: 700; font-size: 14px; }
+.pf-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 8px; margin: 0; }
+.pf-grid div { padding: 10px 12px; border: 1px solid var(--line); border-radius: 12px; background: var(--surface-2); }
+.pf-grid dt { font-size: 11px; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); }
+.pf-grid dd { margin: 2px 0 0; font-family: var(--font-display); font-weight: 600; font-size: 22px; font-variant-numeric: tabular-nums; }
+.pf-name { display: flex; gap: 8px; }
+.pf-name input, .pf-code { flex: 1; min-width: 0; padding: 10px 12px; border: 1px solid var(--line-strong); border-radius: 12px; background: var(--surface-2); color: var(--text); font: inherit; }
+.pf-code { width: 100%; min-height: 76px; resize: vertical; font-size: 12px; word-break: break-all; }
+.pf-row { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 8px; }
+.pf-status { font-size: 13px; color: var(--muted); margin-top: 8px; }
+.pf-status.ok { color: var(--accent-strong); }
+.ach-tier { font-size: 11px; font-weight: 600; color: var(--bonus); margin-left: 8px; }
+.ach[data-state="complete"] { border-color: rgba(255, 217, 138, .4); }
+.ach[data-state="complete"] .ach-state { color: var(--bonus); }
+.ach .bar i { background: var(--accent); }
 @media (prefers-reduced-motion: reduce) {
   .pop { animation: none; }
   .overlay, dialog[open], .toast { animation: none; }
@@ -453,6 +471,7 @@ html[data-motion="off"] *, html[data-motion="off"] *::before, html[data-motion="
     <div>
       <h1>Grid <span>Snake</span></h1>
       <p class="lede">Steer the snake, eat to grow, and keep clear of your own tail. Pick a mode and play.</p>
+      <button class="profile-chip" id="homeProfileBtn" type="button"><span class="avatar" id="homeAvatar">?</span><span id="homeName">Set your name</span></button>
     </div>
     <div>
       <p class="group-label">Game mode</p>
@@ -638,8 +657,38 @@ html[data-motion="off"] *, html[data-motion="off"] *::before, html[data-motion="
     <button class="btn" id="shopClose" type="button">Close</button>
   </div>
   <p class="shop-coins">Your coins: <b id="shopCoins">0</b></p>
-  <p class="dlg-note">Every point you score earns one coin when a run ends, and each achievement pays 30 more. Spend them on looks. Looks never change the rules.</p>
+  <p class="dlg-note">Every point you score earns one coin when a run ends, and every achievement tier you finish pays more. Spend them on looks. Looks never change the rules.</p>
   <div class="shop-grid" id="shopBody"></div>
+</dialog>
+
+<dialog id="profileDlg" aria-labelledby="profileTitle">
+  <div class="dlg-head">
+    <h2 id="profileTitle">Profile</h2>
+    <button class="btn" id="profileClose" type="button">Close</button>
+  </div>
+  <div class="dlg-section">
+    <h3>Your name</h3>
+    <form class="pf-name" id="nameForm">
+      <input id="nameInput" type="text" maxlength="16" autocomplete="nickname" placeholder="Player name" aria-label="Player name">
+      <button class="btn btn--primary" type="submit">Save</button>
+    </form>
+    <p class="dlg-note">Up to 16 characters. It is only shown to you.</p>
+  </div>
+  <div class="dlg-section">
+    <h3>Your progress</h3>
+    <dl class="pf-grid" id="pfStats"></dl>
+    <p class="pf-status" id="pfSave"></p>
+  </div>
+  <div class="dlg-section">
+    <h3>Backup code</h3>
+    <p class="dlg-note" style="margin:0 0 8px">Copy this code somewhere safe. Pasting it on another device, or after clearing your browser, brings back your progress, coins and skins.</p>
+    <textarea class="pf-code" id="pfCode" readonly aria-label="Your backup code"></textarea>
+    <div class="pf-row"><button class="btn" id="pfCopy" type="button">Copy code</button></div>
+    <h3 class="sub" style="margin-top:18px">Restore from a code</h3>
+    <textarea class="pf-code" id="pfRestoreCode" placeholder="Paste a code that starts with GS2." aria-label="Backup code to restore"></textarea>
+    <div class="pf-row"><button class="btn" id="pfRestore" type="button">Restore</button></div>
+    <p class="pf-status" id="pfBackupMsg" role="status"></p>
+  </div>
 </dialog>
 
 <dialog id="achDialog" aria-labelledby="achTitle">
@@ -1054,76 +1103,84 @@ var SnakeEngine = (function () {
 if (typeof module !== 'undefined' && module.exports) module.exports = SnakeEngine;
 
 /* Grid Snake achievements
- * Pure rules, no DOM and no storage. Each achievement is "value >= goal".
- * scope "total" reads lifetime totals; scope "run" reads the current run (engine snapshot).
- * evaluate() skips anything already unlocked, so an achievement can only be granted once.
+ * Pure rules, no DOM and no storage. Every achievement is a CHAIN of tiers: finish one goal, collect its
+ * coins, and the next, bigger goal starts again from zero. A chain's state is { tier, progress }:
+ *   kind "sum"  counts things over many runs ("eat 25 apples"); progress restarts at 0 on each new tier.
+ *   kind "run"  needs one single run to reach a value ("score 50 in one run"); progress is the best run
+ *               value so far for the current tier.
+ * When the last tier is done the chain is complete.
  */
 var SnakeAchievements = (function () {
   'use strict';
 
-  function totals(c) { return (c && c.totals) || {}; }
-  function run(c) { return (c && c.run) || {}; }
-  function num(v) { return typeof v === 'number' && isFinite(v) ? v : 0; }
+  function tiers(goals, rewards) { return goals.map(function (g, i) { return { goal: g, reward: rewards[i] }; }); }
 
-  var LIST = [
-    { id: 'first_bite',   group: 'Food',     scope: 'total', goal: 1,   name: 'First Bite',    desc: 'Eat your first food.',
-      value: function (c) { return num(totals(c).foods); } },
-    { id: 'snacker',      group: 'Food',     scope: 'total', goal: 50,  name: 'Snacker',       desc: 'Eat 50 foods in total.',
-      value: function (c) { return num(totals(c).foods); } },
-    { id: 'gourmet',      group: 'Food',     scope: 'total', goal: 250, name: 'Gourmet',       desc: 'Eat 250 foods in total.',
-      value: function (c) { return num(totals(c).foods); } },
-
-    { id: 'warming_up',   group: 'Score',    scope: 'run',   goal: 10,  name: 'Warming Up',    desc: 'Score 10 points in one run.',
-      value: function (c) { return num(run(c).score); } },
-    { id: 'sharp_eye',    group: 'Score',    scope: 'run',   goal: 25,  name: 'Sharp Eye',     desc: 'Score 25 points in one run.',
-      value: function (c) { return num(run(c).score); } },
-    { id: 'grid_master',  group: 'Score',    scope: 'run',   goal: 50,  name: 'Grid Master',   desc: 'Score 50 points in one run.',
-      value: function (c) { return num(run(c).score); } },
-
-    { id: 'long_one',     group: 'Progress', scope: 'run',   goal: 20,  name: 'Long One',      desc: 'Reach a length of 20.',
-      value: function (c) { return num(run(c).maxLength); } },
-    { id: 'climber',      group: 'Progress', scope: 'run',   goal: 5,   name: 'Climber',       desc: 'Reach level 5.',
-      value: function (c) { return num(run(c).level); } },
-
-    { id: 'clock_beater', group: 'Modes',    scope: 'run',   goal: 25,  name: 'Clock Beater',  desc: 'Score 25 points in a Time Attack run.',
-      value: function (c) { return run(c).mode === 'timeattack' ? num(run(c).score) : 0; } },
-    { id: 'survivor',     group: 'Modes',    scope: 'run',   goal: 90,  name: 'Survivor',      desc: 'Last 90 seconds in Survival.',
-      value: function (c) { return run(c).mode === 'survival' ? Math.floor(num(run(c).elapsed) / 1000) : 0; } },
-
-    { id: 'slip_n_slide', group: 'Apple Run', scope: 'run', goal: 1,  name: 'Slip and Slide', desc: 'Make the snake slip on a banana peel.',
-      value: function (c) { return num(run(c).slips); } },
-    { id: 'fake_out',     group: 'Apple Run', scope: 'run', goal: 1,  name: 'Fake Out',      desc: 'Fool the snake with a decoy apple.',
-      value: function (c) { return num(run(c).fooled); } },
-    { id: 'apple_of_steel', group: 'Apple Run', scope: 'run', goal: 60, name: 'Apple of Steel', desc: 'Survive 60 seconds in Apple Run.',
-      value: function (c) { return run(c).mode === 'chase' ? Math.floor(num(run(c).elapsed) / 1000) : 0; } },
-
-    { id: 'close_call',   group: 'Power-ups', scope: 'run',  goal: 1,   name: 'Close Call',    desc: 'Survive a collision with a Shield.',
-      value: function (c) { return num(run(c).shieldSaves); } },
-    { id: 'bonus_hunter', group: 'Power-ups', scope: 'total', goal: 5,  name: 'Bonus Hunter',  desc: 'Collect 5 Bonus Foods in total.',
-      value: function (c) { return num(totals(c).bonus); } }
+  var CHAINS = [
+    { id: 'apples',   group: 'Food',      kind: 'sum', metric: 'foods',   name: 'Apple Eater',      text: 'Eat {n} foods.',                tiers: tiers([25, 100, 250, 500, 1000, 2500], [20, 40, 80, 150, 250, 500]) },
+    { id: 'golden',   group: 'Food',      kind: 'sum', metric: 'golden',  name: 'Gold Digger',      text: 'Eat {n} golden apples.', one: 'Eat a golden apple.',        tiers: tiers([1, 5, 15, 40, 100], [20, 40, 100, 200, 400]) },
+    { id: 'bonus',    group: 'Power-ups', kind: 'sum', metric: 'bonus',   name: 'Bonus Hunter',     text: 'Collect {n} Bonus Foods.',      tiers: tiers([5, 20, 60, 150], [20, 50, 120, 300]) },
+    { id: 'shields',  group: 'Power-ups', kind: 'sum', metric: 'shields', name: 'Shield Bearer',    text: 'Survive {n} crashes with a Shield.', one: 'Survive a crash with a Shield.', tiers: tiers([1, 5, 20, 60], [20, 50, 120, 300]) },
+    { id: 'runs',     group: 'Play',      kind: 'sum', metric: 'runs',    name: 'Regular',          text: 'Finish {n} runs.',              tiers: tiers([3, 10, 30, 100, 300], [15, 30, 80, 200, 500]) },
+    { id: 'score',    group: 'Score',     kind: 'run', metric: 'score',   name: 'High Roller',      text: 'Score {n} points in one run.',  tiers: tiers([10, 25, 50, 100, 200], [15, 30, 60, 120, 250]) },
+    { id: 'length',   group: 'Score',     kind: 'run', metric: 'length',  name: 'Long One',         text: 'Reach a length of {n}.',        tiers: tiers([10, 20, 35, 60], [15, 40, 90, 200]) },
+    { id: 'level',    group: 'Score',     kind: 'run', metric: 'level',   name: 'Climber',          text: 'Reach level {n}.',              tiers: tiers([3, 5, 8, 12], [15, 40, 90, 200]) },
+    { id: 'clock',    group: 'Modes',     kind: 'run', metric: 'taScore', name: 'Clock Beater',     text: 'Score {n} points in one Time Attack run.', tiers: tiers([15, 30, 50, 80], [20, 50, 110, 250]) },
+    { id: 'survivor', group: 'Modes',     kind: 'run', metric: 'survSec', name: 'Survivor',         text: 'Last {n} seconds in Survival.', tiers: tiers([30, 90, 180, 300], [20, 50, 110, 250]) },
+    { id: 'slips',    group: 'Apple Run', kind: 'sum', metric: 'slips',   name: 'Banana Trouble',   text: 'Make the snake slip {n} times.', tiers: tiers([3, 15, 50, 150], [20, 50, 120, 300]) },
+    { id: 'fooled',   group: 'Apple Run', kind: 'sum', metric: 'fooled',  name: 'Master of Disguise', text: 'Fool the snake with a decoy {n} times.', tiers: tiers([2, 10, 30, 100], [20, 50, 120, 300]) },
+    { id: 'steel',    group: 'Apple Run', kind: 'run', metric: 'chaseSec', name: 'Apple of Steel',  text: 'Survive {n} seconds in one Apple Run.', tiers: tiers([30, 60, 120, 240], [20, 50, 120, 280]) },
+    { id: 'fleeing',  group: 'Apple Run', kind: 'sum', metric: 'chaseTotal', name: 'Fleeing Fruit', text: 'Run for {n} seconds in total in Apple Run.', tiers: tiers([60, 300, 900, 3600], [20, 60, 150, 400]) }
   ];
 
   function byId(id) {
-    for (var i = 0; i < LIST.length; i++) if (LIST[i].id === id) return LIST[i];
+    for (var i = 0; i < CHAINS.length; i++) if (CHAINS[i].id === id) return CHAINS[i];
     return null;
   }
+  function num(v) { return typeof v === 'number' && isFinite(v) && v > 0 ? Math.floor(v) : 0; }
+  function clean(chain, st) {                                // a safe { tier, progress } whatever was stored
+    var t = Math.min(chain.tiers.length, num(st && st.tier));
+    return { tier: t, progress: t >= chain.tiers.length ? 0 : num(st && st.progress) };
+  }
+  function done(chain, st) { return clean(chain, st).tier >= chain.tiers.length; }
+  function describe(chain, tierIndex) {
+    var g = chain.tiers[tierIndex].goal;
+    return g === 1 && chain.one ? chain.one : chain.text.replace('{n}', String(g));
+  }
 
-  /* Achievements whose goal is met and that are not unlocked yet. */
-  function evaluate(ctx, unlocked) {
-    var out = [];
-    for (var i = 0; i < LIST.length; i++) {
-      var def = LIST[i];
-      if (unlocked && unlocked[def.id]) continue;
-      if (def.value(ctx) >= def.goal) out.push(def);
+  /* Move a chain forward. `value` is an amount to add (sum) or this run's value (run).
+     Returns the new state and the tiers that were completed by this change (each with its reward). */
+  function advance(chain, st, value) {
+    var s = clean(chain, st), finished = [], v = num(value);
+    if (s.tier >= chain.tiers.length || !v) return { state: s, finished: finished };
+    if (chain.kind === 'sum') s.progress += v; else s.progress = Math.max(s.progress, v);
+    while (s.tier < chain.tiers.length && s.progress >= chain.tiers[s.tier].goal) {
+      var t = chain.tiers[s.tier];
+      finished.push({ chain: chain.id, name: chain.name, tier: s.tier + 1, of: chain.tiers.length, goal: t.goal, reward: t.reward, desc: describe(chain, s.tier) });
+      s.progress = chain.kind === 'sum' ? s.progress - t.goal : v;   // a new tier starts again from zero (run goals keep this run's value)
+      s.tier++;
     }
-    return out;
+    if (s.tier >= chain.tiers.length) s.progress = 0;
+    return { state: s, finished: finished };
   }
 
-  function progress(def, ctx) {
-    return { value: Math.min(def.value(ctx), def.goal), goal: def.goal };
+  /* What the list shows for a chain right now. */
+  function view(chain, st) {
+    var s = clean(chain, st), isDone = s.tier >= chain.tiers.length, cur = isDone ? null : chain.tiers[s.tier];
+    return {
+      id: chain.id, name: chain.name, group: chain.group, kind: chain.kind,
+      tier: isDone ? chain.tiers.length : s.tier + 1, of: chain.tiers.length, complete: isDone,
+      goal: cur ? cur.goal : 0, progress: cur ? Math.min(s.progress, cur.goal) : 0, reward: cur ? cur.reward : 0,
+      desc: isDone ? 'All tiers complete.' : describe(chain, s.tier)
+    };
   }
+  function completedTiers(map) {
+    var n = 0;
+    CHAINS.forEach(function (c) { n += clean(c, map && map[c.id]).tier; });
+    return n;
+  }
+  function totalTiers() { return CHAINS.reduce(function (n, c) { return n + c.tiers.length; }, 0); }
 
-  return { LIST: LIST, byId: byId, evaluate: evaluate, progress: progress };
+  return { CHAINS: CHAINS, byId: byId, advance: advance, view: view, clean: clean, done: done, completedTiers: completedTiers, totalTiers: totalTiers };
 })();
 if (typeof module !== 'undefined' && module.exports) module.exports = SnakeAchievements;
 
@@ -1163,10 +1220,15 @@ var SnakeProfile = (function () {
       mem[key] = value;
       try { if (storage) storage.setItem(key, value); } catch (e) {}
     }
+    function cleanName(v) {                                   // a short display name, safe to show anywhere
+      if (typeof v !== 'string') return '';
+      var t = v.replace(/[\u0000-\u001f\u007f<>&"]/g, '').replace(/\s+/g, ' ').trim();
+      return Array.from(t).slice(0, 16).join('').trim();
+    }
     function count(v) { return typeof v === 'number' && isFinite(v) && v > 0 ? Math.floor(v) : 0; }
 
     function sanitize(d) {
-      var out = { prefs: { mode: modes[0], edge: 'walls', skin: skins[0], style: LOOKS.style[0], board: LOOKS.board[0], food: LOOKS.food[0], golden: false, sound: true, volume: 1, haptics: true, motion: 'auto' }, totals: { foods: 0, bonus: 0, runs: 0 }, unlocked: {}, coins: 0, owned: {} };
+      var out = { prefs: { mode: modes[0], edge: 'walls', skin: skins[0], style: LOOKS.style[0], board: LOOKS.board[0], food: LOOKS.food[0], golden: false, sound: true, volume: 1, haptics: true, motion: 'auto' }, totals: { foods: 0, bonus: 0, runs: 0 }, ach: {}, coins: 0, owned: {}, name: '', savedAt: 0 };
       if (!d || typeof d !== 'object') return out;
       if (d.prefs && modes.indexOf(d.prefs.mode) >= 0) out.prefs.mode = d.prefs.mode;
       if (d.prefs && EDGES.indexOf(d.prefs.edge) >= 0) out.prefs.edge = d.prefs.edge;
@@ -1183,19 +1245,39 @@ var SnakeProfile = (function () {
         out.totals.bonus = count(d.totals.bonus);
         out.totals.runs = count(d.totals.runs);
       }
-      if (d.unlocked && typeof d.unlocked === 'object') {
+      if (d.ach && typeof d.ach === 'object') {              // achievement chains: { tier, progress } per id
         ids.forEach(function (id) {
-          var t = d.unlocked[id];
-          if (typeof t === 'number' && isFinite(t) && t > 0) out.unlocked[id] = t;
+          var a = d.ach[id];
+          if (a && typeof a === 'object') out.ach[id] = { tier: Math.min(99, count(a.tier)), progress: count(a.progress) };
         });
       }
+      out.name = cleanName(d.name);
+      out.savedAt = count(d.savedAt);
       return out;
     }
 
     var data;
     try { data = sanitize(JSON.parse(read(KEY))); } catch (e) { data = sanitize(null); }
 
-    function save() { write(KEY, JSON.stringify(data)); }
+    var listeners = [];
+    function save() {
+      data.savedAt = now();
+      write(KEY, JSON.stringify(data));
+      listeners.forEach(function (fn) { try { fn(); } catch (e) {} });
+    }
+    function allBestKeys() {
+      var keys = [];
+      modes.forEach(function (m) { EDGES.forEach(function (e) { [false, true].forEach(function (g) { keys.push(bestKey(m, e, g)); }); }); });
+      return keys;
+    }
+    function b64(str) {
+      if (typeof Buffer !== 'undefined') return Buffer.from(str, 'utf8').toString('base64');
+      return btoa(unescape(encodeURIComponent(str)));
+    }
+    function unb64(str) {
+      if (typeof Buffer !== 'undefined') return Buffer.from(str, 'base64').toString('utf8');
+      return decodeURIComponent(escape(atob(str)));
+    }
 
     /* Best scores keep their older key for Classic, so a score set before modes existed is still there. */
     function bestKey(mode, edge, golden) {
@@ -1231,13 +1313,41 @@ var SnakeProfile = (function () {
         data.totals[key] += count(n === undefined ? 1 : n);
         save();
       },
-      isUnlocked: function (id) { return !!data.unlocked[id]; },
-      /* Returns true only the first time; every later call is a no-op. */
-      unlock: function (id) {
-        if (ids.indexOf(id) < 0 || data.unlocked[id]) return false;
-        data.unlocked[id] = now();
+      /* Achievement chains: the page and tracker keep the rules, the profile only remembers { tier, progress }. */
+      getAch: function (id) { var a = data.ach[id]; return a ? { tier: a.tier, progress: a.progress } : { tier: 0, progress: 0 }; },
+      achMap: function () { var o = {}; Object.keys(data.ach).forEach(function (k) { o[k] = { tier: data.ach[k].tier, progress: data.ach[k].progress }; }); return o; },
+      setAch: function (id, st) {
+        if (ids.indexOf(id) < 0 || !st) return false;
+        data.ach[id] = { tier: Math.min(99, count(st.tier)), progress: count(st.progress) };
         save();
         return true;
+      },
+      getName: function () { return data.name; },
+      setName: function (v) { data.name = cleanName(v); save(); return data.name; },
+      getSavedAt: function () { return data.savedAt; },
+      onChange: function (fn) { if (typeof fn === 'function') listeners.push(fn); },
+      /* Everything worth keeping, as one plain object (for a backup code or an online copy). */
+      exportData: function () {
+        var bests = {};
+        allBestKeys().forEach(function (k) { var n = parseInt(read(k), 10); if (n > 0) bests[k] = n; });
+        return { v: 2, savedAt: data.savedAt, data: JSON.parse(JSON.stringify(data)), bests: bests };
+      },
+      /* Replace this profile with exported data. False (and nothing changed) when it is not valid. */
+      importData: function (o) {
+        if (!o || typeof o !== 'object' || o.v !== 2 || !o.data || typeof o.data !== 'object') return false;
+        data = sanitize(o.data);
+        var bests = o.bests && typeof o.bests === 'object' ? o.bests : {};
+        allBestKeys().forEach(function (k) { var n = Math.floor(bests[k]); write(k, n > 0 && n < 1e9 ? String(n) : '0'); });
+        save();
+        return true;
+      },
+      exportCode: function () { return 'GS2.' + b64(JSON.stringify(this.exportData())); },
+      importCode: function (code) {
+        try {
+          var c = String(code || '').replace(/\s+/g, '');
+          if (c.indexOf('GS2.') !== 0) return false;
+          return this.importData(JSON.parse(unb64(c.slice(4))));
+        } catch (e) { return false; }
       },
       getCoins: function () { return data.coins; },
       addCoins: function (n) { n = count(n); if (n) { data.coins += n; save(); } return data.coins; },
@@ -1248,14 +1358,12 @@ var SnakeProfile = (function () {
         data.coins -= Math.floor(price); data.owned[id] = true; save();
         return true;
       },
-      unlockedMap: function () { return Object.assign({}, data.unlocked); },
-      unlockedCount: function () { return Object.keys(data.unlocked).length; },
       getBest: getBest,
       setBest: setBest,
       /* Forget scores, totals and achievements. Preferences (looks, sound, mode) are kept. */
       resetProgress: function () {
         data.totals = { foods: 0, bonus: 0, runs: 0 };
-        data.unlocked = {};
+        data.ach = {};
         data.coins = 0; data.owned = {};
         LOOK_KEYS.forEach(function (k) { if (!allowed(k, data.prefs[k], data.owned)) data.prefs[k] = LOOKS[k][0]; });
         save();
@@ -1277,8 +1385,9 @@ if (typeof module !== 'undefined' && module.exports) module.exports = SnakeProfi
 
 /* Grid Snake tracker
  * The only glue between a running game and the saved profile: it listens to engine events,
- * keeps lifetime totals and best scores, and unlocks achievements. No DOM; the page passes hooks
- * (onUnlock, onBest) to react visually. Call tick() now and then so time-based goals (Survivor) are seen.
+ * keeps lifetime totals and best scores, moves achievement chains forward and pays coins.
+ * No DOM; the page passes hooks (onUnlock, onBest) to react visually. Call tick() now and then so
+ * time-based goals (Survival, Apple Run) are seen even when no event happens.
  */
 var SnakeTracker = (function () {
   'use strict';
@@ -1286,23 +1395,51 @@ var SnakeTracker = (function () {
   var Achievements = (typeof module !== 'undefined' && module.exports && typeof require === 'function')
     ? require('./achievements.js') : SnakeAchievements;
 
-  var COINS = { perPoint: 1, achievement: 30 };   // the shop currency: one coin per point, and a bonus for each achievement
+  var COINS = { perPoint: 1 };   // the shop currency: one coin per point when a run ends, plus each achievement's reward
+
+  /* The value of each "single run" metric, read from the engine snapshot. */
+  var RUN_VALUE = {
+    score:    function (r) { return r.score; },
+    length:   function (r) { return r.maxLength || r.length; },
+    level:    function (r) { return r.level; },
+    taScore:  function (r) { return r.mode === 'timeattack' ? r.score : 0; },
+    survSec:  function (r) { return r.mode === 'survival' ? Math.floor((r.elapsed || 0) / 1000) : 0; },
+    chaseSec: function (r) { return r.mode === 'chase' ? Math.floor((r.elapsed || 0) / 1000) : 0; }
+  };
 
   function attach(game, profile, hooks) {
     hooks = hooks || {};
     var info = { best: profile.getBest(game.mode, game.edge, game.golden), newBest: false, unlocked: [], coins: 0 };
+    var lastChaseSec = 0;
 
-    function check() {
-      var ctx = { totals: profile.getTotals(), run: game.snapshot() };
-      Achievements.evaluate(ctx, profile.unlockedMap()).forEach(function (def) {
-        if (!profile.unlock(def.id)) return;
-        info.unlocked.push(def);
-        profile.addCoins(COINS.achievement); info.coins += COINS.achievement;
-        if (hooks.onUnlock) hooks.onUnlock(def);
+    function finish(chain, res) {
+      var was = profile.getAch(chain.id);
+      if (res.state.tier !== was.tier || res.state.progress !== was.progress) profile.setAch(chain.id, res.state);   // no needless saves
+      res.finished.forEach(function (f) {
+        profile.addCoins(f.reward); info.coins += f.reward;
+        info.unlocked.push(f);
+        if (hooks.onUnlock) hooks.onUnlock(f);
       });
     }
-
-    function bump() {
+    function bump(metric, n) {                                 // "sum" goals: add to every chain that counts this metric
+      Achievements.CHAINS.forEach(function (c) {
+        if (c.kind !== 'sum' || c.metric !== metric) return;
+        finish(c, Achievements.advance(c, profile.getAch(c.id), n));
+      });
+    }
+    function check() {
+      var r = game.snapshot();
+      Achievements.CHAINS.forEach(function (c) {
+        if (c.kind !== 'run') return;
+        var v = RUN_VALUE[c.metric] ? RUN_VALUE[c.metric](r) : 0;
+        if (v > 0) finish(c, Achievements.advance(c, profile.getAch(c.id), v));
+      });
+      if (r.mode === 'chase') {                                // seconds run in total, counted as they pass
+        var sec = Math.floor((r.elapsed || 0) / 1000);
+        if (sec > lastChaseSec) { var d = sec - lastChaseSec; lastChaseSec = sec; bump('chaseTotal', d); }
+      }
+    }
+    function bumpBest() {
       var score = game.state.score;
       if (score <= info.best) return;
       info.best = score;
@@ -1314,24 +1451,29 @@ var SnakeTracker = (function () {
     game.on(function (e) {
       if (e.type === 'food') {
         profile.addTotal('foods', 1);
-        bump();
-        check();
+        bump('foods', 1); bumpBest(); check();
       } else if (e.type === 'pickup') {
-        if (e.kind === 'bonus') { profile.addTotal('bonus', 1); bump(); }
+        if (e.kind === 'bonus') { profile.addTotal('bonus', 1); bump('bonus', 1); bumpBest(); }
         check();
       } else if (e.type === 'score') {
-        bump();                              // Apple Run scores as time passes
+        bumpBest();                                            // Apple Run scores as time passes
         check();
       } else if (e.type === 'gold') {
-        bump();
-        check();
-      } else if (e.type === 'level' || e.type === 'shield') {
+        bump('golden', 1); bumpBest(); check();
+      } else if (e.type === 'shield') {
+        bump('shields', 1); check();
+      } else if (e.type === 'slip') {
+        bump('slips', 1); check();
+      } else if (e.type === 'fooled') {
+        bump('fooled', 1); check();
+      } else if (e.type === 'level') {
         check();
       } else if (e.type === 'over') {
         profile.addTotal('runs', 1);
         var won = Math.max(0, Math.floor(game.state.score)) * COINS.perPoint;
         profile.addCoins(won); info.coins += won;
-        bump();
+        bumpBest();
+        bump('runs', 1);
         check();
       }
     });
@@ -1925,7 +2067,7 @@ if (typeof module !== 'undefined' && module.exports) module.exports = SnakeChase
     modes: MODE_IDS,
     premium: SHOP.map(function (i) { return i.id; }),
     skins: Object.keys(SKINS), styles: Object.keys(STYLES), boards: Object.keys(BOARDS), foods: Object.keys(FOODS),
-    achievementIds: Ach.LIST.map(function (a) { return a.id; })
+    achievementIds: Ach.CHAINS.map(function (a) { return a.id; })
   });
   var prefs = profile.getPrefs();
   var mode = prefs.mode, edge = prefs.edge, look = { skin: prefs.skin, style: prefs.style, board: prefs.board, food: prefs.food }, golden = prefs.golden, soundOn = prefs.sound;
@@ -1940,7 +2082,7 @@ if (typeof module !== 'undefined' && module.exports) module.exports = SnakeChase
   var canvas = $('board'), ctx = canvas.getContext('2d'), wrap = $('boardWrap');
   var overlay = $('overlay'), ovTitle = $('ovTitle'), ovText = $('ovText'), ovStats = $('ovStats'), ovBest = $('ovBest'), ovAch = $('ovAch');
   var ovBtn = $('ovBtn'), ovSec = $('ovSec'), pauseBtn = $('pauseBtn'), playBtn = $('playBtn');
-  var dlg = $('settings'), achDlg = $('achDialog'), shopDlg = $('shopDlg');
+  var dlg = $('settings'), achDlg = $('achDialog'), shopDlg = $('shopDlg'), pfDlg = $('profileDlg');
   var el = {
     score: $('score'), best: $('best'), level: $('level'), speed: $('speed'),
     strip: $('strip'), stripL: $('stripL'), stripR: $('stripR'), bar: $('barFill'),
@@ -2210,7 +2352,10 @@ if (typeof module !== 'undefined' && module.exports) module.exports = SnakeChase
     $('goldOff').setAttribute('aria-pressed', golden ? 'false' : 'true');
     $('goldOn').setAttribute('aria-pressed', golden ? 'true' : 'false');
     setText($('homeCoins'), profile.getCoins());
-    setText($('homeAchCount'), profile.unlockedCount() + '/' + Ach.LIST.length);
+    setText($('homeAchCount'), Ach.completedTiers(profile.achMap()) + '/' + Ach.totalTiers());
+    var nm = profile.getName();
+    setText($('homeName'), nm || 'Set your name');
+    setText($('homeAvatar'), nm ? Array.from(nm)[0].toUpperCase() : '?');
     $('modeWalls').setAttribute('aria-pressed', edge === 'walls' ? 'true' : 'false');
     $('modeWrap').setAttribute('aria-pressed', edge === 'wrap' ? 'true' : 'false');
     setText($('edgeNote'), EDGE_NOTE[edge]);
@@ -2290,10 +2435,10 @@ if (typeof module !== 'undefined' && module.exports) module.exports = SnakeChase
     updateHome();
   }
 
-  function onUnlock(def) {
+  function onUnlock(f) {
     sfx.play('achievement');
-    toast('Achievement unlocked', def.name + ': ' + def.desc + ' (+' + SnakeTracker.COINS.achievement + ' coins)', true);
-    announce('Achievement unlocked: ' + def.name);
+    toast('Achievement unlocked', f.name + ' ' + f.tier + '/' + f.of + ': ' + f.desc + ' +' + f.reward + ' coins', true);
+    announce('Achievement unlocked: ' + f.name + ', tier ' + f.tier + '. Plus ' + f.reward + ' coins.');
     updateHome();
   }
 
@@ -2439,7 +2584,7 @@ if (typeof module !== 'undefined' && module.exports) module.exports = SnakeChase
           : '\nLength ' + S.snake.length + '  ·  Time ' + fmt(S.elapsed / 1000)) +
         '\n+' + tracker.info.coins + ' coins  ·  Total ' + profile.getCoins();
       tracker.info.unlocked.forEach(function (d) {
-        var li = document.createElement('li'); li.textContent = d.name; ovAch.appendChild(li);
+        var li = document.createElement('li'); li.textContent = d.name + ' ' + d.tier + '/' + d.of + ' (+' + d.reward + ')'; ovAch.appendChild(li);
       });
       ovBtn.textContent = 'Play again'; ovSec.textContent = 'Menu'; ovSecAction = 'menu';
     }
@@ -2563,34 +2708,30 @@ if (typeof module !== 'undefined' && module.exports) module.exports = SnakeChase
   function closeDialog(d) { if (d.close) d.close(); else d.removeAttribute('open'); }
 
   function renderAchievements() {
-    var totals = profile.getTotals();
-    var ctx0 = { totals: totals, run: null };
-    var unlocked = profile.unlockedMap();
-    setText($('achSummary'), profile.unlockedCount() + ' of ' + Ach.LIST.length + ' unlocked. ' +
-      totals.foods + ' foods eaten, ' + totals.bonus + ' bonus foods, ' + totals.runs + ' runs played.');
+    var totals = profile.getTotals(), map = profile.achMap();
+    setText($('achSummary'), Ach.completedTiers(map) + ' of ' + Ach.totalTiers() + ' tiers complete. Finish a goal, collect its coins, and the next one starts again from zero.');
     var body = $('achBody');
     body.textContent = '';
     var groups = [];
-    Ach.LIST.forEach(function (a) { if (groups.indexOf(a.group) < 0) groups.push(a.group); });
+    Ach.CHAINS.forEach(function (a) { if (groups.indexOf(a.group) < 0) groups.push(a.group); });
     groups.forEach(function (g) {
       var sec = document.createElement('section'); sec.className = 'ach-group';
       var h = document.createElement('h3'); h.textContent = g; sec.appendChild(h);
       var ul = document.createElement('ul'); ul.className = 'ach-list';
-      Ach.LIST.filter(function (a) { return a.group === g; }).forEach(function (a) {
-        var isOn = !!unlocked[a.id];
-        var li = document.createElement('li'); li.className = 'ach'; li.setAttribute('data-state', isOn ? 'unlocked' : 'locked');
+      Ach.CHAINS.filter(function (a) { return a.group === g; }).forEach(function (a) {
+        var v = Ach.view(a, map[a.id]);
+        var li = document.createElement('li'); li.className = 'ach'; li.setAttribute('data-state', v.complete ? 'complete' : 'active'); li.setAttribute('data-id', a.id);
         var left = document.createElement('div');
-        var n = document.createElement('p'); n.className = 'ach-name'; n.textContent = a.name;
-        var d = document.createElement('p'); d.className = 'ach-desc'; d.textContent = a.desc;
+        var n = document.createElement('p'); n.className = 'ach-name'; n.textContent = v.name;
+        var t = document.createElement('span'); t.className = 'ach-tier'; t.textContent = v.complete ? 'Complete' : 'Tier ' + v.tier + ' of ' + v.of; n.appendChild(t);
+        var d = document.createElement('p'); d.className = 'ach-desc'; d.textContent = v.desc;
         left.appendChild(n); left.appendChild(d);
         var st = document.createElement('span'); st.className = 'ach-state';
-        var showBar = !isOn && a.scope === 'total';
-        st.textContent = isOn ? 'Unlocked' : (showBar ? Ach.progress(a, ctx0).value + ' / ' + a.goal : 'Locked');
+        st.textContent = v.complete ? 'Done' : v.progress + ' / ' + v.goal + '  ·  +' + v.reward;
         li.appendChild(left); li.appendChild(st);
-        if (showBar) {
+        if (!v.complete) {
           var bar = document.createElement('div'); bar.className = 'bar'; bar.setAttribute('role', 'presentation');
-          var fill = document.createElement('i');
-          fill.style.width = Math.round(100 * Ach.progress(a, ctx0).value / a.goal) + '%';
+          var fill = document.createElement('i'); fill.style.width = Math.round(100 * v.progress / v.goal) + '%';
           bar.appendChild(fill); li.appendChild(bar);
         }
         ul.appendChild(li);
@@ -2599,6 +2740,75 @@ if (typeof module !== 'undefined' && module.exports) module.exports = SnakeChase
       body.appendChild(sec);
     });
   }
+
+  /* ---------- profile, backup and online copy ---------- */
+  var cloud = { state: 'off', ref: null, timer: 0 };
+  function cloudText() {
+    return cloud.state === 'on' ? 'Saved on this device and in your online profile.'
+      : cloud.state === 'error' ? 'Saved on this device. The online copy could not be reached just now.'
+      : 'Saved on this device only. Copy your backup code to keep a spare.';
+  }
+  function renderProfile() {
+    var t = profile.getTotals(), items = SHOP.filter(function (i) { return profile.owns(i.id); }).length, box = $('pfStats');
+    $('nameInput').value = profile.getName();
+    box.textContent = '';
+    var rows = [['Coins', profile.getCoins()], ['Runs', t.runs], ['Foods eaten', t.foods], ['Achievement tiers', Ach.completedTiers(profile.achMap()) + '/' + Ach.totalTiers()], ['Shop items', items + '/' + SHOP.length]];
+    MODE_IDS.forEach(function (m) {
+      rows.push([MODES[m].label + ' best', Math.max(profile.getBest(m, 'walls', false), profile.getBest(m, 'wrap', false))]);
+    });
+    rows.forEach(function (r) {
+      var d = document.createElement('div'), dt = document.createElement('dt'), dd = document.createElement('dd');
+      dt.textContent = r[0]; dd.textContent = r[1]; d.appendChild(dt); d.appendChild(dd); box.appendChild(d);
+    });
+    $('pfSave').textContent = cloudText();
+    $('pfSave').className = 'pf-status' + (cloud.state === 'on' ? ' ok' : '');
+    $('pfCode').value = profile.exportCode();
+    $('pfBackupMsg').textContent = '';
+  }
+  function openProfile() {
+    renderProfile();
+    if (pfDlg.showModal) pfDlg.showModal(); else pfDlg.setAttribute('open', '');
+  }
+  function applyProfileToPage() {                          // after a restore or an online copy replaced the saved data
+    var pf = profile.getPrefs();
+    mode = pf.mode; edge = pf.edge; golden = pf.golden; soundOn = pf.sound;
+    sfx.setEnabled(soundOn); sfx.setVolume(pf.volume);
+    hapticsOn = pf.haptics; motionPref = pf.motion; document.documentElement.setAttribute('data-motion', motionPref);
+    applyLook('skin', pf.skin); applyLook('board', pf.board); applyLook('food', pf.food);
+    if (!game || game.state.phase === 'ready' || game.state.phase === 'over') newGame(); else updateHome();
+  }
+  function cloudUpload() {
+    if (cloud.state === 'off' || !cloud.ref) return;
+    clearTimeout(cloud.timer);
+    cloud.timer = setTimeout(function () {
+      var o = profile.exportData();
+      cloud.ref.set({ json: JSON.stringify(o), savedAt: o.savedAt }).then(function () { cloud.state = 'on'; }, function () { cloud.state = 'error'; });
+    }, 1500);
+  }
+  /* The online copy exists only where the page is allowed to use it (the claude.ai viewer). Everywhere else,
+     such as a phone app, the profile is simply kept on the device. The newer of the two copies wins. */
+  function initCloud() {
+    var c = window.claude;
+    if (!c || typeof c.use !== 'function') return;
+    Promise.all([c.use('user'), c.use('db')]).then(function (r) {
+      var user = r[0], db = r[1];
+      if (!user || !db || typeof user.id !== 'function') return null;
+      return Promise.resolve(user.id()).then(function (id) {
+        cloud.ref = db.doc('data/users/' + id + '/save');
+        return cloud.ref.get();
+      });
+    }).then(function (snap) {
+      if (!cloud.ref) return;
+      var remote = null;
+      try { remote = snap && snap.exists ? JSON.parse(snap.data().json) : null; } catch (e) { remote = null; }
+      if (remote && remote.savedAt > profile.getSavedAt() && profile.importData(remote)) applyProfileToPage();
+      cloud.state = 'on';
+      profile.onChange(cloudUpload);
+      cloudUpload();
+    }).catch(function () { cloud.state = cloud.ref ? 'error' : 'off'; });
+  }
+  try { if (navigator.storage && navigator.storage.persist) navigator.storage.persist(); } catch (e) {}   // ask the browser not to clear saved data
+
   /* ---------- shop ---------- */
   function shopMeta(item) { var p = item.id.split(':'); return { kind: p[0], key: p[1], T: LOOK_TABLES[p[0]] }; }
   function drawPreview(cv, item) {                         // a tiny still picture of the item, drawn with the real drawing code
@@ -2728,16 +2938,37 @@ if (typeof module !== 'undefined' && module.exports) module.exports = SnakeChase
     }
   }
 
-  function drawGoldApple(g, k) {
-    var c = cell, cx = (g.x + 0.5) * c, cy = (g.y + 0.5) * c, pulse = motionOk() ? 0.5 + 0.5 * Math.sin(FX.clock / 220) : 0.5;
-    ctx.globalAlpha = 0.18 + 0.14 * pulse; ctx.fillStyle = PAL.gold;
-    ctx.beginPath(); ctx.arc(cx, cy, c * (0.46 + 0.06 * pulse) * k, 0, Math.PI * 2); ctx.fill();
+  function drawGoldApple(g, k) {                         // a shiny golden apple with a leaf and twinkles
+    var c = cell, cx = (g.x + 0.5) * c, cy = (g.y + 0.5) * c, t = FX.clock, pulse = motionOk() ? 0.5 + 0.5 * Math.sin(t / 220) : 0.5, r = c * 0.3 * k;
+    ctx.globalAlpha = 0.16 + 0.14 * pulse; ctx.fillStyle = PAL.gold;                  // warm glow
+    ctx.beginPath(); ctx.arc(cx, cy, c * (0.5 + 0.06 * pulse) * k, 0, Math.PI * 2); ctx.fill();
     ctx.globalAlpha = 1;
-    ctx.save(); ctx.translate(cx, cy); ctx.scale(c * 0.4 * k, c * 0.4 * k);
-    ctx.fillStyle = PAL.gold; ctx.fill(glyph('bonus'));
-    ctx.lineWidth = 0.09; ctx.strokeStyle = PAL.goldEdge; ctx.stroke(glyph('bonus'));
-    ctx.restore();
-    ctx.strokeStyle = PAL.gold; ctx.lineWidth = 2; ctx.lineCap = 'round';        // time left before it disappears
+    var gr = ctx.createRadialGradient(cx - r * 0.4, cy - r * 0.45, r * 0.1, cx, cy, r * 1.25);
+    gr.addColorStop(0, '#FFF3B0'); gr.addColorStop(0.45, PAL.gold); gr.addColorStop(1, PAL.goldEdge);
+    ctx.fillStyle = gr; ctx.strokeStyle = PAL.goldEdge; ctx.lineWidth = Math.max(1, c * 0.04);
+    ctx.beginPath();                                                                   // an apple: two lobes and a dip at the top
+    ctx.moveTo(cx, cy - r * 0.62);
+    ctx.bezierCurveTo(cx + r * 0.3, cy - r * 1.05, cx + r * 1.15, cy - r * 0.7, cx + r * 1.05, cy + r * 0.1);
+    ctx.bezierCurveTo(cx + r * 0.95, cy + r * 0.85, cx + r * 0.35, cy + r * 1.2, cx, cy + r * 0.98);
+    ctx.bezierCurveTo(cx - r * 0.35, cy + r * 1.2, cx - r * 0.95, cy + r * 0.85, cx - r * 1.05, cy + r * 0.1);
+    ctx.bezierCurveTo(cx - r * 1.15, cy - r * 0.7, cx - r * 0.3, cy - r * 1.05, cx, cy - r * 0.62);
+    ctx.closePath(); ctx.fill(); ctx.stroke();
+    ctx.strokeStyle = '#7A5A12'; ctx.lineWidth = Math.max(1.5, c * 0.055); ctx.lineCap = 'round';   // stem
+    ctx.beginPath(); ctx.moveTo(cx, cy - r * 0.6); ctx.quadraticCurveTo(cx + r * 0.05, cy - r * 1.05, cx + r * 0.22, cy - r * 1.25); ctx.stroke();
+    ctx.fillStyle = '#9BC84A';                                                         // leaf
+    ctx.beginPath(); ctx.ellipse(cx + r * 0.55, cy - r * 1.0, r * 0.38, r * 0.18, -0.5, 0, Math.PI * 2); ctx.fill();
+    ctx.globalAlpha = 0.7; ctx.fillStyle = '#FFFFFF';                                  // shine
+    ctx.beginPath(); ctx.ellipse(cx - r * 0.5, cy - r * 0.15, r * 0.14, r * 0.32, 0.4, 0, Math.PI * 2); ctx.fill();
+    ctx.globalAlpha = 1;
+    if (motionOk()) {                                                                  // twinkling sparkles
+      [[0.95, -0.85, 0], [-1.0, 0.7, 1.7], [0.7, 0.95, 3.1]].forEach(function (o) {
+        var tw = 0.5 + 0.5 * Math.sin(t / 200 + o[2]);
+        ctx.save(); ctx.translate(cx + o[0] * r, cy + o[1] * r); ctx.scale(c * 0.1 * tw, c * 0.1 * tw);
+        ctx.globalAlpha = tw; ctx.fillStyle = '#FFF8D0'; ctx.fill(glyph('bonus')); ctx.restore();
+      });
+      ctx.globalAlpha = 1;
+    }
+    ctx.strokeStyle = PAL.gold; ctx.lineWidth = 2; ctx.lineCap = 'round';             // time left before it disappears
     ctx.beginPath();
     ctx.arc(cx, cy, c * 0.47, -Math.PI / 2, -Math.PI / 2 + Math.max(0, g.ttl / g.life) * Math.PI * 2);
     ctx.stroke();
@@ -3295,7 +3526,7 @@ if (typeof module !== 'undefined' && module.exports) module.exports = SnakeChase
     ArrowUp: [0, -1], ArrowDown: [0, 1], ArrowLeft: [-1, 0], ArrowRight: [1, 0],
     w: [0, -1], s: [0, 1], a: [-1, 0], d: [1, 0], W: [0, -1], S: [0, 1], A: [-1, 0], D: [1, 0]
   };
-  function dialogOpen() { return dlg.open || achDlg.open || shopDlg.open; }
+  function dialogOpen() { return dlg.open || achDlg.open || shopDlg.open || pfDlg.open; }
   ['pointerdown', 'keydown', 'touchend'].forEach(function (n) {       // browsers allow sound only after a tap or key press
     document.addEventListener(n, function () { sfx.unlock(); }, true);
   });
@@ -3348,8 +3579,34 @@ if (typeof module !== 'undefined' && module.exports) module.exports = SnakeChase
   $('settingsClose').addEventListener('click', function () { closeDialog(dlg); });
   $('achClose').addEventListener('click', function () { closeDialog(achDlg); });
   $('homeShopBtn').addEventListener('click', openShop);
+  $('homeProfileBtn').addEventListener('click', openProfile);
+  $('profileClose').addEventListener('click', function () { closeDialog(pfDlg); });
+  $('nameForm').addEventListener('submit', function (e) {
+    e.preventDefault();
+    profile.setName($('nameInput').value);
+    $('nameInput').value = profile.getName();
+    updateHome();
+    $('pfBackupMsg').textContent = profile.getName() ? 'Name saved.' : 'Name cleared.';
+    $('pfCode').value = profile.exportCode();
+  });
+  $('pfCopy').addEventListener('click', function () {
+    var ta = $('pfCode'), msg = $('pfBackupMsg');
+    ta.focus(); ta.select();
+    var ok = false;
+    try { ok = document.execCommand && document.execCommand('copy'); } catch (e) {}
+    if (!ok && navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(ta.value).then(function () { msg.textContent = 'Code copied.'; }, function () { msg.textContent = 'Select the code and copy it by hand.'; });
+    else msg.textContent = ok ? 'Code copied.' : 'Select the code and copy it by hand.';
+  });
+  $('pfRestore').addEventListener('click', function () {
+    var msg = $('pfBackupMsg');
+    if (profile.importCode($('pfRestoreCode').value)) {
+      $('pfRestoreCode').value = '';
+      applyProfileToPage(); renderProfile();
+      $('pfBackupMsg').textContent = 'Restored. Your progress, coins and skins are back.';
+    } else msg.textContent = 'That code did not work. Check that you pasted all of it.';
+  });
   $('shopClose').addEventListener('click', function () { closeDialog(shopDlg); });
-  [dlg, achDlg, shopDlg].forEach(function (d) { d.addEventListener('click', function (e) { if (e.target === d) closeDialog(d); }); });
+  [dlg, achDlg, shopDlg, pfDlg].forEach(function (d) { d.addEventListener('click', function (e) { if (e.target === d) closeDialog(d); }); });
 
   ovBtn.addEventListener('click', function () {
     var ph = game.state.phase;
@@ -3398,6 +3655,7 @@ if (typeof module !== 'undefined' && module.exports) module.exports = SnakeChase
   setTimeout(markReady, 1500);
 
   buildModes();
+  initCloud();
   $('legend').open = window.matchMedia && window.matchMedia('(min-width: 781px)').matches;
   newGame();
   setView('home');
