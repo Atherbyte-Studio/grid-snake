@@ -25,6 +25,10 @@ jobs:
       - run: npm install --no-save playwright && npx playwright install --with-deps chromium
       - run: npm run build:www && npm test
       - run: npx cap sync android
+      # gradlew loses its executable bit when the project is uploaded as a zip or from Windows.
+      # Steps run in android-app/ (see defaults.run.working-directory), so this is android-app/android/gradlew.
+      - name: Make gradlew executable
+        run: chmod +x android/gradlew
       - name: Debug APK (installable on any phone)
         run: cd android && ./gradlew assembleDebug
       - name: Release AAB (signed only when the secrets exist)
