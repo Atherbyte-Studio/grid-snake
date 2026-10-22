@@ -1,0 +1,16 @@
+{
+  "appId": "com.waseem.gridsnake",
+  "appName": "Grid Snake",
+  "webDir": "www",
+  "backgroundColor": "#121413",
+  "android": {
+    "allowMixedContent": false,
+    "backgroundColor": "#121413"
+  },
+  "plugins": {
+    "SystemBars": {
+      "insetsHandling": "native",
+      "style": "DARK"
+    }
+  }
+}

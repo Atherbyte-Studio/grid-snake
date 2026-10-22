@@ -1,0 +1,3 @@
+/* Sora and Instrument Sans, SIL Open Font License (see assets/fonts/OFL-*.txt). Variable fonts: one file, all weights. */
+@font-face { font-family: "Sora"; font-weight: 100 800; font-style: normal; font-display: swap; src: url("Sora.ttf") format("truetype"); }
+@font-face { font-family: "Instrument Sans"; font-weight: 400 700; font-style: normal; font-display: swap; src: url("InstrumentSans.ttf") format("truetype"); }
