@@ -1,0 +1,47 @@
+# Builds the Android app in the cloud (GitHub's runners have the Android SDK and full network access).
+# Run it from the Actions tab ("Run workflow") or push a tag like v1.0.0. Download the files from the run's Artifacts.
+# Repo layout expected: the project root holds grid-snake.html, src/, tests/ and android-app/ (this file lives in the root's .github/).
+name: android
+on:
+  workflow_dispatch:
+  push:
+    tags: ['v*']
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: android-app
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22 }
+      - uses: actions/setup-java@v4
+        with: { distribution: temurin, java-version: 21 }
+      - uses: android-actions/setup-android@v3
+      - run: npm install
+      - run: npm install --no-save playwright && npx playwright install --with-deps chromium
+      - run: npm run build:www && npm test
+      - run: npx cap sync android
+      - name: Debug APK (installable on any phone)
+        run: cd android && ./gradlew assembleDebug
+      - name: Release AAB (signed only when the secrets exist)
+        env:
+          GRIDSNAKE_KEYSTORE_B64: ${{ secrets.GRIDSNAKE_KEYSTORE_B64 }}
+          GRIDSNAKE_STORE_PASSWORD: ${{ secrets.GRIDSNAKE_STORE_PASSWORD }}
+          GRIDSNAKE_KEY_ALIAS: ${{ secrets.GRIDSNAKE_KEY_ALIAS }}
+          GRIDSNAKE_KEY_PASSWORD: ${{ secrets.GRIDSNAKE_KEY_PASSWORD }}
+        run: |
+          if [ -n "$GRIDSNAKE_KEYSTORE_B64" ]; then
+            echo "$GRIDSNAKE_KEYSTORE_B64" | base64 -d > "$RUNNER_TEMP/upload.jks"
+            export GRIDSNAKE_KEYSTORE="$RUNNER_TEMP/upload.jks"
+          else
+            echo "No signing secrets: the AAB will be unsigned (fine for a test, not accepted by Google Play)."
+          fi
+          cd android && ./gradlew bundleRelease
+      - uses: actions/upload-artifact@v4
+        with:
+          name: grid-snake-android
+          path: |
+            android-app/android/app/build/outputs/apk/debug/*.apk
+            android-app/android/app/build/outputs/bundle/release/*.aab
