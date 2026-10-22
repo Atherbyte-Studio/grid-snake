@@ -127,12 +127,26 @@ p { margin: 0; }
   transition: border-color .15s ease, background-color .15s ease;
 }
 .mode:hover { border-color: var(--line-strong); background: var(--surface-2); }
-.mode-name { font-family: var(--font-display); font-weight: 600; font-size: 16px; display: flex; align-items: center; justify-content: space-between; gap: 8px; }
-.mode-name::after { content: ""; flex: none; width: 14px; height: 14px; border-radius: 50%; border: 2px solid var(--line-strong); }
+.mode-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.mode-name { font-family: var(--font-display); font-weight: 600; font-size: 16px; }
+.mode-head::after { content: ""; flex: none; width: 14px; height: 14px; border-radius: 50%; border: 2px solid var(--line-strong); }
 .mode-desc { font-size: 13px; line-height: 1.45; color: var(--muted); }
 .mode[aria-pressed="true"] { border-color: var(--accent); background: var(--surface-2); }
-.mode[aria-pressed="true"] .mode-name::after { border-color: var(--accent); background: var(--accent); box-shadow: inset 0 0 0 3px var(--surface-2); }
-.home-actions { display: flex; flex-wrap: wrap; gap: 12px; }
+.mode[aria-pressed="true"] .mode-head::after { border-color: var(--accent); background: var(--accent); box-shadow: inset 0 0 0 3px var(--surface-2); }
+.home-top { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.coin-pill { display: inline-flex; align-items: center; gap: 6px; padding: 6px 14px; border: 1px solid rgba(255, 217, 138, .35); border-radius: 999px; background: var(--surface); color: var(--bonus); font-variant-numeric: tabular-nums; }
+.coin-pill svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+.btn--xl { min-height: 64px; width: 100%; font-size: 20px; font-family: var(--font-display); font-weight: 600; border-radius: 18px; box-shadow: 0 14px 28px -16px var(--accent); }
+.tiles { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+.tile { display: grid; justify-items: center; gap: 4px; padding: 14px 8px; border: 1px solid var(--line); border-radius: 16px; background: var(--surface); color: var(--text); font: inherit; cursor: pointer; transition: border-color .15s ease, background-color .15s ease, transform .1s ease; -webkit-tap-highlight-color: transparent; }
+.tile:hover { border-color: var(--line-strong); background: var(--surface-2); }
+.tile:active { transform: scale(.97); }
+.tile:focus-visible { outline: 2px solid var(--focus); outline-offset: 3px; }
+.tile svg { width: 26px; height: 26px; fill: none; stroke: var(--accent-strong); stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
+.tile-name { font-size: 14px; font-weight: 600; }
+.tile .count { margin: 0; padding: 1px 9px; border-radius: 999px; background: var(--bg); color: var(--muted); font-size: 12px; font-variant-numeric: tabular-nums; min-height: 18px; }
+.tile .count:empty { visibility: hidden; }
+.mode-ico { width: 28px; height: 28px; fill: none; stroke: var(--accent-strong); stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
 .home-meta { font-size: 13px; color: var(--muted); display: flex; flex-wrap: wrap; gap: 6px 18px; }
 .home-meta b { color: var(--text); font-weight: 600; }
 
@@ -438,9 +452,43 @@ html[data-motion="off"] *, html[data-motion="off"] *::before, html[data-motion="
   .chase-actions .btn { min-height: 52px; flex: 1; }
 }
 
-.profile-chip { display: inline-flex; align-items: center; gap: 10px; margin-top: 14px; padding: 6px 14px 6px 6px; border: 1px solid var(--line-strong); border-radius: 999px; background: var(--surface); color: var(--text); font: inherit; font-weight: 600; cursor: pointer; -webkit-tap-highlight-color: transparent; }
+.profile-chip { display: inline-flex; align-items: center; gap: 10px; padding: 5px 16px 5px 5px; border: 1px solid var(--line-strong); border-radius: 999px; background: var(--surface); color: var(--text); font: inherit; font-weight: 600; cursor: pointer; -webkit-tap-highlight-color: transparent; }
 .profile-chip:focus-visible { outline: 2px solid var(--focus); outline-offset: 3px; }
 .avatar { width: 30px; height: 30px; border-radius: 50%; background: var(--accent); color: var(--on-accent); display: grid; place-items: center; font-weight: 700; font-size: 14px; }
+.avatar { flex: none; }
+.welcome { grid-template-columns: minmax(0, 1fr); }
+.welcome .pf-name { flex-wrap: wrap; }
+.welcome .pf-name input { flex: 1 1 140px; min-width: 0; }
+.welcome .pf-name .btn { flex: 1 1 100%; }
+@media (max-width: 440px) {
+  .mode-desc { font-size: 12px; line-height: 1.35; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+  .mode-ico { width: 22px; height: 22px; }
+}
+.avatar--xl { width: 64px; height: 64px; font-size: 28px; font-family: var(--font-display); }
+.pf-hero { display: flex; align-items: center; gap: 16px; padding: 16px; border: 1px solid var(--line); border-radius: 16px; background: linear-gradient(135deg, var(--surface-2), var(--surface)); margin-bottom: 14px; }
+.pf-hero-name { margin: 0; font-family: var(--font-display); font-weight: 700; font-size: 24px; line-height: 1.15; overflow-wrap: anywhere; }
+.pf-hero-sub { margin: 2px 0 0; font-size: 13px; color: var(--muted); }
+.pf-cards { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; margin: 16px 0 0; }
+.pf-cards div { padding: 10px 12px; border: 1px solid var(--line); border-radius: 12px; background: var(--surface-2); text-align: center; }
+.pf-cards dt { font-size: 10px; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); }
+.pf-cards dd { margin: 2px 0 0; font-family: var(--font-display); font-weight: 700; font-size: 24px; font-variant-numeric: tabular-nums; }
+.pf-cards div:first-child dd { color: var(--bonus); }
+.pf-h { margin: 20px 0 8px; font-size: 11px; font-weight: 500; letter-spacing: .12em; text-transform: uppercase; color: var(--muted); }
+.pf-bests { list-style: none; margin: 0; padding: 0; border: 1px solid var(--line); border-radius: 12px; overflow: hidden; }
+.pf-bests li { display: flex; justify-content: space-between; gap: 12px; padding: 9px 14px; font-size: 14px; background: var(--surface-2); }
+.pf-bests li + li { border-top: 1px solid var(--line); }
+.pf-bests b { font-variant-numeric: tabular-nums; }
+.pf-meters { display: grid; gap: 10px; }
+.pf-meter-row { display: flex; justify-content: space-between; font-size: 14px; }
+.pf-meter-row span:last-child { color: var(--muted); font-variant-numeric: tabular-nums; }
+.pf-meters .bar { margin-top: 6px; }
+.welcome { display: grid; gap: 14px; text-align: center; justify-items: center; }
+.welcome h2 { margin: 0; font-family: var(--font-display); font-size: 28px; }
+.welcome-text { color: var(--muted); max-width: 30ch; }
+.welcome .pf-name { width: 100%; }
+.welcome details { width: 100%; text-align: left; }
+#welcomeDlg { width: min(420px, calc(100vw - 32px)); }
+#welcomeDlg::backdrop { background: rgba(8, 10, 9, .88); }
 .pf-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 8px; margin: 0; }
 .pf-grid div { padding: 10px 12px; border: 1px solid var(--line); border-radius: 12px; background: var(--surface-2); }
 .pf-grid dt { font-size: 11px; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); }
@@ -449,7 +497,8 @@ html[data-motion="off"] *, html[data-motion="off"] *::before, html[data-motion="
 .pf-name input, .pf-code { flex: 1; min-width: 0; padding: 10px 12px; border: 1px solid var(--line-strong); border-radius: 12px; background: var(--surface-2); color: var(--text); font: inherit; }
 .pf-code { width: 100%; min-height: 76px; resize: vertical; font-size: 12px; word-break: break-all; }
 .pf-row { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 8px; }
-.pf-status { font-size: 13px; color: var(--muted); margin-top: 8px; }
+.pf-status { font-size: 13px; color: var(--muted); margin-top: 8px; min-height: 1em; }
+.pf-status.err { color: var(--food); }
 .pf-status.ok { color: var(--accent-strong); }
 .ach-tier { font-size: 11px; font-weight: 600; color: var(--bonus); margin-left: 8px; }
 .ach[data-state="complete"] { border-color: rgba(255, 217, 138, .4); }
@@ -468,22 +517,25 @@ html[data-motion="off"] *, html[data-motion="off"] *::before, html[data-motion="
 
 <section class="view home" id="home" aria-busy="true">
   <div class="home-inner">
+    <div class="home-top">
+      <button class="profile-chip" id="homeProfileBtn" type="button" aria-label="Open your profile"><span class="avatar" id="homeAvatar">?</span><span id="homeName">Player</span></button>
+      <span class="coin-pill" title="Your coins"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v10M9.5 9.5h4a1.7 1.7 0 0 1 0 3.4h-3a1.7 1.7 0 0 0 0 3.4h4.2"/></svg><b id="homeCoinPill">0</b></span>
+    </div>
     <div>
       <h1>Grid <span>Snake</span></h1>
-      <p class="lede">Steer the snake, eat to grow, and keep clear of your own tail. Pick a mode and play.</p>
-      <button class="profile-chip" id="homeProfileBtn" type="button"><span class="avatar" id="homeAvatar">?</span><span id="homeName">Set your name</span></button>
+      <p class="lede" id="homeLede">Steer the snake, eat to grow, and keep clear of your own tail. Pick a mode and play.</p>
     </div>
     <div>
       <p class="group-label">Game mode</p>
       <div class="modes" id="modes" role="group" aria-label="Game mode"></div>
     </div>
-    <div class="home-actions">
-      <button class="btn btn--primary btn--lg" id="playBtn" type="button" disabled><span class="spin" aria-hidden="true"></span>Loading</button>
-      <button class="btn btn--lg" id="homeAchBtn" type="button">Achievements<span class="count" id="homeAchCount">0/0</span></button>
-      <button class="btn btn--lg" id="homeShopBtn" type="button">Shop<span class="count" id="homeCoins">0</span></button>
-      <button class="btn btn--lg" id="homeSettingsBtn" type="button">Settings</button>
+    <button class="btn btn--primary btn--xl" id="playBtn" type="button" disabled><span class="spin" aria-hidden="true"></span>Loading</button>
+    <div class="tiles">
+      <button class="tile" id="homeAchBtn" type="button"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l2.6 5.6 6 .7-4.5 4.1 1.2 6L12 16.4 6.7 19.4l1.2-6L3.4 9.3l6-.7z"/></svg><span class="tile-name">Achievements</span><span class="count" id="homeAchCount">0/0</span></button>
+      <button class="tile" id="homeShopBtn" type="button"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 8h14l1 12H4zM9 8a3 3 0 0 1 6 0"/></svg><span class="tile-name">Shop</span><span class="count" id="homeCoins">0</span></button>
+      <button class="tile" id="homeSettingsBtn" type="button"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h9M17 7h3M4 17h3M11 17h9M13 4v6M7 14v6"/></svg><span class="tile-name">Settings</span></button>
     </div>
-    <p class="home-meta"><span>Edges: <b id="homeEdge">Walls</b></span><span>Best in this mode: <b id="homeBest">0</b></span><span>Arrow keys or WASD. Swipe on touch screens.</span></p>
+    <p class="home-meta"><span>Edges: <b id="homeEdge">Walls</b></span><span>Best in this mode: <b id="homeBest">0</b></span><span class="kbd-only">Arrow keys or WASD</span></p>
   </div>
 </section>
 
@@ -661,34 +713,57 @@ html[data-motion="off"] *, html[data-motion="off"] *::before, html[data-motion="
   <div class="shop-grid" id="shopBody"></div>
 </dialog>
 
+<dialog id="welcomeDlg" aria-labelledby="welcomeTitle">
+  <div class="welcome">
+    <p class="wordmark">Grid <span>Snake</span></p>
+    <h2 id="welcomeTitle">Welcome!</h2>
+    <p class="welcome-text">What should we call you? Your name goes on your profile.</p>
+    <form class="pf-name" id="welcomeForm">
+      <input id="welcomeInput" type="text" maxlength="16" autocomplete="nickname" placeholder="Your name" aria-label="Your name" required>
+      <button class="btn btn--primary" type="submit">Let's play</button>
+    </form>
+    <p class="pf-status" id="welcomeMsg" role="status"></p>
+    <details class="help">
+      <summary>I already have a backup code</summary>
+      <textarea class="pf-code" id="welcomeCode" placeholder="Paste a code that starts with GS2." aria-label="Backup code"></textarea>
+      <div class="pf-row"><button class="btn" id="welcomeRestore" type="button">Restore my progress</button></div>
+    </details>
+  </div>
+</dialog>
+
 <dialog id="profileDlg" aria-labelledby="profileTitle">
   <div class="dlg-head">
     <h2 id="profileTitle">Profile</h2>
     <button class="btn" id="profileClose" type="button">Close</button>
   </div>
-  <div class="dlg-section">
-    <h3>Your name</h3>
-    <form class="pf-name" id="nameForm">
-      <input id="nameInput" type="text" maxlength="16" autocomplete="nickname" placeholder="Player name" aria-label="Player name">
-      <button class="btn btn--primary" type="submit">Save</button>
-    </form>
-    <p class="dlg-note">Up to 16 characters. It is only shown to you.</p>
+  <div class="pf-hero">
+    <span class="avatar avatar--xl" id="pfAvatar">?</span>
+    <div class="pf-hero-text">
+      <p class="pf-hero-name" id="pfHeroName">Player</p>
+      <p class="pf-hero-sub" id="pfHeroSub"></p>
+    </div>
   </div>
-  <div class="dlg-section">
-    <h3>Your progress</h3>
-    <dl class="pf-grid" id="pfStats"></dl>
-    <p class="pf-status" id="pfSave"></p>
-  </div>
-  <div class="dlg-section">
-    <h3>Backup code</h3>
-    <p class="dlg-note" style="margin:0 0 8px">Copy this code somewhere safe. Pasting it on another device, or after clearing your browser, brings back your progress, coins and skins.</p>
+  <form class="pf-name" id="nameForm">
+    <input id="nameInput" type="text" maxlength="16" autocomplete="nickname" placeholder="Your name" aria-label="Player name" required>
+    <button class="btn btn--primary" type="submit">Save name</button>
+  </form>
+  <p class="pf-status" id="pfNameMsg" role="status"></p>
+  <dl class="pf-cards" id="pfStats"></dl>
+  <h3 class="pf-h">Best scores</h3>
+  <ul class="pf-bests" id="pfBests"></ul>
+  <h3 class="pf-h">Collection</h3>
+  <div class="pf-meters" id="pfMeters"></div>
+  <p class="pf-status" id="pfSave"></p>
+  <details class="help" id="pfBackupBox">
+    <summary id="pfBackupSummary">Backup and restore</summary>
+    <p class="dlg-note" style="margin:8px 0">Copy this code somewhere safe. Pasting it on another device, or after clearing your browser, brings back your progress, coins and skins.</p>
     <textarea class="pf-code" id="pfCode" readonly aria-label="Your backup code"></textarea>
     <div class="pf-row"><button class="btn" id="pfCopy" type="button">Copy code</button></div>
-    <h3 class="sub" style="margin-top:18px">Restore from a code</h3>
+    <p class="dlg-note" style="margin:16px 0 8px">Restore from a code:</p>
     <textarea class="pf-code" id="pfRestoreCode" placeholder="Paste a code that starts with GS2." aria-label="Backup code to restore"></textarea>
     <div class="pf-row"><button class="btn" id="pfRestore" type="button">Restore</button></div>
     <p class="pf-status" id="pfBackupMsg" role="status"></p>
-  </div>
+  </details>
 </dialog>
 
 <dialog id="achDialog" aria-labelledby="achTitle">
@@ -2321,6 +2396,12 @@ if (typeof module !== 'undefined' && module.exports) module.exports = SnakeChase
   }
 
   /* ---------- home ---------- */
+  var MODE_ICON = {
+    classic: 'M3 17c3 0 3-9 6-9s3 9 6 9 3-5 6-5',
+    timeattack: 'M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18zM12 7v5l3 2',
+    survival: 'M12 20s-7-4.5-7-10a4 4 0 0 1 7-2.5A4 4 0 0 1 19 10c0 5.5-7 10-7 10z',
+    chase: 'M12 8c-3-2-7 0-7 5 0 4 3 7 5 7 1 0 1.5-.5 2-.5s1 .5 2 .5c2 0 5-3 5-7 0-5-4-7-7-5zM12 8c0-2 1-3 3-3'
+  };
   function buildModes() {
     var box = $('modes');
     box.textContent = '';
@@ -2329,9 +2410,13 @@ if (typeof module !== 'undefined' && module.exports) module.exports = SnakeChase
       b.type = 'button';
       b.className = 'mode';
       b.setAttribute('data-mode', id);
+      var head = document.createElement('span'); head.className = 'mode-head';
+      var ico = document.createElementNS('http://www.w3.org/2000/svg', 'svg'); ico.setAttribute('viewBox', '0 0 24 24'); ico.setAttribute('class', 'mode-ico'); ico.setAttribute('aria-hidden', 'true');
+      var ip = document.createElementNS('http://www.w3.org/2000/svg', 'path'); ip.setAttribute('d', MODE_ICON[id] || MODE_ICON.classic); ico.appendChild(ip);
+      head.appendChild(ico);
       var n = document.createElement('span'); n.className = 'mode-name'; n.textContent = MODES[id].label;
       var d = document.createElement('span'); d.className = 'mode-desc'; d.textContent = MODE_COPY[id].desc;
-      b.appendChild(n); b.appendChild(d);
+      b.appendChild(head); b.appendChild(n); b.appendChild(d);
       b.addEventListener('click', function () { setMode(id); });
       box.appendChild(b);
     });
@@ -2354,7 +2439,9 @@ if (typeof module !== 'undefined' && module.exports) module.exports = SnakeChase
     setText($('homeCoins'), profile.getCoins());
     setText($('homeAchCount'), Ach.completedTiers(profile.achMap()) + '/' + Ach.totalTiers());
     var nm = profile.getName();
-    setText($('homeName'), nm || 'Set your name');
+    setText($('homeName'), nm || 'Player');
+    setText($('homeCoinPill'), profile.getCoins());
+    setText($('homeLede'), nm ? 'Welcome back, ' + nm + '. Pick a mode and beat your best.' : 'Steer the snake, eat to grow, and keep clear of your own tail. Pick a mode and play.');
     setText($('homeAvatar'), nm ? Array.from(nm)[0].toUpperCase() : '?');
     $('modeWalls').setAttribute('aria-pressed', edge === 'walls' ? 'true' : 'false');
     $('modeWrap').setAttribute('aria-pressed', edge === 'wrap' ? 'true' : 'false');
@@ -2749,21 +2836,41 @@ if (typeof module !== 'undefined' && module.exports) module.exports = SnakeChase
       : 'Saved on this device only. Copy your backup code to keep a spare.';
   }
   function renderProfile() {
-    var t = profile.getTotals(), items = SHOP.filter(function (i) { return profile.owns(i.id); }).length, box = $('pfStats');
-    $('nameInput').value = profile.getName();
-    box.textContent = '';
-    var rows = [['Coins', profile.getCoins()], ['Runs', t.runs], ['Foods eaten', t.foods], ['Achievement tiers', Ach.completedTiers(profile.achMap()) + '/' + Ach.totalTiers()], ['Shop items', items + '/' + SHOP.length]];
-    MODE_IDS.forEach(function (m) {
-      rows.push([MODES[m].label + ' best', Math.max(profile.getBest(m, 'walls', false), profile.getBest(m, 'wrap', false))]);
-    });
-    rows.forEach(function (r) {
+    var t = profile.getTotals(), nm = profile.getName(), tiers = Ach.completedTiers(profile.achMap()), items = SHOP.filter(function (i) { return profile.owns(i.id); }).length;
+    $('nameInput').value = nm;
+    setText($('pfAvatar'), nm ? Array.from(nm)[0].toUpperCase() : '?');
+    setText($('pfHeroName'), nm || 'Player');
+    setText($('pfHeroSub'), tiers + ' of ' + Ach.totalTiers() + ' achievement tiers · ' + items + ' of ' + SHOP.length + ' shop items');
+    var box = $('pfStats'); box.textContent = '';
+    [['Coins', profile.getCoins()], ['Runs', t.runs], ['Foods eaten', t.foods]].forEach(function (r) {
       var d = document.createElement('div'), dt = document.createElement('dt'), dd = document.createElement('dd');
       dt.textContent = r[0]; dd.textContent = r[1]; d.appendChild(dt); d.appendChild(dd); box.appendChild(d);
+    });
+    var bests = $('pfBests'); bests.textContent = '';
+    MODE_IDS.forEach(function (m) {
+      var li = document.createElement('li'), a = document.createElement('span'), b = document.createElement('b');
+      a.textContent = MODES[m].label; b.textContent = Math.max(profile.getBest(m, 'walls', false), profile.getBest(m, 'wrap', false));
+      li.appendChild(a); li.appendChild(b); bests.appendChild(li);
+    });
+    var meters = $('pfMeters'); meters.textContent = '';
+    [['Achievement tiers', tiers, Ach.totalTiers()], ['Shop items', items, SHOP.length]].forEach(function (r) {
+      var w = document.createElement('div'), row = document.createElement('div'), a = document.createElement('span'), b = document.createElement('span');
+      row.className = 'pf-meter-row'; a.textContent = r[0]; b.textContent = r[1] + ' / ' + r[2]; row.appendChild(a); row.appendChild(b);
+      var bar = document.createElement('div'); bar.className = 'bar'; bar.setAttribute('role', 'presentation');
+      var fill = document.createElement('i'); fill.style.width = Math.round(100 * r[1] / r[2]) + '%'; bar.appendChild(fill);
+      w.appendChild(row); w.appendChild(bar); meters.appendChild(w);
     });
     $('pfSave').textContent = cloudText();
     $('pfSave').className = 'pf-status' + (cloud.state === 'on' ? ' ok' : '');
     $('pfCode').value = profile.exportCode();
-    $('pfBackupMsg').textContent = '';
+    $('pfBackupMsg').textContent = ''; $('pfNameMsg').textContent = ''; $('pfNameMsg').className = 'pf-status';
+  }
+  /* A name is required before the first game. The welcome box cannot be dismissed until there is one. */
+  function maybeWelcome() {
+    var d = $('welcomeDlg');
+    if (profile.getName()) { if (d.open) closeDialog(d); return; }
+    if (!d.open) { if (d.showModal) d.showModal(); else d.setAttribute('open', ''); }
+    try { $('welcomeInput').focus({ preventScroll: true }); } catch (e) {}
   }
   function openProfile() {
     renderProfile();
@@ -2776,6 +2883,7 @@ if (typeof module !== 'undefined' && module.exports) module.exports = SnakeChase
     hapticsOn = pf.haptics; motionPref = pf.motion; document.documentElement.setAttribute('data-motion', motionPref);
     applyLook('skin', pf.skin); applyLook('board', pf.board); applyLook('food', pf.food);
     if (!game || game.state.phase === 'ready' || game.state.phase === 'over') newGame(); else updateHome();
+    if (profile.getName() && $('welcomeDlg').open) closeDialog($('welcomeDlg'));
   }
   function cloudUpload() {
     if (cloud.state === 'off' || !cloud.ref) return;
@@ -3526,7 +3634,7 @@ if (typeof module !== 'undefined' && module.exports) module.exports = SnakeChase
     ArrowUp: [0, -1], ArrowDown: [0, 1], ArrowLeft: [-1, 0], ArrowRight: [1, 0],
     w: [0, -1], s: [0, 1], a: [-1, 0], d: [1, 0], W: [0, -1], S: [0, 1], A: [-1, 0], D: [1, 0]
   };
-  function dialogOpen() { return dlg.open || achDlg.open || shopDlg.open || pfDlg.open; }
+  function dialogOpen() { return dlg.open || achDlg.open || shopDlg.open || pfDlg.open || $('welcomeDlg').open; }
   ['pointerdown', 'keydown', 'touchend'].forEach(function (n) {       // browsers allow sound only after a tap or key press
     document.addEventListener(n, function () { sfx.unlock(); }, true);
   });
@@ -3583,11 +3691,25 @@ if (typeof module !== 'undefined' && module.exports) module.exports = SnakeChase
   $('profileClose').addEventListener('click', function () { closeDialog(pfDlg); });
   $('nameForm').addEventListener('submit', function (e) {
     e.preventDefault();
+    var msg = $('pfNameMsg');
+    if (!$('nameInput').value.replace(/[<>&"\s]/g, '')) { msg.textContent = 'Please type a name.'; msg.className = 'pf-status err'; return; }
     profile.setName($('nameInput').value);
-    $('nameInput').value = profile.getName();
+    updateHome(); renderProfile();
+    $('pfNameMsg').textContent = 'Name saved.'; $('pfNameMsg').className = 'pf-status ok';
+  });
+  $('welcomeForm').addEventListener('submit', function (e) {
+    e.preventDefault();
+    var v = $('welcomeInput').value;
+    if (!v.replace(/[<>&"\s]/g, '')) { $('welcomeMsg').textContent = 'Please type a name to continue.'; $('welcomeMsg').className = 'pf-status err'; return; }
+    profile.setName(v);
     updateHome();
-    $('pfBackupMsg').textContent = profile.getName() ? 'Name saved.' : 'Name cleared.';
-    $('pfCode').value = profile.exportCode();
+    closeDialog($('welcomeDlg'));
+    try { playBtn.focus({ preventScroll: true }); } catch (err) {}
+  });
+  $('welcomeDlg').addEventListener('cancel', function (e) { if (!profile.getName()) e.preventDefault(); });   // Esc cannot skip it
+  $('welcomeRestore').addEventListener('click', function () {
+    if (profile.importCode($('welcomeCode').value)) { applyProfileToPage(); maybeWelcome(); }
+    else { $('welcomeMsg').textContent = 'That code did not work. Check that you pasted all of it.'; $('welcomeMsg').className = 'pf-status err'; }
   });
   $('pfCopy').addEventListener('click', function () {
     var ta = $('pfCode'), msg = $('pfBackupMsg');
@@ -3656,6 +3778,7 @@ if (typeof module !== 'undefined' && module.exports) module.exports = SnakeChase
 
   buildModes();
   initCloud();
+  maybeWelcome();
   $('legend').open = window.matchMedia && window.matchMedia('(min-width: 781px)').matches;
   newGame();
   setView('home');
