@@ -9,6 +9,8 @@ var SnakeProfile = (function () {
   var KEY = 'gridsnake-profile-v2';
   var EDGES = ['walls', 'wrap'];
   var MOTIONS = ['auto', 'on', 'off'];
+  var DIFFS = ['auto', 'easy', 'normal', 'hard'];          // auto: easy on a touch screen, hard (the original) elsewhere
+  var CONTROLS = ['auto', 'turn', 'arrows', 'swipe'];      // auto: two turn buttons on a touch screen
 
   function create(storage, opts) {
     opts = opts || {};
@@ -42,7 +44,7 @@ var SnakeProfile = (function () {
     function count(v) { return typeof v === 'number' && isFinite(v) && v > 0 ? Math.floor(v) : 0; }
 
     function sanitize(d) {
-      var out = { prefs: { mode: modes[0], edge: 'walls', skin: skins[0], style: LOOKS.style[0], board: LOOKS.board[0], food: LOOKS.food[0], golden: false, sound: true, volume: 1, haptics: true, motion: 'auto' }, totals: { foods: 0, bonus: 0, runs: 0 }, ach: {}, coins: 0, owned: {}, name: '', savedAt: 0 };
+      var out = { prefs: { mode: modes[0], edge: 'walls', skin: skins[0], style: LOOKS.style[0], board: LOOKS.board[0], food: LOOKS.food[0], golden: false, sound: true, volume: 1, haptics: true, motion: 'auto', difficulty: 'auto', controls: 'auto' }, totals: { foods: 0, bonus: 0, runs: 0 }, ach: {}, coins: 0, owned: {}, name: '', savedAt: 0 };
       if (!d || typeof d !== 'object') return out;
       if (d.prefs && modes.indexOf(d.prefs.mode) >= 0) out.prefs.mode = d.prefs.mode;
       if (d.prefs && EDGES.indexOf(d.prefs.edge) >= 0) out.prefs.edge = d.prefs.edge;
@@ -54,6 +56,8 @@ var SnakeProfile = (function () {
       if (d.prefs && typeof d.prefs.volume === 'number' && d.prefs.volume >= 0 && d.prefs.volume <= 1) out.prefs.volume = Math.round(d.prefs.volume * 20) / 20;
       if (d.prefs && d.prefs.haptics === false) out.prefs.haptics = false;
       if (d.prefs && MOTIONS.indexOf(d.prefs.motion) >= 0) out.prefs.motion = d.prefs.motion;
+      if (d.prefs && DIFFS.indexOf(d.prefs.difficulty) >= 0) out.prefs.difficulty = d.prefs.difficulty;
+      if (d.prefs && CONTROLS.indexOf(d.prefs.controls) >= 0) out.prefs.controls = d.prefs.controls;
       if (d.totals && typeof d.totals === 'object') {
         out.totals.foods = count(d.totals.foods);
         out.totals.bonus = count(d.totals.bonus);
@@ -119,6 +123,8 @@ var SnakeProfile = (function () {
         if (p && typeof p.volume === 'number' && p.volume >= 0 && p.volume <= 1) data.prefs.volume = Math.round(p.volume * 20) / 20;
         if (p && typeof p.haptics === 'boolean') data.prefs.haptics = p.haptics;
         if (p && MOTIONS.indexOf(p.motion) >= 0) data.prefs.motion = p.motion;
+        if (p && DIFFS.indexOf(p.difficulty) >= 0) data.prefs.difficulty = p.difficulty;
+        if (p && CONTROLS.indexOf(p.controls) >= 0) data.prefs.controls = p.controls;
         save();
       },
       getTotals: function () { return { foods: data.totals.foods, bonus: data.totals.bonus, runs: data.totals.runs }; },
