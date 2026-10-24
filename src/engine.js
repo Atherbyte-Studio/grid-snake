@@ -11,6 +11,7 @@ var SnakeEngine = (function () {
     cols: 20,
     rows: 20,
     maxDt: 100,          // longest slice of real time one update() will use (ms)
+    inputBuffer: 2,      // how many turns can wait in line (a quick double swipe is not lost)
     minInterval: 60,     // fastest allowed step, after any effect (ms per cell)
     maxInterval: 260,    // slowest allowed step (ms per cell)
     // Classic keeps the original rule: speed rises with every point. Level is only a progress marker.
@@ -36,6 +37,24 @@ var SnakeEngine = (function () {
       bonusPoints: 5,
       weights: { boost: 3, slow: 2, bonus: 3, shield: 2 }
     }
+  };
+
+  /* Difficulty = overrides laid on top of TUNING (pass as opts.tuning). Hard is the original game, unchanged.
+     Easy and Normal start slower, speed up more gently and stop at a slower top speed. */
+  var DIFFICULTY = {
+    easy: {
+      inputBuffer: 3,
+      classic:    { start: 190, step: 2, floor: 105 },
+      timeattack: { start: 170, step: 5, floor: 110 },
+      survival:   { start: 175, step: 5, floor: 110 }
+    },
+    normal: {
+      inputBuffer: 3,
+      classic:    { start: 170, step: 3, floor: 85 },
+      timeattack: { start: 150, step: 6, floor: 95 },
+      survival:   { start: 155, step: 6, floor: 95 }
+    },
+    hard: {}
   };
 
   var MODES = {
@@ -353,7 +372,7 @@ var SnakeEngine = (function () {
       var last = S.queue.length ? S.queue[S.queue.length - 1] : S.dir;
       if (last.x === dx && last.y === dy) return false;       // already heading that way
       if (last.x === -dx && last.y === -dy) return false;     // a direct reversal would hit the neck
-      if (S.queue.length < 2) S.queue.push({ x: dx, y: dy });
+      if (S.queue.length < T.inputBuffer) S.queue.push({ x: dx, y: dy });
       return true;
     }
 
@@ -395,6 +414,6 @@ var SnakeEngine = (function () {
     };
   }
 
-  return { TUNING: TUNING, MODES: MODES, create: create };
+  return { TUNING: TUNING, DIFFICULTY: DIFFICULTY, MODES: MODES, create: create };
 })();
 if (typeof module !== 'undefined' && module.exports) module.exports = SnakeEngine;

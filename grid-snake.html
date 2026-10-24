@@ -255,6 +255,10 @@ kbd {
 .legend .l-shield { color: var(--shield); } .legend .l-bonus { color: var(--bonus); }
 .legend .note { padding: 0 14px 12px; font-size: 12px; color: var(--muted); }
 
+.turnpad { display: none; gap: 12px; width: 100%; max-width: 420px; }
+.turnpad button { flex: 1; min-height: 96px; border: 1px solid var(--line); border-radius: 22px; background: var(--surface-2); color: var(--text); cursor: pointer; touch-action: manipulation; display: grid; place-items: center; -webkit-tap-highlight-color: transparent; }
+.turnpad button:active { background: var(--accent); color: var(--on-accent); border-color: var(--accent); }
+.turnpad svg { width: 44px; height: 44px; fill: none; stroke: currentColor; stroke-width: 2.4; stroke-linecap: round; stroke-linejoin: round; }
 .pad { display: none; grid-template-columns: repeat(3, 64px); grid-template-rows: repeat(2, 64px); gap: 8px; justify-content: center; }
 .pad button {
   font: inherit;
@@ -271,7 +275,11 @@ kbd {
 .pad .left { grid-column: 1; grid-row: 2; }
 .pad .down { grid-column: 2; grid-row: 2; }
 .pad .right { grid-column: 3; grid-row: 2; }
-@media (pointer: coarse) { .pad { display: grid; } .keys .kbd-only { display: none; } }
+@media (pointer: coarse) {
+  .pad { display: grid; } .keys .kbd-only { display: none; }
+  html[data-controls="turn"] .pad, html[data-controls="swipe"] .pad { display: none; }
+  html[data-controls="turn"] .turnpad { display: flex; }
+}
 
 /* Toasts */
 .toasts {
@@ -428,6 +436,8 @@ html[data-motion="off"] *, html[data-motion="off"] *::before, html[data-motion="
   .btn-grid .btn { min-height: 36px; font-size: 14px; }
   .legend, .keys { display: none; }
   .pad { grid-template-columns: repeat(3, 68px); grid-template-rows: repeat(2, 68px); gap: 8px; }
+  .turnpad { height: 100%; max-height: 180px; align-self: flex-end; }
+  .turnpad button { min-height: 0; height: 100%; }
   .pad button { font-size: 30px; border-radius: 18px; }
   .chase-actions { flex-direction: column; margin: 0; gap: 8px; width: 120px; height: 144px; }
   .chase-actions .btn { min-height: 0; flex: 1; font-size: 17px; border-radius: 18px; }
@@ -445,6 +455,8 @@ html[data-motion="off"] *, html[data-motion="off"] *::before, html[data-motion="
   .btn-grid { order: 0; }
   .btn-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
   .pad { grid-template-columns: repeat(3, 56px); grid-template-rows: repeat(2, 56px); }
+  .turnpad { height: 96px; }
+  .turnpad button { min-height: 0; }
   .controls, .touch-zone, .btn-grid { min-width: 0; width: 100%; }
   .btn-grid .btn { padding: 0 4px; font-size: 13px; }
   .chase-actions { flex-direction: row; width: 100%; height: 52px; }
@@ -606,6 +618,10 @@ html[data-motion="off"] *, html[data-motion="off"] *::before, html[data-motion="
         <button type="button" class="down" data-dx="0" data-dy="1" aria-label="Down">↓</button>
         <button type="button" class="right" data-dx="1" data-dy="0" aria-label="Right">→</button>
       </div>
+      <div class="turnpad" aria-label="Turn buttons">
+        <button type="button" id="turnLeft" aria-label="Turn left"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 19v-5a4 4 0 0 0-4-4H5M9 5l-4 5 4 5"/></svg></button>
+        <button type="button" id="turnRight" aria-label="Turn right"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 19v-5a4 4 0 0 1 4-4h6M15 5l4 5-4 5"/></svg></button>
+      </div>
       </div>
     </aside>
   </div>
@@ -615,6 +631,24 @@ html[data-motion="off"] *, html[data-motion="off"] *::before, html[data-motion="
   <div class="dlg-head">
     <h2 id="settingsTitle">Settings</h2>
     <button class="btn" id="settingsClose" type="button">Close</button>
+  </div>
+  <div class="dlg-section">
+    <h3>Difficulty</h3>
+    <div class="seg" role="group" aria-label="Difficulty">
+      <button type="button" id="diffEasy" aria-pressed="false">Easy</button>
+      <button type="button" id="diffNormal" aria-pressed="false">Normal</button>
+      <button type="button" id="diffHard" aria-pressed="false">Hard</button>
+    </div>
+    <p class="dlg-note">Easy starts slow and tops out at a calmer speed, Normal sits in between, and Hard is the original fast game. Phones start on Easy. Changing this restarts the current run. Scores count the same on every difficulty.</p>
+  </div>
+  <div class="dlg-section" id="ctrlSection">
+    <h3>Touch controls</h3>
+    <div class="seg" role="group" aria-label="Touch controls">
+      <button type="button" id="ctrlTurn" aria-pressed="false">Turn buttons</button>
+      <button type="button" id="ctrlArrows" aria-pressed="false">Arrows</button>
+      <button type="button" id="ctrlSwipe" aria-pressed="false">Swipe only</button>
+    </div>
+    <p class="dlg-note">Turn buttons: two big buttons, left and right of the way the snake is heading. Arrows: four fixed directions. Swipe only: no buttons, swipe anywhere. Swiping always works. Touch screens only.</p>
   </div>
   <div class="dlg-section">
     <h3>Edges</h3>
@@ -683,7 +717,7 @@ html[data-motion="off"] *, html[data-motion="off"] *::before, html[data-motion="
       <p><strong>Apple Run.</strong> You are the apple. Outrun the snake, use Dash, and drop banana peels and decoys to make it slip.</p>
     </details>
     <details class="help"><summary>About and privacy</summary>
-      <p>Grid Snake <span id="appVersion">1.0.0</span>. Made with plain HTML, CSS and JavaScript. No ads, no accounts, no tracking.</p>
+      <p>Grid Snake <span id="appVersion">1.1.0</span>. Made with plain HTML, CSS and JavaScript. No ads, no accounts, no tracking.</p>
       <p>Your scores, achievements and settings are stored only on this device, in your browser's local storage. Nothing is sent anywhere.</p>
     </details>
     <div style="margin-top:12px">
@@ -788,6 +822,7 @@ var SnakeEngine = (function () {
     cols: 20,
     rows: 20,
     maxDt: 100,          // longest slice of real time one update() will use (ms)
+    inputBuffer: 2,      // how many turns can wait in line (a quick double swipe is not lost)
     minInterval: 60,     // fastest allowed step, after any effect (ms per cell)
     maxInterval: 260,    // slowest allowed step (ms per cell)
     // Classic keeps the original rule: speed rises with every point. Level is only a progress marker.
@@ -813,6 +848,24 @@ var SnakeEngine = (function () {
       bonusPoints: 5,
       weights: { boost: 3, slow: 2, bonus: 3, shield: 2 }
     }
+  };
+
+  /* Difficulty = overrides laid on top of TUNING (pass as opts.tuning). Hard is the original game, unchanged.
+     Easy and Normal start slower, speed up more gently and stop at a slower top speed. */
+  var DIFFICULTY = {
+    easy: {
+      inputBuffer: 3,
+      classic:    { start: 190, step: 2, floor: 105 },
+      timeattack: { start: 170, step: 5, floor: 110 },
+      survival:   { start: 175, step: 5, floor: 110 }
+    },
+    normal: {
+      inputBuffer: 3,
+      classic:    { start: 170, step: 3, floor: 85 },
+      timeattack: { start: 150, step: 6, floor: 95 },
+      survival:   { start: 155, step: 6, floor: 95 }
+    },
+    hard: {}
   };
 
   var MODES = {
@@ -1130,7 +1183,7 @@ var SnakeEngine = (function () {
       var last = S.queue.length ? S.queue[S.queue.length - 1] : S.dir;
       if (last.x === dx && last.y === dy) return false;       // already heading that way
       if (last.x === -dx && last.y === -dy) return false;     // a direct reversal would hit the neck
-      if (S.queue.length < 2) S.queue.push({ x: dx, y: dy });
+      if (S.queue.length < T.inputBuffer) S.queue.push({ x: dx, y: dy });
       return true;
     }
 
@@ -1172,7 +1225,7 @@ var SnakeEngine = (function () {
     };
   }
 
-  return { TUNING: TUNING, MODES: MODES, create: create };
+  return { TUNING: TUNING, DIFFICULTY: DIFFICULTY, MODES: MODES, create: create };
 })();
 if (typeof module !== 'undefined' && module.exports) module.exports = SnakeEngine;
 
@@ -1269,6 +1322,8 @@ var SnakeProfile = (function () {
   var KEY = 'gridsnake-profile-v2';
   var EDGES = ['walls', 'wrap'];
   var MOTIONS = ['auto', 'on', 'off'];
+  var DIFFS = ['auto', 'easy', 'normal', 'hard'];          // auto: easy on a touch screen, hard (the original) elsewhere
+  var CONTROLS = ['auto', 'turn', 'arrows', 'swipe'];      // auto: two turn buttons on a touch screen
 
   function create(storage, opts) {
     opts = opts || {};
@@ -1302,7 +1357,7 @@ var SnakeProfile = (function () {
     function count(v) { return typeof v === 'number' && isFinite(v) && v > 0 ? Math.floor(v) : 0; }
 
     function sanitize(d) {
-      var out = { prefs: { mode: modes[0], edge: 'walls', skin: skins[0], style: LOOKS.style[0], board: LOOKS.board[0], food: LOOKS.food[0], golden: false, sound: true, volume: 1, haptics: true, motion: 'auto' }, totals: { foods: 0, bonus: 0, runs: 0 }, ach: {}, coins: 0, owned: {}, name: '', savedAt: 0 };
+      var out = { prefs: { mode: modes[0], edge: 'walls', skin: skins[0], style: LOOKS.style[0], board: LOOKS.board[0], food: LOOKS.food[0], golden: false, sound: true, volume: 1, haptics: true, motion: 'auto', difficulty: 'auto', controls: 'auto' }, totals: { foods: 0, bonus: 0, runs: 0 }, ach: {}, coins: 0, owned: {}, name: '', savedAt: 0 };
       if (!d || typeof d !== 'object') return out;
       if (d.prefs && modes.indexOf(d.prefs.mode) >= 0) out.prefs.mode = d.prefs.mode;
       if (d.prefs && EDGES.indexOf(d.prefs.edge) >= 0) out.prefs.edge = d.prefs.edge;
@@ -1314,6 +1369,8 @@ var SnakeProfile = (function () {
       if (d.prefs && typeof d.prefs.volume === 'number' && d.prefs.volume >= 0 && d.prefs.volume <= 1) out.prefs.volume = Math.round(d.prefs.volume * 20) / 20;
       if (d.prefs && d.prefs.haptics === false) out.prefs.haptics = false;
       if (d.prefs && MOTIONS.indexOf(d.prefs.motion) >= 0) out.prefs.motion = d.prefs.motion;
+      if (d.prefs && DIFFS.indexOf(d.prefs.difficulty) >= 0) out.prefs.difficulty = d.prefs.difficulty;
+      if (d.prefs && CONTROLS.indexOf(d.prefs.controls) >= 0) out.prefs.controls = d.prefs.controls;
       if (d.totals && typeof d.totals === 'object') {
         out.totals.foods = count(d.totals.foods);
         out.totals.bonus = count(d.totals.bonus);
@@ -1379,6 +1436,8 @@ var SnakeProfile = (function () {
         if (p && typeof p.volume === 'number' && p.volume >= 0 && p.volume <= 1) data.prefs.volume = Math.round(p.volume * 20) / 20;
         if (p && typeof p.haptics === 'boolean') data.prefs.haptics = p.haptics;
         if (p && MOTIONS.indexOf(p.motion) >= 0) data.prefs.motion = p.motion;
+        if (p && DIFFS.indexOf(p.difficulty) >= 0) data.prefs.difficulty = p.difficulty;
+        if (p && CONTROLS.indexOf(p.controls) >= 0) data.prefs.controls = p.controls;
         save();
       },
       getTotals: function () { return { foods: data.totals.foods, bonus: data.totals.bonus, runs: data.totals.runs }; },
@@ -1694,6 +1753,13 @@ var SnakeChase = (function () {
       itemDistance: 4,
       scorePerSecond: 1, slipPoints: 5, foolPoints: 10, knotPoints: 5
     }
+  };
+
+  /* Difficulty overrides for Apple Run (pass as opts.tuning). Hard is the original. A slower, less clever snake is easier. */
+  var DIFFICULTY = {
+    easy:   { chase: { snakeStart: 205, snakeStep: 8, snakeFloor: 125, dumbStart: 0.3, dumbStep: 0.03, dumbFloor: 0.08 } },
+    normal: { chase: { snakeStart: 190, snakeStep: 9, snakeFloor: 108, dumbStart: 0.25, dumbStep: 0.03, dumbFloor: 0.05 } },
+    hard:   {}
   };
 
   var DIRS = [{ x: 1, y: 0 }, { x: 0, y: 1 }, { x: -1, y: 0 }, { x: 0, y: -1 }];
@@ -2053,7 +2119,7 @@ var SnakeChase = (function () {
     };
   }
 
-  return { TUNING: TUNING, create: create };
+  return { TUNING: TUNING, DIFFICULTY: DIFFICULTY, create: create };
 })();
 if (typeof module !== 'undefined' && module.exports) module.exports = SnakeChase;
 
@@ -2144,7 +2210,7 @@ if (typeof module !== 'undefined' && module.exports) module.exports = SnakeChase
     achievementIds: Ach.CHAINS.map(function (a) { return a.id; })
   });
   var prefs = profile.getPrefs();
-  var mode = prefs.mode, edge = prefs.edge, look = { skin: prefs.skin, style: prefs.style, board: prefs.board, food: prefs.food }, golden = prefs.golden, soundOn = prefs.sound;
+  var mode = prefs.mode, edge = prefs.edge, look = { skin: prefs.skin, style: prefs.style, board: prefs.board, food: prefs.food }, golden = prefs.golden, soundOn = prefs.sound, diffPref = prefs.difficulty, ctrlPref = prefs.controls;
   var sfx = SnakeSound.create({ enabled: soundOn, volume: prefs.volume });
   motionPref = prefs.motion; hapticsOn = prefs.haptics;
   document.documentElement.setAttribute('data-motion', motionPref);
@@ -2433,6 +2499,8 @@ if (typeof module !== 'undefined' && module.exports) module.exports = SnakeChase
     $('volume').value = Math.round(sfx.getVolume() * 100); $('volumeOut').textContent = Math.round(sfx.getVolume() * 100) + '%';
     $('soundOff').setAttribute('aria-pressed', soundOn ? 'false' : 'true');
     $('soundOn').setAttribute('aria-pressed', soundOn ? 'true' : 'false');
+    ['easy', 'normal', 'hard'].forEach(function (d) { $('diff' + d[0].toUpperCase() + d.slice(1)).setAttribute('aria-pressed', difficulty() === d ? 'true' : 'false'); });
+    [['turn', 'Turn'], ['arrows', 'Arrows'], ['swipe', 'Swipe']].forEach(function (c) { $('ctrl' + c[1]).setAttribute('aria-pressed', controlsKind() === c[0] ? 'true' : 'false'); });
     $('goldOff').setAttribute('aria-pressed', golden ? 'false' : 'true');
     $('goldOn').setAttribute('aria-pressed', golden ? 'true' : 'false');
     setText($('homeCoins'), profile.getCoins());
@@ -2508,8 +2576,34 @@ if (typeof module !== 'undefined' && module.exports) module.exports = SnakeChase
     document.documentElement.style.setProperty('--reserve', (330 + (!el.strip.hidden ? 46 : 0) + (!el.effects.hidden ? 36 : 0)) + 'px');
   }
 
+  /* Difficulty and touch controls. 'auto' means: easy and two turn buttons on a touch screen, the original game elsewhere. */
+  function isTouch() { return !!(window.matchMedia && window.matchMedia('(pointer: coarse)').matches); }
+  function difficulty() { return diffPref !== 'auto' ? diffPref : (isTouch() ? 'easy' : 'hard'); }
+  function controlsKind() { return ctrlPref !== 'auto' ? ctrlPref : 'turn'; }
+  function applyControls() { document.documentElement.setAttribute('data-controls', controlsKind()); }
+  function setDifficulty(d) {
+    if (diffPref === d) return;
+    var changed = difficulty() !== d;               // clicking the level that "auto" already chose only saves the choice
+    diffPref = d; profile.setPrefs({ difficulty: d });
+    if (changed) newGame(); else updateHome();
+  }
+  function setControls(c) {
+    ctrlPref = c; profile.setPrefs({ controls: c });
+    applyControls(); updateHome();
+  }
+  /* The snake's heading, counting turns already waiting in line, so two quick taps make two turns. */
+  function heading() {
+    var S = game.state;
+    if (mode === 'chase') return S.appleDir;
+    return S.queue && S.queue.length ? S.queue[S.queue.length - 1] : S.dir;
+  }
+  function turnSide(side) {                      // -1 = left, 1 = right, as seen from the snake
+    var h = heading();
+    if (side < 0) steer(h.y, 0 - h.x); else steer(0 - h.y, h.x);
+  }
   function newGame() {
-    game = mode === 'chase' ? Chase.create({ edge: edge }) : Engine.create({ mode: mode, edge: edge, golden: golden });
+    var tuning = (mode === 'chase' ? Chase.DIFFICULTY : Engine.DIFFICULTY)[difficulty()];
+    game = mode === 'chase' ? Chase.create({ edge: edge, tuning: tuning }) : Engine.create({ mode: mode, edge: edge, golden: golden, tuning: tuning });
     tracker = SnakeTracker.attach(game, profile, { onUnlock: onUnlock });   // first, so it has updated the profile before the page reacts
     game.on(onEvent);
     fxReset();
@@ -3658,7 +3752,7 @@ if (typeof module !== 'undefined' && module.exports) module.exports = SnakeChase
   swipeArea.addEventListener('touchmove', function (e) {
     if (!touching) return;
     var t = e.changedTouches[0], dx = t.clientX - tx, dy = t.clientY - ty;
-    if (Math.max(Math.abs(dx), Math.abs(dy)) < 18) return;
+    if (Math.max(Math.abs(dx), Math.abs(dy)) < 12) return;
     if (Math.abs(dx) > Math.abs(dy)) steer(dx > 0 ? 1 : -1, 0); else steer(0, dy > 0 ? 1 : -1);
     tx = t.clientX; ty = t.clientY;
   }, { passive: true });
@@ -3754,6 +3848,15 @@ if (typeof module !== 'undefined' && module.exports) module.exports = SnakeChase
   $('resetBtn').addEventListener('click', resetProgress);
   $('goldOff').addEventListener('click', function () { setGolden(false); });
   $('goldOn').addEventListener('click', function () { setGolden(true); });
+  $('diffEasy').addEventListener('click', function () { setDifficulty('easy'); });
+  $('diffNormal').addEventListener('click', function () { setDifficulty('normal'); });
+  $('diffHard').addEventListener('click', function () { setDifficulty('hard'); });
+  $('ctrlTurn').addEventListener('click', function () { setControls('turn'); });
+  $('ctrlArrows').addEventListener('click', function () { setControls('arrows'); });
+  $('ctrlSwipe').addEventListener('click', function () { setControls('swipe'); });
+  [['turnLeft', -1], ['turnRight', 1]].forEach(function (p) {
+    $(p[0]).addEventListener('pointerdown', function (e) { e.preventDefault(); turnSide(p[1]); });
+  });
   $('modeWalls').addEventListener('click', function () { setEdge('walls'); });
   $('modeWrap').addEventListener('click', function () { setEdge('wrap'); });
 
@@ -3775,6 +3878,7 @@ if (typeof module !== 'undefined' && module.exports) module.exports = SnakeChase
   fontsP.then(markReady, markReady);
   setTimeout(markReady, 1500);
 
+  applyControls();
   buildModes();
   initCloud();
   maybeWelcome();

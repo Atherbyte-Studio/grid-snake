@@ -34,6 +34,13 @@ var SnakeChase = (function () {
     }
   };
 
+  /* Difficulty overrides for Apple Run (pass as opts.tuning). Hard is the original. A slower, less clever snake is easier. */
+  var DIFFICULTY = {
+    easy:   { chase: { snakeStart: 205, snakeStep: 8, snakeFloor: 125, dumbStart: 0.3, dumbStep: 0.03, dumbFloor: 0.08 } },
+    normal: { chase: { snakeStart: 190, snakeStep: 9, snakeFloor: 108, dumbStart: 0.25, dumbStep: 0.03, dumbFloor: 0.05 } },
+    hard:   {}
+  };
+
   var DIRS = [{ x: 1, y: 0 }, { x: 0, y: 1 }, { x: -1, y: 0 }, { x: 0, y: -1 }];
 
   function clamp(v, lo, hi) { return Math.min(hi, Math.max(lo, v)); }
@@ -391,6 +398,6 @@ var SnakeChase = (function () {
     };
   }
 
-  return { TUNING: TUNING, create: create };
+  return { TUNING: TUNING, DIFFICULTY: DIFFICULTY, create: create };
 })();
 if (typeof module !== 'undefined' && module.exports) module.exports = SnakeChase;

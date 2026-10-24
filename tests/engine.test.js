@@ -457,3 +457,36 @@ test('P2 tuning overrides apply per game and never leak into the defaults', () =
   assert.equal(JSON.stringify(Engine.TUNING), before);
   assert.equal(make({ mode: 'timeattack' }).state.timeLeft, 60000);
 });
+
+/* ---------- difficulty (mobile gameplay) ---------- */
+test('D1 Hard is the original game: its overrides are empty and speeds match the base tuning', () => {
+  assert.deepEqual(Engine.DIFFICULTY.hard, {});
+  const g = Engine.create({ mode: 'classic', tuning: Engine.DIFFICULTY.hard });
+  assert.equal(g.interval(), 150);
+});
+
+test('D2 Easy and Normal start slower, end slower, and speed up more gently than Hard in every mode', () => {
+  const at = (diff, mode, score, level) => {
+    const g = Engine.create({ mode, tuning: Engine.DIFFICULTY[diff] });
+    g.state.score = score; g.state.level = level;
+    return g.interval();
+  };
+  for (const mode of ['classic', 'timeattack', 'survival']) {
+    for (const [score, level] of [[0, 1], [10, 3], [60, 12], [400, 80]]) {
+      const hard = at('hard', mode, score, level), normal = at('normal', mode, score, level), easy = at('easy', mode, score, level);
+      assert.ok(easy >= normal && normal >= hard, `${mode} ${score}/${level}: easy ${easy} >= normal ${normal} >= hard ${hard}`);
+    }
+    assert.ok(at('easy', mode, 400, 80) >= 100, mode + ': easy never gets faster than 100 ms per cell');
+    assert.ok(at('easy', mode, 0, 1) > at('hard', mode, 0, 1), mode + ': easy starts slower');
+  }
+});
+
+test('D3 the turn line holds three turns on Easy and Normal (two on Hard), so a quick triple swipe is not lost', () => {
+  for (const [diff, n] of [['easy', 3], ['normal', 3], ['hard', 2]]) {
+    const g = Engine.create({ tuning: Engine.DIFFICULTY[diff] });
+    g.start();
+    const dirs = [[0, -1], [-1, 0], [0, 1], [1, 0]];
+    for (const [dx, dy] of dirs) g.turn(dx, dy);
+    assert.equal(g.state.queue.length, n, diff);
+  }
+});

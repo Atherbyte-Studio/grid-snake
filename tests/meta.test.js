@@ -58,7 +58,7 @@ function newGame(mode, edge, seed) {
 
 test('P4 a fresh profile starts in Classic with walls and zero everything', () => {
   const p = newProfile(fakeStorage());
-  assert.deepEqual(p.getPrefs(), { mode: 'classic', edge: 'walls', skin: 'emerald', style: 'solid', board: 'midnight', food: 'dot', golden: false, sound: true, volume: 1, haptics: true, motion: 'auto' });
+  assert.deepEqual(p.getPrefs(), { mode: 'classic', edge: 'walls', skin: 'emerald', style: 'solid', board: 'midnight', food: 'dot', golden: false, sound: true, volume: 1, haptics: true, motion: 'auto', difficulty: 'auto', controls: 'auto' });
   assert.deepEqual(p.getTotals(), { foods: 0, bonus: 0, runs: 0 });
   assert.equal(Object.keys(p.achMap()).length, 0);
   assert.equal(p.getBest('classic', 'walls'), 0);
@@ -86,7 +86,7 @@ test('P4 corrupted or hostile saved data falls back to safe defaults', () => {
   ];
   bad.forEach(raw => {
     const p = newProfile(fakeStorage({ [Profile.KEY]: raw }));
-    assert.deepEqual(p.getPrefs(), { mode: 'classic', edge: 'walls', skin: 'emerald', style: 'solid', board: 'midnight', food: 'dot', golden: false, sound: true, volume: 1, haptics: true, motion: 'auto' }, raw);
+    assert.deepEqual(p.getPrefs(), { mode: 'classic', edge: 'walls', skin: 'emerald', style: 'solid', board: 'midnight', food: 'dot', golden: false, sound: true, volume: 1, haptics: true, motion: 'auto', difficulty: 'auto', controls: 'auto' }, raw);
     assert.deepEqual(p.getTotals(), { foods: 0, bonus: 0, runs: 0 }, raw);
     assert.ok(Object.values(p.achMap()).every(a => a.tier === 0 && a.progress === 0), raw);
     assert.equal(p.getName(), '', raw);

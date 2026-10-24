@@ -323,3 +323,9 @@ test('C19 snapshot carries what achievements need', () => {
   ['mode', 'score', 'level', 'elapsed', 'slips', 'fooled', 'knots', 'dashes', 'length', 'foods'].forEach(k => assert.ok(k in s, k));
   assert.equal(s.mode, 'chase');
 });
+
+test('D4 Apple Run difficulty: Hard is unchanged, Easy snake is slower and starts dumber', () => {
+  assert.deepEqual(Chase.DIFFICULTY.hard, {});
+  const iv = d => Chase.create({ tuning: Chase.DIFFICULTY[d] }).interval();
+  assert.ok(iv('easy') > iv('normal') && iv('normal') > iv('hard'), 'snake step: easy > normal > hard');
+});

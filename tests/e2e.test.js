@@ -145,7 +145,7 @@ test('E2E saved data: an older Classic best score is still shown, and mode and e
   await page.keyboard.press('Escape');
   assert.equal(await page.evaluate(() => document.getElementById('settings').open), false);
   const saved = JSON.parse(await page.evaluate(() => localStorage.getItem('gridsnake-profile-v2')));
-  assert.deepEqual(saved.prefs, { mode: 'survival', edge: 'wrap', skin: 'emerald', style: 'realistic', board: 'midnight', food: 'dot', golden: false, sound: true, volume: 1, haptics: true, motion: 'auto' });
+  assert.deepEqual(saved.prefs, { mode: 'survival', edge: 'wrap', skin: 'emerald', style: 'realistic', board: 'midnight', food: 'dot', golden: false, sound: true, volume: 1, haptics: true, motion: 'auto', difficulty: 'auto', controls: 'auto' });
   await page.reload();
   await page.waitForFunction(() => !document.getElementById('playBtn').disabled);
   assert.equal(await page.locator('.mode[aria-pressed="true"]').getAttribute('data-mode'), 'survival');
@@ -270,7 +270,7 @@ test('E2E restart keeps permanent stats: best score, totals and unlocks stay, th
    ===================================================================== */
 
 test('E2E Time Attack: the countdown shows, pausing stops it, and the run ends at zero', { timeout: 60000 }, async () => {
-  const { ctx, page, errors } = await open({ tweaks: [FAST_TA], storage: seed({ prefs: { mode: 'timeattack', edge: 'wrap' } }) });
+  const { ctx, page, errors } = await open({ tweaks: [FAST_TA], storage: seed({ prefs: { mode: 'timeattack', edge: 'wrap', controls: 'arrows', difficulty: 'hard' } }) });
   await select(page, 'timeattack');
   const t0 = Date.now();
   await play(page);
@@ -320,7 +320,7 @@ test('E2E Time Attack: a crash ends the run before the clock does', { timeout: 6
    ===================================================================== */
 
 test('E2E pick-ups: each type has its own colour and shape on the board', { timeout: 60000 }, async () => {
-  const { ctx, page, errors } = await open({ storage: seed({ prefs: { mode: 'timeattack', edge: 'wrap' } }) });
+  const { ctx, page, errors } = await open({ storage: seed({ prefs: { mode: 'timeattack', edge: 'wrap', controls: 'arrows', difficulty: 'hard' } }) });
   await play(page);
   const want = { boost: '#5AA9F2', slow: '#A58BFA', bonus: '#FFD98A', shield: '#4FD6E3' };
   for (const k of Object.keys(want)) {
@@ -340,7 +340,7 @@ test('E2E pick-ups: each type has its own colour and shape on the board', { time
 });
 
 test('E2E pick-ups: Speed Boost, Slow Motion, Bonus Food and Shield apply, show on screen, and end', { timeout: 90000 }, async () => {
-  const { ctx, page, errors } = await open({ storage: seed({ prefs: { mode: 'timeattack', edge: 'wrap' } }) });
+  const { ctx, page, errors } = await open({ storage: seed({ prefs: { mode: 'timeattack', edge: 'wrap', controls: 'arrows', difficulty: 'hard' } }) });
   await play(page);
   await page.evaluate(() => { __t.game().state.timeLeft = 1e9; __t.game().state.food = { x: 0, y: 0 }; });
   const normal = parseFloat(await text(page, '#speed'));
@@ -517,7 +517,7 @@ test('E2E achievements: the game-over screen lists the tiers finished in that ru
    ===================================================================== */
 
 test('E2E the game pauses when the tab goes to the background, and stays paused on return', { timeout: 60000 }, async () => {
-  const { ctx, page, errors } = await open({ storage: seed({ prefs: { mode: 'timeattack', edge: 'wrap' } }) });
+  const { ctx, page, errors } = await open({ storage: seed({ prefs: { mode: 'timeattack', edge: 'wrap', controls: 'arrows', difficulty: 'hard' } }) });
   await play(page);
   await page.evaluate(() => {
     Object.defineProperty(document, 'hidden', { configurable: true, get: () => true });
@@ -559,7 +559,7 @@ test('E2E one animation loop only: restarting, switching modes and replaying nev
 test('E2E touch: the direction pad and swipes steer, and the layout fits a phone in every mode', { timeout: 90000 }, async () => {
   const { ctx, page, errors } = await open({
     context: { viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true, deviceScaleFactor: 2 },
-    storage: seed({ prefs: { mode: 'timeattack', edge: 'wrap' } })
+    storage: seed({ prefs: { mode: 'timeattack', edge: 'wrap', controls: 'arrows', difficulty: 'hard' } })
   });
   assert.equal(await noOverflow(page), true, 'home fits');
   await shot(page, '11-home-mobile');
@@ -696,7 +696,7 @@ const AUDIO_STUB = `(() => {
 })();`;
 
 test('E2E sound: starts after the first tap, plays for eating, pick-ups and game over, and the Off setting silences it', { timeout: 90000 }, async () => {
-  const { ctx, page, errors } = await open({ storage: seed({ prefs: { mode: 'timeattack', edge: 'wrap' } }), init: AUDIO_STUB });
+  const { ctx, page, errors } = await open({ storage: seed({ prefs: { mode: 'timeattack', edge: 'wrap', controls: 'arrows', difficulty: 'hard' } }), init: AUDIO_STUB });
   const audio = () => page.evaluate(() => Object.assign({}, __audio));
   assert.equal((await audio()).contexts, 0, 'no audio before any tap');
   assert.equal(await page.evaluate(() => document.getElementById('soundOn').getAttribute('aria-pressed')), 'true', 'default is on');
@@ -860,7 +860,7 @@ test('E2E death animation: a crash plays an animation (red tint, then the snake 
 });
 
 test('E2E no death animation for running out of time', { timeout: 60000 }, async () => {
-  const { ctx, page, errors } = await open({ tweaks: [FAST_TA], storage: seed({ prefs: { mode: 'timeattack', edge: 'wrap' } }) });
+  const { ctx, page, errors } = await open({ tweaks: [FAST_TA], storage: seed({ prefs: { mode: 'timeattack', edge: 'wrap', controls: 'arrows', difficulty: 'hard' } }) });
   await play(page);
   await waitState(page, () => __t.game().state.phase === 'over');
   assert.equal(await page.evaluate(() => __t.game().state.reason), 'time');
@@ -988,7 +988,7 @@ test('E2E shop: an unowned skin saved in storage is not used', { timeout: 60000 
 
 test('E2E phone: the whole game fits one screen, controls are reachable, no page scrolling', { timeout: 90000 }, async () => {
   for (const m of ['classic', 'survival', 'chase']) {
-    const { ctx, page, errors } = await open({ storage: seed({ prefs: { mode: m, edge: 'walls' } }), context: { viewport: { width: 390, height: 700 }, hasTouch: true, isMobile: true, deviceScaleFactor: 2 } });
+    const { ctx, page, errors } = await open({ storage: seed({ prefs: { mode: m, edge: 'walls', controls: 'arrows' } }), context: { viewport: { width: 390, height: 700 }, hasTouch: true, isMobile: true, deviceScaleFactor: 2 } });
     await page.tap('#playBtn');
     await waitState(page, () => __t.game().state.phase === 'running');
     await sleep(300);
@@ -1127,5 +1127,79 @@ test('E2E golden apple is drawn as a golden apple (gold body and a leaf), not a 
   assert.ok(px.body[0] > 200 && px.body[1] > 150 && px.body[2] < 140, 'gold body: ' + px.body);
   assert.ok(px.leaf[1] > px.leaf[0] - 10 && px.leaf[1] > 140 && px.leaf[2] < 120, 'leaf is green-ish: ' + px.leaf);
   await shot(page, '35-golden-apple');
+  await finish(ctx, errors);
+});
+
+/* =====================================================================
+   Mobile gameplay: difficulty and touch controls
+   ===================================================================== */
+
+const PHONE = { viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true, deviceScaleFactor: 2 };
+
+test('E2E difficulty: a computer keeps the original (Hard) speed, a phone starts on Easy, and the choice is saved and restarts the run', { timeout: 90000 }, async () => {
+  const desk = await open({ storage: seed({ prefs: { mode: 'classic', edge: 'walls' } }) });
+  assert.equal(await desk.page.evaluate(() => __t.game().interval()), 150, 'desktop default is the original game');
+  await finish(desk.ctx, desk.errors);
+
+  const { ctx, page, errors } = await open({ context: PHONE, storage: seed({ prefs: { mode: 'classic', edge: 'walls' } }) });
+  assert.equal(await page.evaluate(() => __t.game().interval()), 190, 'phone default is Easy');
+  await page.tap('#homeSettingsBtn');
+  assert.equal(await page.getAttribute('#diffEasy', 'aria-pressed'), 'true');
+  await shot(page, '40-settings-mobile');
+  await page.tap('#diffNormal');
+  assert.equal(await page.evaluate(() => __t.game().interval()), 170);
+  await page.tap('#diffHard');
+  assert.equal(await page.evaluate(() => __t.game().interval()), 150);
+  assert.equal(await page.getAttribute('#diffHard', 'aria-pressed'), 'true');
+  assert.equal(await page.evaluate(() => JSON.parse(localStorage.getItem('gridsnake-profile-v2')).prefs.difficulty), 'hard');
+  await page.reload();
+  assert.equal(await page.evaluate(() => __t.game().interval()), 150, 'kept after reload');
+  await finish(ctx, errors);
+});
+
+test('E2E touch controls: two turn buttons turn left and right of the heading, and Arrows / Swipe only switch the layout', { timeout: 90000 }, async () => {
+  const { ctx, page, errors } = await open({ context: PHONE, storage: seed({ prefs: { mode: 'classic', edge: 'wrap', difficulty: 'easy' } }) });
+  await page.tap('#playBtn');
+  await waitState(page, () => __t.game().state.phase === 'running');
+  assert.equal(await page.getAttribute('html', 'data-controls'), 'turn', 'phone default');
+  assert.equal(await shown(page, '.turnpad'), true);
+  assert.equal(await shown(page, '.pad'), false);
+  assert.equal(await noOverflow(page), true);
+  const b = await page.evaluate(() => { const r = document.getElementById('turnLeft').getBoundingClientRect(); return { w: r.width, h: r.height, bottom: r.bottom, vh: innerHeight }; });
+  assert.ok(b.w >= 120 && b.h >= 80 && b.bottom <= b.vh, 'big buttons inside the screen: ' + JSON.stringify(b));
+  await shot(page, '41-turnpad-mobile');
+  // heading right: left -> up, then right -> right again (turns are relative to the queued heading)
+  await page.evaluate(() => { __t.game().state.acc = -1e9; });
+  await page.tap('#turnLeft');
+  assert.deepEqual((await st(page)).queue, [{ x: 0, y: -1 }]);
+  await page.tap('#turnLeft');
+  assert.deepEqual((await st(page)).queue, [{ x: 0, y: -1 }, { x: -1, y: 0 }], 'a second tap keeps turning the same way');
+  await page.tap('#turnRight');
+  assert.deepEqual((await st(page)).queue, [{ x: 0, y: -1 }, { x: -1, y: 0 }, { x: 0, y: -1 }], 'three turns wait on Easy');
+  await page.evaluate(() => { __t.game().state.acc = 0; });
+
+  await finish(ctx, errors);
+});
+
+test('E2E touch controls: Arrows and Swipe only are saved and shown correctly', { timeout: 90000 }, async () => {
+  const { ctx, page, errors } = await open({ context: PHONE, storage: seed({ prefs: { mode: 'classic', edge: 'wrap' } }) });
+  await page.tap('#homeSettingsBtn');
+  await page.tap('#ctrlArrows');
+  await page.tap('#settingsClose');
+  await page.tap('#playBtn');
+  assert.equal(await shown(page, '.pad'), true);
+  assert.equal(await shown(page, '.turnpad'), false);
+  await page.tap('#menuBtn');
+  await page.tap('#homeSettingsBtn');
+  await page.tap('#ctrlSwipe');
+  await page.tap('#settingsClose');
+  await page.tap('#playBtn');
+  assert.equal(await shown(page, '.pad'), false);
+  assert.equal(await shown(page, '.turnpad'), false);
+  assert.equal(await noOverflow(page), true);
+  await shot(page, '42-swipe-only-mobile');
+  assert.equal(await page.evaluate(() => JSON.parse(localStorage.getItem('gridsnake-profile-v2')).prefs.controls), 'swipe');
+  await page.reload();
+  assert.equal(await page.getAttribute('html', 'data-controls'), 'swipe');
   await finish(ctx, errors);
 });
