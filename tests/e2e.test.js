@@ -1203,3 +1203,27 @@ test('E2E touch controls: Arrows and Swipe only are saved and shown correctly', 
   assert.equal(await page.getAttribute('html', 'data-controls'), 'swipe');
   await finish(ctx, errors);
 });
+
+test('E2E toasts on phones: an achievement message never covers the steering buttons or the board, and never blocks a tap', { timeout: 120000 }, async () => {
+  for (const [name, vp, controls] of [['portrait turn', { width: 390, height: 844 }, 'turn'], ['portrait arrows', { width: 390, height: 844 }, 'arrows'], ['landscape arrows', { width: 844, height: 390 }, 'arrows'], ['small phone', { width: 360, height: 640 }, 'turn']]) {
+    const { ctx, page, errors } = await open({ context: Object.assign({ isMobile: true, hasTouch: true, deviceScaleFactor: 2 }, { viewport: vp }), storage: seed({ prefs: { mode: 'classic', edge: 'wrap', controls } }) });
+    await page.tap('#playBtn');
+    await waitState(page, () => __t.game().state.phase === 'running');
+    await page.evaluate(() => { __t.game().state.score = 9; });              // one more point finishes the first High Roller tier
+    await eatOne(page);
+    await page.waitForSelector('.toast');
+    await page.waitForTimeout(350);                                         // let the slide-in finish
+    const r = await page.evaluate(() => {
+      const box = el => { const b = el.getBoundingClientRect(); return { l: b.left, r: b.right, t: b.top, b: b.bottom }; };
+      const hit = (a, b) => a.l < b.r && a.r > b.l && a.t < b.b && a.b > b.t;
+      const toast = box(document.querySelector('.toast')), out = { toast, pe: getComputedStyle(document.getElementById('toasts')).pointerEvents, hits: [], inside: toast.t >= 0 && toast.b <= innerHeight && toast.l >= 0 && toast.r <= innerWidth };
+      document.querySelectorAll('.pad button, .turnpad button, #board').forEach(el => { const d = el.offsetParent !== null ? box(el) : null; if (d && d.r > d.l && hit(toast, d)) out.hits.push(el.id || el.className || el.tagName); });
+      return out;
+    });
+    assert.deepEqual(r.hits, [], name + ': toast overlaps ' + r.hits.join(',') + ' ' + JSON.stringify(r.toast));
+    assert.equal(r.pe, 'none', name + ': toasts ignore taps');
+    assert.equal(r.inside, true, name + ': toast fully on screen');
+    if (name === 'portrait turn') await shot(page, '43-toast-mobile');
+    await finish(ctx, errors);
+  }
+});

@@ -1,6 +1,6 @@
 {
   "name": "grid-snake-android",
-  "version": "1.1.0",
+  "version": "1.1.1",
   "private": true,
   "description": "Grid Snake packaged for Android with Capacitor (fully offline).",
   "scripts": {
