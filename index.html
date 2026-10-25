@@ -442,6 +442,10 @@ html[data-motion="off"] *, html[data-motion="off"] *::before, html[data-motion="
   .strip-text strong { font-size: 15px; }
   .bar { margin-top: 5px; height: 5px; }
   .effects { min-height: 28px; }
+  /* Time Attack and Survival: effect chips float over the board's top edge instead of taking their own row. */
+  html[data-mode="timeattack"] .effects, html[data-mode="survival"] .effects { min-height: 0; height: 0; margin: 0 0 -8px; position: relative; z-index: 3; pointer-events: none; overflow: visible; }
+  html[data-mode="timeattack"] .effects .chip, html[data-mode="survival"] .effects .chip { transform: translateY(14px); background: rgba(20,22,24,.82); }
+  html[data-mode="timeattack"] #chipIdle, html[data-mode="survival"] #chipIdle { display: none; }
   .chip { padding: 2px 9px; font-size: 12px; }
   .board-wrap { flex: none; align-self: center; width: min(100%, max(200px, calc(100dvh - var(--reserve, 330px)))); }
   .controls { display: contents; }
@@ -450,7 +454,7 @@ html[data-motion="off"] *, html[data-motion="off"] *::before, html[data-motion="
   .btn-grid #restartBtn { display: none; }
   .btn-grid .btn { min-height: 36px; font-size: 14px; }
   .legend, .keys { display: none; }
-  .pad { grid-template-columns: repeat(3, 68px); grid-template-rows: repeat(2, 68px); gap: 8px; }
+  .pad { grid-template-columns: repeat(3, 62px); grid-template-rows: repeat(2, 62px); gap: 6px; }
   .turnpad { height: 100%; max-height: 112px; align-self: flex-end; }
   .turnpad button { min-height: 0; height: 100%; }
   .pad button { font-size: 30px; border-radius: 18px; }
@@ -2588,6 +2592,7 @@ if (typeof module !== 'undefined' && module.exports) module.exports = SnakeChase
     $('chaseKeys').hidden = !chase;
     setText(el.idle, chase ? 'No item' : 'No active effects');
     fillLegend();
+    document.documentElement.setAttribute('data-mode', mode);
     fitBoard();
   }
 
@@ -2602,7 +2607,7 @@ if (typeof module !== 'undefined' && module.exports) module.exports = SnakeChase
     var w = document.querySelector('.board-wrap');
     if (!w || !w.offsetParent) return;
     var kind = controlsKind(), cs = getComputedStyle(document.body);
-    var below = (kind === 'swipe' ? 0 : kind === 'arrows' ? 144 : 104);
+    var below = (kind === 'swipe' ? 0 : kind === 'arrows' ? 130 : 104);
     if (mode === 'chase') below = Math.max(below, 112);
     var top = w.getBoundingClientRect().top;
     var reserve = top + 8 + below + (parseFloat(cs.paddingBottom) || 10);
