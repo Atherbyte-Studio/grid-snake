@@ -13,12 +13,19 @@ const ROOT = path.join(__dirname, '..');
 const base = fs.readFileSync(path.join(ROOT, 'index.html'), 'utf8');
 // Point the shipped config at a fake project, in memory only, and expose the game for the crash helper.
 const MOCK = 'https://mock.supabase.test';
+const SHIPPED_URL = "url: 'https://tmmzahzkqmcgbtjimtjn.supabase.co'";
+const SHIPPED_KEY = "anonKey: 'sb_publishable_HC2_4BGM2Foe0SIduZBMwg__Ln0bKx4'";
+const hook = 'window.__t = { game: function () { return game; }, profile: profile };';
 const withConfig = base
-  .replace("url: '',                       // e.g. 'https://xyzcompany.supabase.co'", "url: '" + MOCK + "',")
-  .replace("anonKey: '',                   // the public \"anon\" key only", "anonKey: 'anon-test',")
-  .replace('/*TEST_HOOK*/', 'window.__t = { game: function () { return game; }, profile: profile };');
+  .replace(SHIPPED_URL, "url: '" + MOCK + "'")
+  .replace(SHIPPED_KEY, "anonKey: 'sb_publishable_mock'")
+  .replace('/*TEST_HOOK*/', hook);
 if (!withConfig.includes("url: '" + MOCK + "'")) throw new Error('could not inject the mock config');
-const notConfigured = base.replace('/*TEST_HOOK*/', 'window.__t = { game: function () { return game; }, profile: profile };');
+const notConfigured = base
+  .replace(SHIPPED_URL, "url: ''")
+  .replace(SHIPPED_KEY, "anonKey: ''")
+  .replace('/*TEST_HOOK*/', hook);
+if (notConfigured.includes('tmmzahzkqmcgbtjimtjn')) throw new Error('could not blank the config');
 
 function mockBoard() {
   const state = { rows: [], posts: [], gets: 0, fail: [] };   // fail: queue of HTTP statuses to return before succeeding

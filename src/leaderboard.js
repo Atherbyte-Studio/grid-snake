@@ -15,8 +15,8 @@ var SnakeLeaderboard = (function () {
   /* Fill these from your Supabase project (Project Settings > API): the Project URL and the public anon key.
      Left empty, the game reports "not set up yet" and sends nothing. */
   var CONFIG = {
-    url: '',                       // e.g. 'https://xyzcompany.supabase.co'
-    anonKey: '',                   // the public "anon" key only
+    url: 'https://tmmzahzkqmcgbtjimtjn.supabase.co',
+    anonKey: 'sb_publishable_HC2_4BGM2Foe0SIduZBMwg__Ln0bKx4',   // the public key only: safe in a browser, the row rules protect the table
     table: 'time_attack_scores',
     pageSize: 20,
     timeoutMs: 8000,
@@ -28,7 +28,7 @@ var SnakeLeaderboard = (function () {
 
   var REASON = {
     notConfigured: 'not-configured', wrongMode: 'wrong-mode', offline: 'offline', timeout: 'timeout',
-    network: 'network', rejected: 'rejected', server: 'server', badResponse: 'bad-response', invalid: 'invalid'
+    network: 'network', rejected: 'rejected', server: 'server', badResponse: 'bad-response', invalid: 'invalid', setup: 'setup'
   };
 
   function configured(cfg) { cfg = cfg || CONFIG; return !!(cfg.url && cfg.anonKey); }
@@ -64,8 +64,11 @@ var SnakeLeaderboard = (function () {
     return h.slice(0, 8) + '-' + h.slice(8, 12) + '-' + h.slice(12, 16) + '-' + h.slice(16, 20) + '-' + h.slice(20);
   }
 
+  /* The publishable key (sb_publishable_...) goes in apikey only. A legacy JWT-style anon key is also sent as a Bearer token. */
   function headers(cfg) {
-    return { apikey: cfg.anonKey, Authorization: 'Bearer ' + cfg.anonKey, 'Content-Type': 'application/json' };
+    var h = { apikey: cfg.anonKey, 'Content-Type': 'application/json' };
+    if (/^eyJ/.test(cfg.anonKey)) h.Authorization = 'Bearer ' + cfg.anonKey;
+    return h;
   }
 
   /* One request with a timeout. Never throws: every failure comes back as { ok:false, reason }. */
@@ -79,6 +82,7 @@ var SnakeLeaderboard = (function () {
     return Promise.resolve().then(function () { return fetchImpl(url, opts); }).then(function (res) {
       clearTimeout(timer);
       if (res.status === 409) return { ok: true, duplicate: true };          // this run is already on the board
+      if (res.status === 404) return { ok: false, reason: REASON.setup, status: res.status };   // table missing: supabase/leaderboard.sql not run
       if (res.status >= 500) return { ok: false, reason: REASON.server, status: res.status };
       if (res.status >= 400) return { ok: false, reason: REASON.rejected, status: res.status };
       return { ok: true, status: res.status, response: res };

@@ -17,14 +17,13 @@ you run yourself. The code is in place, but the board is **not live** until you 
 2. Copy the **Project URL** (looks like `https://xxxx.supabase.co`).
 3. Copy the **anon / public** key. Do **not** copy the `service_role` key. It must never go in the game.
 
-## 4. Put the values in the game
-Edit `src/leaderboard.js` and fill the two empty strings in `CONFIG`:
+## 4. Put the values in the game (done for the current project)
+`src/leaderboard.js` already holds the project URL and the publishable key (`sb_publishable_...`). That key is
+designed to be public, and row-level security is what protects the table. The `service_role` / secret key must
+never go in the repository. To point the game at another project, change `CONFIG.url` and `CONFIG.anonKey`,
+then run `node build.js` and commit.
 
-    url: 'https://xxxx.supabase.co',
-    anonKey: 'eyJ...your anon key...',
-
-Then run `node build.js` and commit. The anon key is designed to be public, and row-level security is what
-protects the table. The `service_role` key must stay out of the repository.
+If the board says "not set up on the server yet", step 2 has not been run on that project.
 
 ## 5. Test it
 1. Open the deployed page, play one Time Attack run, and press **Post to the global board**.

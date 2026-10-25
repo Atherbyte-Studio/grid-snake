@@ -4,7 +4,8 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const L = require('../src/leaderboard.js');
 
-const LIVE = Object.assign({}, L.CONFIG, { url: 'https://example.supabase.co', anonKey: 'anon-test-key', timeoutMs: 200 });
+const LIVE = Object.assign({}, L.CONFIG, { url: 'https://example.supabase.co', anonKey: 'sb_publishable_test', timeoutMs: 200 });
+const LEGACY = Object.assign({}, LIVE, { anonKey: 'eyJhbGciOi.test' });
 const ONLINE = { onLine: true };
 const OFFLINE = { onLine: false };
 
@@ -42,14 +43,17 @@ test('only Time Attack runs are sent: other modes never reach the network', asyn
 });
 
 test('with no project set up, nothing is sent and the reason says so', async () => {
+  // an unconfigured copy: same code, empty url and key
   let calls = 0;
   const f = () => { calls++; return Promise.resolve(resp(201, {})); };
-  const r = await L.submitRun({ config: L.CONFIG, fetch: f, nav: ONLINE, mode: 'timeattack', name: 'A', score: 10 });
+  const EMPTY = { url: '', anonKey: '', table: L.CONFIG.table, pageSize: 20, timeoutMs: 200, maxScore: 1000 };
+  const r = await L.submitRun({ config: EMPTY, fetch: f, nav: ONLINE, mode: 'timeattack', name: 'A', score: 10 });
   assert.equal(r.reason, L.REASON.notConfigured);
-  const t = await L.fetchTop({ config: L.CONFIG, fetch: f, nav: ONLINE });
+  const t = await L.fetchTop({ config: EMPTY, fetch: f, nav: ONLINE });
   assert.equal(t.reason, L.REASON.notConfigured);
   assert.equal(calls, 0);
-  assert.equal(L.configured(L.CONFIG), false, 'the shipped config is not configured');
+  assert.equal(L.configured(L.CONFIG), true, 'the shipped config points at the project');
+  assert.equal(L.configured({ url: '', anonKey: '' }), false);
 });
 
 test('a good run posts once, with the public key only and the right body', async () => {
@@ -60,10 +64,16 @@ test('a good run posts once, with the public key only and the right body', async
   assert.equal(seen.length, 1);
   assert.equal(seen[0].url, 'https://example.supabase.co/rest/v1/time_attack_scores');
   assert.equal(seen[0].init.method, 'POST');
-  assert.equal(seen[0].init.headers.apikey, 'anon-test-key');
-  assert.equal(seen[0].init.headers.Authorization, 'Bearer anon-test-key');
+  assert.equal(seen[0].init.headers.apikey, 'sb_publishable_test');
+  assert.equal(seen[0].init.headers.Authorization, undefined, 'a publishable key is not sent as a Bearer token');
   assert.deepEqual(JSON.parse(seen[0].init.body), { run_id: '11111111-1111-4111-8111-111111111111', name: 'Waseem', score: 42 });
   assert.ok(!/service/i.test(JSON.stringify(seen[0].init.headers)), 'never a service-role key');
+});
+
+test('a legacy JWT-style anon key is also sent as a Bearer token', async () => {
+  const seen = [];
+  await L.submitRun({ config: LEGACY, fetch: (u, i) => { seen.push(i); return Promise.resolve(resp(201, {})); }, nav: ONLINE, mode: 'timeattack', name: 'A', score: 1 });
+  assert.equal(seen[0].headers.Authorization, 'Bearer eyJhbGciOi.test');
 });
 
 test('a bad name or score is refused before any request', async () => {
@@ -112,6 +122,11 @@ test('the board: ordered best score first, earlier run first on a tie, with page
   assert.match(seen[0], /limit=2&offset=4/);
   assert.deepEqual(r.rows.map(x => x.rank), [5, 6]);
   assert.equal(r.hasMore, true, 'a full page means there may be more');
+});
+
+test('a missing table (404) says the server is not set up, not that the score was rejected', async () => {
+  const r = await L.submitRun({ config: LIVE, fetch: () => Promise.resolve(resp(404, {})), nav: ONLINE, mode: 'timeattack', name: 'A', score: 5 });
+  assert.equal(r.reason, L.REASON.setup);
 });
 
 test('the board: an empty table is an empty list, not an error', async () => {
