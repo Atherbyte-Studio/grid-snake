@@ -449,11 +449,11 @@ html[data-motion="off"] *, html[data-motion="off"] *::before, html[data-motion="
   .btn-grid .btn { min-height: 36px; font-size: 14px; }
   .legend, .keys { display: none; }
   .pad { grid-template-columns: repeat(3, 68px); grid-template-rows: repeat(2, 68px); gap: 8px; }
-  .turnpad { height: 100%; max-height: 180px; align-self: flex-end; }
+  .turnpad { height: 100%; max-height: 112px; align-self: flex-end; }
   .turnpad button { min-height: 0; height: 100%; }
   .pad button { font-size: 30px; border-radius: 18px; }
-  .chase-actions { flex-direction: column; margin: 0; gap: 8px; width: 120px; height: 144px; }
-  .chase-actions .btn { min-height: 0; flex: 1; font-size: 17px; border-radius: 18px; }
+  .chase-actions { flex-direction: column; margin: 0; gap: 8px; width: 136px; height: 112px; }
+  .chase-actions .btn { min-height: 0; flex: 1; font-size: 15px; border-radius: 18px; white-space: nowrap; padding: 0 6px; }
   .chase-actions .btn:active:not([disabled]) { background: var(--accent); color: var(--on-accent); }
 }
 /* Phone turned sideways: stats on the left, the board in the middle, the thumbs' controls on the right. */
@@ -2586,14 +2586,26 @@ if (typeof module !== 'undefined' && module.exports) module.exports = SnakeChase
     $('chaseKeys').hidden = !chase;
     setText(el.idle, chase ? 'No item' : 'No active effects');
     fillLegend();
-    document.documentElement.style.setProperty('--reserve', (330 + (!el.strip.hidden ? 46 : 0) + (!el.effects.hidden ? 36 : 0)) + 'px');
+    fitBoard();
   }
 
   /* Difficulty and touch controls. 'auto' means: easy and two turn buttons on a touch screen, the original game elsewhere. */
   function isTouch() { return !!(window.matchMedia && window.matchMedia('(pointer: coarse)').matches); }
   function difficulty() { return diffPref !== 'auto' ? diffPref : (isTouch() ? 'easy' : 'hard'); }
   function controlsKind() { return ctrlPref !== 'auto' ? ctrlPref : 'turn'; }
-  function applyControls() { document.documentElement.setAttribute('data-controls', controlsKind()); }
+  function applyControls() { document.documentElement.setAttribute('data-controls', controlsKind()); fitBoard(); }
+  /* Phone portrait: the board gets what is left under the stats rows and above the thumb controls. Measured, so the
+     extra rows of Time Attack, Survival and Apple Run take space from the controls' margin, not from the board. */
+  function fitBoard() {
+    var w = document.querySelector('.board-wrap');
+    if (!w || !w.offsetParent) return;
+    var kind = controlsKind(), cs = getComputedStyle(document.body);
+    var below = (kind === 'swipe' ? 0 : kind === 'arrows' ? 144 : 104);
+    if (mode === 'chase') below = Math.max(below, 112);
+    var top = w.getBoundingClientRect().top;
+    var reserve = top + 8 + below + (parseFloat(cs.paddingBottom) || 10);
+    document.documentElement.style.setProperty('--reserve', Math.round(reserve) + 'px');
+  }
   function setDifficulty(d) {
     if (diffPref === d) return;
     var changed = difficulty() !== d;               // clicking the level that "auto" already chose only saves the choice
@@ -3091,6 +3103,7 @@ if (typeof module !== 'undefined' && module.exports) module.exports = SnakeChase
 
   /* ---------- drawing ---------- */
   function resize() {
+    fitBoard();
     var w = wrap.clientWidth;
     if (w <= 0) return;
     var dpr = Math.min(window.devicePixelRatio || 1, 3);
