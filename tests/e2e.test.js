@@ -952,7 +952,7 @@ test('E2E shop: coins from a run, locked items, buying, equipping, and saved aft
   const { ctx, page, errors } = await open({ storage: seed({ prefs: { mode: 'classic', edge: 'walls' }, coins: 180 }) });
   assert.equal(await text(page, '#homeCoins'), '180');
   await page.click('#homeShopBtn');
-  assert.equal(await page.locator('.shop-item').count(), 7);
+  assert.equal(await page.locator('.shop-item').count(), require('../src/shop.js').ITEMS.length);
   assert.equal(await text(page, '[data-id="skin:jordan"] button'), 'Buy for 200');
   assert.equal(await page.evaluate(() => document.querySelector('[data-id="skin:jordan"] button').disabled), true, 'not enough coins');
   await page.click('#shopClose');

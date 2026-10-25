@@ -22,7 +22,11 @@ var SnakeShop = (function () {
     { id: 'skin:cyber',     rarity: 'rare',  price: 500,  desc: 'Neon circuit lines on the body and a glowing visor.' },
     { id: 'board:neon',     rarity: 'rare',  price: 500,  desc: 'A dark board with a glowing purple grid.' },
     { id: 'skin:galaxy',    rarity: 'rare',  price: 800,  desc: 'A twinkling night-sky body with a star halo.' },
-    { id: 'skin:dragon',    rarity: 'epic',  price: 1500, desc: 'Gold scales, spines and a pair of horns.' }
+    { id: 'skin:dragon',    rarity: 'epic',  price: 1500, desc: 'Gold scales, spines and a pair of horns.' },
+    { id: 'board:meadow',   rarity: 'basic', price: 250,  desc: 'Grass-green tiles with tufts, for an easy-going board.' },
+    { id: 'skin:shemagh',   rarity: 'rare',  price: 750,  desc: 'A red and white check wrapped around the head, with a checked body band.' },
+    { id: 'board:autumn',   rarity: 'rare',  price: 750,  desc: 'Warm brown tiles with fallen leaves scattered across the board.' },
+    { id: 'skin:royal',     rarity: 'legendary', price: 5000, desc: 'A violet body with gold rails, jewels and a crown.' }
   ];
 
   /* A price outside its rarity band is a mistake in the catalogue, not a player problem. */

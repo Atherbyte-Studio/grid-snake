@@ -892,7 +892,9 @@ html[data-motion="off"] *, html[data-motion="off"] *::before, html[data-motion="
     palestine: { premium: true, deco: 'palestine', name: 'Palestinian Keffiyeh', snake: '#2FB7A4', head: '#5ED9C6', accent: '#E4E4DF', strong: '#FFFFFF' },
     cyber:     { premium: true, deco: 'cyber',     name: 'Cyberpunk',            snake: '#3AC9B8', head: '#7CEBDD', accent: '#33E1F0', strong: '#C35BFF' },
     galaxy:    { premium: true, deco: 'galaxy',    name: 'Galaxy',               snake: '#4A3C9C', head: '#8C78E8', accent: '#8C78E8', strong: '#C7B8FF' },
-    dragon:    { premium: true, deco: 'dragon',    name: 'Golden Dragon',        snake: '#D49A1E', head: '#F2C65A', accent: '#E0A82E', strong: '#FFD76E' }
+    dragon:    { premium: true, deco: 'dragon',    name: 'Golden Dragon',        snake: '#D49A1E', head: '#F2C65A', accent: '#E0A82E', strong: '#FFD76E' },
+    shemagh:   { premium: true, deco: 'shemagh',   name: 'Red Shemagh',          snake: '#B8323A', head: '#E2555D', accent: '#F4F4EF', strong: '#FFFFFF' },
+    royal:     { premium: true, deco: 'royal',     name: 'Royal Snake',          snake: '#5B3FA8', head: '#8F6FE0', accent: '#F2C65A', strong: '#FFE08A' }
   };
   var STYLES = { realistic: { name: 'Realistic' } };   // the only snake body style
   var BOARDS = {
@@ -901,7 +903,9 @@ html[data-motion="off"] *, html[data-motion="off"] *::before, html[data-motion="
     ocean:    { name: 'Deep sea', bg: '#0D141F', board: '#121C2B', grid: '#1A2739', tile: '#1E2C41' },
     dusk:     { name: 'Dusk',     bg: '#16111B', board: '#1C1524', grid: '#291F35', tile: '#2E233C' },
     desert:   { premium: true, name: 'Desert night', bg: '#17110B', board: '#241A11', grid: '#33261A', tile: '#40301F' },
-    neon:     { premium: true, name: 'Neon grid',    bg: '#0A0716', board: '#0F0A24', grid: '#2B1B66', tile: '#2A1A5C' }
+    neon:     { premium: true, name: 'Neon Arena',   bg: '#0A0716', board: '#0F0A24', grid: '#2B1B66', tile: '#2A1A5C' },
+    meadow:   { premium: true, name: 'Green Meadow', bg: '#0F1A12', board: '#1F3A24', grid: '#2D5536', tile: '#264A2D', texture: 'grass' },
+    autumn:   { premium: true, name: 'Autumn Forest', bg: '#1A110A', board: '#241910', grid: '#3D2B1C', tile: '#2F2014', texture: 'leaves' }
   };
   var RARITY = SnakeShop.RARITY, SHOP = SnakeShop.ITEMS;   // the catalogue lives in src/shop.js
   var FOODS = { dot: { name: 'Dot', color: '#F2B84B' }, apple: { name: 'Apple', color: '#E5594F' }, berry: { name: 'Berry', color: '#B06CF0' } };
@@ -950,7 +954,7 @@ html[data-motion="off"] *, html[data-motion="off"] *::before, html[data-motion="
       PAL.snake = k.snake; PAL.head = k.head;
       root.setProperty('--accent', k.accent); root.setProperty('--accent-strong', k.strong);
     } else if (key === 'board') {
-      PAL.board = k.board; PAL.grid = k.grid; PAL.tile = k.tile;
+      PAL.board = k.board; PAL.grid = k.grid; PAL.tile = k.tile; PAL.texture = k.texture || '';
       root.setProperty('--bg', k.bg); root.setProperty('--grid', k.grid);
     } else if (key === 'food') {
       PAL.food = k.color;
@@ -1801,6 +1805,32 @@ html[data-motion="off"] *, html[data-motion="off"] *::before, html[data-motion="
   }
 
   /* ---------- drawing ---------- */
+  /* Board textures are per cell and fixed (a hash of the cell), so they never shimmer and cost nothing in the rules. */
+  function cellHash(x, y) { var h = (x * 73856093) ^ (y * 19349663); h = (h ^ (h >>> 13)) * 1274126177; return (h ^ (h >>> 16)) >>> 0; }
+  function drawBoardTexture(kind, c) {
+    var x, y, h, i, lx, ly;
+    for (x = 0; x < COLS; x++) for (y = 0; y < COLS; y++) {
+      h = cellHash(x, y);
+      if (kind === 'grass') {
+        ctx.fillStyle = h % 3 === 0 ? '#2C5A36' : '#214629';   // mown and wild patches
+        ctx.globalAlpha = 0.45; ctx.fillRect(x * c + 1, y * c + 1, c - 2, c - 2); ctx.globalAlpha = 1;
+        if (h % 4 === 0) {                                     // a small tuft
+          ctx.strokeStyle = '#3F7F4C'; ctx.lineWidth = Math.max(1, c * 0.05); ctx.lineCap = 'round';
+          ctx.beginPath();
+          for (i = -1; i <= 1; i++) { lx = (x + 0.3 + i * 0.2 + ((h >> 3) % 3) * 0.1) * c; ly = (y + 0.8) * c; ctx.moveTo(lx, ly); ctx.lineTo(lx + i * c * 0.06, ly - c * 0.32); }
+          ctx.stroke();
+        }
+      } else if (kind === 'leaves') {
+        if (h % 5 === 0) {                                     // a fallen leaf, a little turned
+          var cols = ['#D9782B', '#E8A33A', '#B4501E'];
+          ctx.save(); ctx.translate((x + 0.5 + ((h >> 4) % 3 - 1) * 0.12) * c, (y + 0.5 + ((h >> 6) % 3 - 1) * 0.12) * c);
+          ctx.rotate((h % 628) / 100); ctx.fillStyle = cols[h % 3]; ctx.globalAlpha = 0.75;
+          ctx.beginPath(); ctx.ellipse(0, 0, c * 0.18, c * 0.09, 0, 0, Math.PI * 2); ctx.fill();
+          ctx.restore(); ctx.globalAlpha = 1;
+        }
+      }
+    }
+  }
   function resize() {
     fitBoard();
     var w = wrap.clientWidth;
@@ -2032,6 +2062,22 @@ html[data-motion="off"] *, html[data-motion="off"] *::before, html[data-motion="
         ctx.beginPath(); ctx.arc(q.x - Math.sin(q.a) * off, q.y + Math.cos(q.a) * off, Math.max(0.9, c * (n % 4 ? 0.025 : 0.045)), 0, Math.PI * 2); ctx.fill();
       });
       ctx.globalAlpha = 1;
+    } else if (deco === 'shemagh') {                       // white dashes down the body make a continuous check band
+      ctx.setLineDash([c * 0.2, c * 0.2]);
+      polyline(samples, 0, 0.3, Math.max(2, c * 0.16), '#F4F4EF', 0.95);
+      ctx.setLineDash([]);
+      polyline(samples, -1, 0.42, Math.max(1, c * 0.03), '#6E151B', 0.9);
+      polyline(samples, 1, 0.42, Math.max(1, c * 0.03), '#6E151B', 0.9);
+    } else if (deco === 'royal') {
+      polyline(samples, -1, 0.36, Math.max(1.5, c * 0.05), '#F2C65A', 0.85);   // gold rails
+      polyline(samples, 1, 0.36, Math.max(1.5, c * 0.05), '#F2C65A', 0.85);
+      next = 0.5 * c; var gem = 0;
+      samples.forEach(function (q) {                       // jewels, alternating ruby and sapphire
+        if (q.s < next || q.t < 0.08 || q.t > 0.92) return;
+        next = q.s + c * 0.62; gem++;
+        ctx.fillStyle = gem % 2 ? '#E0245E' : '#7FD8FF';
+        ctx.beginPath(); ctx.arc(q.x, q.y, Math.max(1.2, c * 0.06), 0, Math.PI * 2); ctx.fill();
+      });
     } else if (deco === 'dragon') {
       next = 0.3 * c; var m = 0;
       var scale = shade(base, 0.7), spine = shade(base, 0.45);
@@ -2049,7 +2095,18 @@ html[data-motion="off"] *, html[data-motion="off"] *::before, html[data-motion="
       });
     }
   }
-  function clothPattern(kind, x0, y0, x1, y1, c) {          // fills the current clip with keffiyeh cloth
+  function clothPattern(kind, x0, y0, x1, y1, c) {          // fills the current clip with keffiyeh or shemagh cloth
+    if (kind === 'shemagh') {                               // a red and white check
+      var sq = c * 0.16, row = 0, cx, cy;
+      ctx.fillStyle = '#B8323A'; ctx.fillRect(x0, y0, x1 - x0, y1 - y0);
+      ctx.fillStyle = '#F4F4EF';
+      for (cy = y0; cy < y1; cy += sq, row++) {               // a check: white squares on alternate rows
+        for (cx = x0 + (row % 2) * sq; cx < x1; cx += sq * 2) ctx.fillRect(cx, cy, sq, sq);
+      }
+      ctx.strokeStyle = '#6E151B'; ctx.lineWidth = Math.max(1, c * 0.02);
+      ctx.beginPath(); for (cy = y0; cy <= y1; cy += sq) { ctx.moveTo(x0, cy); ctx.lineTo(x1, cy); } ctx.stroke();
+      return;
+    }
     var red = kind === 'jordan', bg = red ? '#D23A44' : '#F4F4EF', fg = red ? '#FFFFFF' : '#1B1B1B', st = c * 0.1, row = 0, x, y;
     ctx.fillStyle = bg; ctx.fillRect(x0, y0, x1 - x0, y1 - y0);
     ctx.fillStyle = fg;
@@ -2063,8 +2120,8 @@ html[data-motion="off"] *, html[data-motion="off"] *::before, html[data-motion="
     var deco = skinDeco(), k = FX.clock, i;
     if (!deco) return;
     ctx.save(); ctx.scale(1.15, 1.15);                      // gear is drawn a little larger than the head so it reads at small sizes
-    if (deco === 'jordan' || deco === 'palestine') {
-      var sw = motionOk() ? Math.sin(k / 260) * c * 0.05 : 0, edge = deco === 'jordan' ? '#8E1F28' : '#2A2A2A';
+    if (deco === 'jordan' || deco === 'palestine' || deco === 'shemagh') {
+      var sw = motionOk() ? Math.sin(k / 260) * c * 0.05 : 0, edge = deco === 'jordan' ? '#8E1F28' : deco === 'shemagh' ? '#6E151B' : '#2A2A2A';
       ctx.save();
       ctx.beginPath();                                      // the loose end trailing behind the head
       ctx.moveTo(-c * 0.1, -c * 0.34); ctx.lineTo(-c * 0.78, -c * 0.12 + sw); ctx.lineTo(-c * 0.7, c * 0.3 + sw); ctx.lineTo(-c * 0.1, c * 0.34); ctx.closePath();
@@ -2098,6 +2155,19 @@ html[data-motion="off"] *, html[data-motion="off"] *::before, html[data-motion="
         ctx.save(); ctx.translate(-c * 0.05 + Math.cos(a) * c * 0.6, Math.sin(a) * c * 0.6); ctx.scale(c * 0.1, c * 0.1); ctx.fill(glyph('bonus')); ctx.restore();
       }
       ctx.globalAlpha = 1;
+    } else if (deco === 'royal') {                         // a crown seen from above, set at the back of the head so the eyes stay clear
+      var cx0 = -c * 0.2, rr0 = c * 0.24, spikes = 5;
+      ctx.fillStyle = '#F2C65A'; ctx.strokeStyle = '#A9781A'; ctx.lineWidth = Math.max(1, c * 0.025);
+      ctx.beginPath(); ctx.arc(cx0, 0, rr0, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+      for (i = 0; i < spikes; i++) {
+        var ang = (i / spikes) * Math.PI * 2 + Math.PI / spikes;
+        ctx.beginPath();
+        ctx.moveTo(cx0 + Math.cos(ang - 0.28) * rr0, Math.sin(ang - 0.28) * rr0);
+        ctx.lineTo(cx0 + Math.cos(ang) * c * 0.42, Math.sin(ang) * c * 0.42);
+        ctx.lineTo(cx0 + Math.cos(ang + 0.28) * rr0, Math.sin(ang + 0.28) * rr0);
+        ctx.closePath(); ctx.fill(); ctx.stroke();
+      }
+      ctx.fillStyle = '#E0245E'; ctx.beginPath(); ctx.arc(cx0, 0, c * 0.075, 0, Math.PI * 2); ctx.fill();
     } else if (deco === 'dragon') {
       ctx.fillStyle = '#7A4A10'; ctx.strokeStyle = '#4A2A08'; ctx.lineWidth = Math.max(1, c * 0.025);
       [-1, 1].forEach(function (sd) {
@@ -2320,6 +2390,7 @@ html[data-motion="off"] *, html[data-motion="off"] *::before, html[data-motion="
     ctx.save();
     if (sh) ctx.translate((Math.random() - 0.5) * 2 * sh, (Math.random() - 0.5) * 2 * sh);
     ctx.fillStyle = PAL.board; ctx.fillRect(0, 0, size, size);
+    if (PAL.texture) drawBoardTexture(PAL.texture, c);
 
     ctx.strokeStyle = PAL.grid; ctx.lineWidth = 1; ctx.beginPath();
     for (i = 1; i < COLS; i++) {
