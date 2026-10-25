@@ -465,11 +465,10 @@ html[data-motion="off"] *, html[data-motion="off"] *::before, html[data-motion="
   .strip { padding: 6px 12px; }
   .strip-text strong { font-size: 15px; }
   .bar { margin-top: 5px; height: 5px; }
+  /* The effect chips (shield, speed, idle) keep their own reserved row above the board, in every mode. They used to
+     float over the board's top edge here, which hid the top rows of cells, apples included. fitBoard() measures the
+     board's top, so the board shrinks to make room for the row instead of being covered by it. */
   .effects { min-height: 28px; }
-  /* Time Attack and Survival: effect chips float over the board's top edge instead of taking their own row. */
-  html[data-mode="timeattack"] .effects, html[data-mode="survival"] .effects { min-height: 0; height: 0; margin: 0 0 -8px; position: relative; z-index: 3; pointer-events: none; overflow: visible; }
-  html[data-mode="timeattack"] .effects .chip, html[data-mode="survival"] .effects .chip { transform: translateY(14px); background: rgba(20,22,24,.82); }
-  html[data-mode="timeattack"] #chipIdle, html[data-mode="survival"] #chipIdle { display: none; }
   .chip { padding: 2px 9px; font-size: 12px; }
   .board-wrap { flex: none; align-self: center; width: min(100%, max(200px, calc(100dvh - var(--reserve, 330px)))); }
   .controls { display: contents; }
