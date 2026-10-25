@@ -1870,7 +1870,7 @@ html[data-motion="off"] *, html[data-motion="off"] *::before, html[data-motion="
     btn.hidden = false;
     var name = Leaderboard.validateName(profile.getName());
     if (!Leaderboard.configured()) { btn.disabled = true; setText(msg, LB_MSG['not-configured']); return; }
-    if (!name.ok) { btn.disabled = true; setText(msg, 'Set a name in your profile to post your score.'); return; }
+    if (!name.ok) { btn.disabled = true; setText(msg, profile.getName() ? LB_MSG.invalid : 'Set a name in your profile to post your score.'); return; }
     btn.disabled = false;
     setText(msg, navigator.onLine === false ? LB_MSG.offline : 'Share this score with everyone who plays.');
   }

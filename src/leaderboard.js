@@ -34,14 +34,14 @@ var SnakeLeaderboard = (function () {
   function configured(cfg) { cfg = cfg || CONFIG; return !!(cfg.url && cfg.anonKey); }
 
   /* A display name: trimmed, single spaces, no control characters, no markup, 1 to 16 characters. Letters of
-     any script are allowed, so Arabic names work. */
+     any script are allowed, so Arabic names work, and apostrophes and hyphens are fine. */
   function validateName(v) {
     if (typeof v !== 'string') return { ok: false, reason: REASON.invalid };
-    if (/[\u0000-\u001f\u007f<>&"'`\\]/.test(v)) return { ok: false, reason: REASON.invalid };
+    if (/[\u0000-\u001f\u007f<>&"`\\]/.test(v)) return { ok: false, reason: REASON.invalid };   // apostrophes are fine: names are shown as plain text
     var t = v.replace(/\s+/g, ' ').trim();
     if (!t) return { ok: false, reason: REASON.invalid };
     if (Array.from(t).length > NAME_MAX) return { ok: false, reason: REASON.invalid };
-    if (!/^[\p{L}\p{N} _.\-]+$/u.test(t)) return { ok: false, reason: REASON.invalid };
+    if (!/^[\p{L}\p{N} _.'\-]+$/u.test(t)) return { ok: false, reason: REASON.invalid };
     if (!/[\p{L}\p{N}]/u.test(t)) return { ok: false, reason: REASON.invalid };   // at least one letter or digit
     return { ok: true, name: t };
   }

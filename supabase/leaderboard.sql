@@ -9,7 +9,7 @@ create table if not exists public.time_attack_scores (
   name       text not null
              check (char_length(name) between 1 and 16)
              -- no markup, quotes, backslashes or control characters; the page checks the rest
-             check (name !~ '[<>&"''`\\\\[:cntrl:]]'),
+             check (name !~ '[<>&"`\\\\[:cntrl:]]'),
   -- Time Attack: 60 s run, the highest sane score is 1000 (see CONFIG.maxScore in src/leaderboard.js)
   score      integer not null check (score between 0 and 1000),
   created_at timestamptz not null default now()

@@ -16,7 +16,9 @@ test('names: a short, clean name passes; markup, blanks, long names and odd char
   assert.equal(L.validateName('Waseem').ok, true);
   assert.equal(L.validateName('  Two   Words ').name, 'Two Words');
   assert.equal(L.validateName('واسيم').ok, true, 'Arabic letters are allowed');
-  for (const bad of ['', '   ', '<b>x</b>', 'a&b', 'say "hi"', "it's", 'a\\b', 'x'.repeat(17), '\u0007bell', 'ok\tname', '!!!', 42, null]) {
+  assert.equal(L.validateName("Ma'an").ok, true, 'an apostrophe is allowed');
+  assert.equal(L.validateName("O'Neil").name, "O'Neil");
+  for (const bad of ['', '   ', '<b>x</b>', 'a&b', 'say "hi"', 'a\\b', 'x'.repeat(17), '\u0007bell', 'ok\tname', '!!!', 42, null]) {
     assert.equal(L.validateName(bad).ok, false, `should reject ${JSON.stringify(bad)}`);
   }
 });
