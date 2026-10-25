@@ -212,9 +212,10 @@ canvas#board { display: block; width: 100%; height: 100%; }
   display: flex;
   flex-direction: column;
   align-items: center;
-  justify-content: center;
+  justify-content: flex-start;   /* centred by the spacers below, so content that does not fit can scroll */
   gap: 10px;
   padding: 24px;
+  overflow-y: auto;
   text-align: center;
   background: rgba(18, 20, 19, .88);
   -webkit-backdrop-filter: blur(4px);
@@ -222,6 +223,7 @@ canvas#board { display: block; width: 100%; height: 100%; }
   animation: rise .2s ease-out;
 }
 @keyframes rise { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+.overlay::before, .overlay::after { content: ''; margin: auto 0; flex: 0 0 0; }
 .overlay h2 { margin: 0; font-family: var(--font-display); font-weight: 600; font-size: clamp(28px, 6vw, 38px); letter-spacing: -.02em; line-height: 1.1; }
 .overlay p { max-width: 32ch; color: var(--muted); }
 .overlay .ov-stats { font-variant-numeric: tabular-nums; color: var(--text); font-weight: 500; white-space: pre-line; max-width: none; line-height: 1.6; }
@@ -229,6 +231,28 @@ canvas#board { display: block; width: 100%; height: 100%; }
 .ov-ach { margin: 0; padding: 0; list-style: none; display: flex; flex-wrap: wrap; justify-content: center; gap: 6px; max-width: 36ch; }
 .ov-ach li { padding: 2px 10px; border-radius: 999px; border: 1px solid rgba(255, 217, 138, .45); color: var(--bonus); font-size: 12px; font-weight: 600; }
 .ov-actions { display: flex; flex-wrap: wrap; justify-content: center; gap: 10px; margin-top: 10px; }
+.ov-post { display: contents; }
+.ov-post[hidden] { display: none; }
+.ov-post-msg { flex-basis: 100%; order: 9; margin: 2px 0 0; font-size: 13px; color: var(--muted); text-align: center; }
+.ov-post-msg:empty { display: none; }
+/* Short phone screens: the board is small, so the game-over panel is tighter. Desktop and taller screens are unchanged. */
+@media (pointer: coarse) and (max-height: 820px) {
+  .overlay { gap: 7px; padding: 14px 16px; }
+  .overlay p { margin: 0; }
+  .overlay .ov-actions { gap: 8px; }
+  .overlay .ov-actions .btn { min-height: 42px; padding: 0 12px; font-size: 15px; }
+  .overlay h2 { font-size: 26px; }
+  .overlay .ov-stats { font-size: 13px; line-height: 1.4; }
+  .ov-post-msg { font-size: 12px; }
+}
+.board-list { margin: 12px 0 0; padding: 0; list-style: none; display: grid; gap: 6px; }
+.board-list li { display: grid; grid-template-columns: 2.4em 1fr auto; align-items: baseline; gap: 10px; padding: 8px 12px; border-radius: 12px; background: var(--surface-2); border: 1px solid var(--line); font-variant-numeric: tabular-nums; }
+.board-list .rank { color: var(--muted); font-weight: 600; }
+.board-list .who { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 600; }
+.board-list .pts { font-weight: 700; color: var(--accent-strong, #5CD6A0); }
+.board-list small { display: block; color: var(--muted); font-size: 11px; font-weight: 500; }
+.board-pager { display: flex; gap: 10px; justify-content: center; margin-top: 14px; }
+@media (prefers-reduced-motion: reduce) { .board-list li { transition: none; } }
 
 .btn-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
 .keys { margin: 0; padding: 0; list-style: none; display: grid; gap: 6px; font-size: 13px; color: var(--muted); }
@@ -565,6 +589,7 @@ html[data-motion="off"] *, html[data-motion="off"] *::before, html[data-motion="
     <div class="tiles">
       <button class="tile" id="homeAchBtn" type="button"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l2.6 5.6 6 .7-4.5 4.1 1.2 6L12 16.4 6.7 19.4l1.2-6L3.4 9.3l6-.7z"/></svg><span class="tile-name">Achievements</span><span class="count" id="homeAchCount">0/0</span></button>
       <button class="tile" id="homeShopBtn" type="button"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 8h14l1 12H4zM9 8a3 3 0 0 1 6 0"/></svg><span class="tile-name">Shop</span><span class="count" id="homeCoins">0</span></button>
+      <button class="tile" id="homeBoardBtn" type="button"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20V11M10 20V5M16 20v-7M22 20H2"/></svg><span class="tile-name">Global board</span><span class="count">Top 20</span></button>
       <button class="tile" id="homeSettingsBtn" type="button"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h9M17 7h3M4 17h3M11 17h9M13 4v6M7 14v6"/></svg><span class="tile-name">Settings</span></button>
     </div>
     <p class="home-meta"><span>Edges: <b id="homeEdge">Walls</b></span><span>Best in this mode: <b id="homeBest">0</b></span><span class="kbd-only">Arrow keys or WASD</span></p>
@@ -604,6 +629,10 @@ html[data-motion="off"] *, html[data-motion="off"] *::before, html[data-motion="
         <span class="pill" id="ovBest" hidden>New best</span>
         <ul class="ov-ach" id="ovAch" aria-label="Unlocked this run" hidden></ul>
         <div class="ov-actions">
+          <div class="ov-post" id="ovPostRow" hidden>
+            <button class="btn" id="ovPost" type="button">Post score</button>
+            <p class="ov-post-msg" id="ovPostMsg" role="status" aria-live="polite"></p>
+          </div>
           <button class="btn btn--primary" id="ovBtn" type="button">Start</button>
           <button class="btn" id="ovSec" type="button">Menu</button>
         </div>
@@ -820,6 +849,18 @@ html[data-motion="off"] *, html[data-motion="off"] *::before, html[data-motion="
   </details>
 </dialog>
 
+<dialog id="boardDlg" aria-labelledby="boardTitle">
+  <div class="dlg-head">
+    <h2 id="boardTitle">Global board</h2>
+    <button class="btn" id="boardClose" type="button">Close</button>
+  </div>
+  <p class="ach-summary" id="boardMsg" role="status" aria-live="polite">Time Attack scores from every player.</p>
+  <ol class="board-list" id="boardList" aria-label="Top Time Attack scores"></ol>
+  <div class="board-pager">
+    <button class="btn" id="boardPrev" type="button" disabled>Previous</button>
+    <button class="btn" id="boardNext" type="button" disabled>Next</button>
+  </div>
+</dialog>
 <dialog id="achDialog" aria-labelledby="achTitle">
   <div class="dlg-head">
     <h2 id="achTitle">Achievements</h2>
@@ -1686,6 +1727,141 @@ var SnakeShop = (function () {
 })();
 if (typeof module !== 'undefined' && module.exports) module.exports = SnakeShop;
 
+/* Grid Snake global leaderboard (Time Attack only)
+ * A shared online board kept in Supabase, reached over its plain REST API (no SDK, no service key).
+ * Pure module: no DOM, no storage. The page passes in fetch, so tests can run without a network.
+ *
+ * Honest limits, also written in the setup notes (supabase/README.md):
+ *  - A score sent from a browser can be forged. The database checks the shape and the range of a row
+ *    (name length, score 0..1000), not whether the run really happened. Stronger checks need a trusted
+ *    Edge Function that replays the run. This is not cheat-proof.
+ *  - The public anon key is meant for browsers, and row-level security decides what it may do. Never put
+ *    the service-role key in this file or anywhere in the repository.
+ */
+var SnakeLeaderboard = (function () {
+  'use strict';
+
+  /* Fill these from your Supabase project (Project Settings > API): the Project URL and the public anon key.
+     Left empty, the game reports "not set up yet" and sends nothing. */
+  var CONFIG = {
+    url: '',                       // e.g. 'https://xyzcompany.supabase.co'
+    anonKey: '',                   // the public "anon" key only
+    table: 'time_attack_scores',
+    pageSize: 20,
+    timeoutMs: 8000,
+    maxScore: 1000                 // a sanity bound from the rules: a Time Attack run is 60 s and steps are at least 60 ms apart
+  };
+
+  var MODE = 'timeattack';
+  var NAME_MAX = 16;
+
+  var REASON = {
+    notConfigured: 'not-configured', wrongMode: 'wrong-mode', offline: 'offline', timeout: 'timeout',
+    network: 'network', rejected: 'rejected', server: 'server', badResponse: 'bad-response', invalid: 'invalid'
+  };
+
+  function configured(cfg) { cfg = cfg || CONFIG; return !!(cfg.url && cfg.anonKey); }
+
+  /* A display name: trimmed, single spaces, no control characters, no markup, 1 to 16 characters. Letters of
+     any script are allowed, so Arabic names work. */
+  function validateName(v) {
+    if (typeof v !== 'string') return { ok: false, reason: REASON.invalid };
+    if (/[\u0000-\u001f\u007f<>&"'`\\]/.test(v)) return { ok: false, reason: REASON.invalid };
+    var t = v.replace(/\s+/g, ' ').trim();
+    if (!t) return { ok: false, reason: REASON.invalid };
+    if (Array.from(t).length > NAME_MAX) return { ok: false, reason: REASON.invalid };
+    if (!/^[\p{L}\p{N} _.\-]+$/u.test(t)) return { ok: false, reason: REASON.invalid };
+    if (!/[\p{L}\p{N}]/u.test(t)) return { ok: false, reason: REASON.invalid };   // at least one letter or digit
+    return { ok: true, name: t };
+  }
+
+  function validateScore(v, maxScore) {
+    var max = maxScore || CONFIG.maxScore;
+    if (typeof v !== 'number' || !isFinite(v) || Math.floor(v) !== v) return { ok: false, reason: REASON.invalid };
+    if (v < 0 || v > max) return { ok: false, reason: REASON.invalid };
+    return { ok: true, score: v };
+  }
+
+  /* A random id per run, so the database can refuse the same run twice. */
+  function makeRunId(random) {
+    var b = new Uint8Array(16), i;
+    if (random) { for (i = 0; i < 16; i++) b[i] = Math.floor(random() * 256); }
+    else if (typeof crypto !== 'undefined' && crypto.getRandomValues) crypto.getRandomValues(b);
+    else for (i = 0; i < 16; i++) b[i] = Math.floor(Math.random() * 256);
+    b[6] = (b[6] & 0x0f) | 0x40; b[8] = (b[8] & 0x3f) | 0x80;          // version 4
+    var h = Array.prototype.map.call(b, function (x) { return ('0' + x.toString(16)).slice(-2); }).join('');
+    return h.slice(0, 8) + '-' + h.slice(8, 12) + '-' + h.slice(12, 16) + '-' + h.slice(16, 20) + '-' + h.slice(20);
+  }
+
+  function headers(cfg) {
+    return { apikey: cfg.anonKey, Authorization: 'Bearer ' + cfg.anonKey, 'Content-Type': 'application/json' };
+  }
+
+  /* One request with a timeout. Never throws: every failure comes back as { ok:false, reason }. */
+  function call(fetchImpl, cfg, url, init, nav) {
+    var online = nav ? nav.onLine !== false : (typeof navigator === 'undefined' || navigator.onLine !== false);
+    if (!online) return Promise.resolve({ ok: false, reason: REASON.offline });
+    if (typeof fetchImpl !== 'function') return Promise.resolve({ ok: false, reason: REASON.network });
+    var ctrl = typeof AbortController !== 'undefined' ? new AbortController() : null;
+    var timer = setTimeout(function () { if (ctrl) ctrl.abort(); }, cfg.timeoutMs);
+    var opts = Object.assign({}, init, ctrl ? { signal: ctrl.signal } : {});
+    return Promise.resolve().then(function () { return fetchImpl(url, opts); }).then(function (res) {
+      clearTimeout(timer);
+      if (res.status === 409) return { ok: true, duplicate: true };          // this run is already on the board
+      if (res.status >= 500) return { ok: false, reason: REASON.server, status: res.status };
+      if (res.status >= 400) return { ok: false, reason: REASON.rejected, status: res.status };
+      return { ok: true, status: res.status, response: res };
+    }, function (err) {
+      clearTimeout(timer);
+      if (err && err.name === 'AbortError') return { ok: false, reason: REASON.timeout };
+      return { ok: false, reason: REASON.network };
+    });
+  }
+
+  /* Post one finished Time Attack run. Other modes are refused here as well as in the page. */
+  function submitRun(o) {
+    o = o || {};
+    var cfg = o.config || CONFIG;
+    if (o.mode !== MODE) return Promise.resolve({ ok: false, reason: REASON.wrongMode });
+    if (!configured(cfg)) return Promise.resolve({ ok: false, reason: REASON.notConfigured });
+    var name = validateName(o.name), score = validateScore(o.score, cfg.maxScore);
+    if (!name.ok || !score.ok) return Promise.resolve({ ok: false, reason: REASON.invalid });
+    var body = JSON.stringify({ run_id: o.runId || makeRunId(), name: name.name, score: score.score });
+    var url = cfg.url.replace(/\/+$/, '') + '/rest/v1/' + cfg.table;
+    return call(o.fetch, cfg, url, { method: 'POST', headers: Object.assign(headers(cfg), { Prefer: 'return=minimal' }), body: body }, o.nav).then(function (r) {
+      if (r.ok && !r.duplicate) return { ok: true };
+      return r;
+    });
+  }
+
+  /* One page of the board: best score first, and the earlier run first on a tie. */
+  function fetchTop(o) {
+    o = o || {};
+    var cfg = o.config || CONFIG;
+    if (!configured(cfg)) return Promise.resolve({ ok: false, reason: REASON.notConfigured });
+    var size = Math.max(1, Math.min(50, o.pageSize || cfg.pageSize)), page = Math.max(0, o.page || 0), offset = page * size;
+    var q = '?select=name,score,created_at&order=score.desc,created_at.asc&limit=' + size + '&offset=' + offset;
+    var url = cfg.url.replace(/\/+$/, '') + '/rest/v1/' + cfg.table + q;
+    return call(o.fetch, cfg, url, { method: 'GET', headers: headers(cfg) }, o.nav).then(function (r) {
+      if (!r.ok) return r;
+      return r.response.json().then(function (rows) {
+        if (!Array.isArray(rows)) return { ok: false, reason: REASON.badResponse };
+        var out = rows.slice(0, size).map(function (row, i) {
+          return { rank: offset + i + 1, name: String(row.name || '').slice(0, NAME_MAX), score: Number(row.score) || 0, date: row.created_at || '' };
+        });
+        return { ok: true, rows: out, page: page, hasMore: rows.length === size };
+      }, function () { return { ok: false, reason: REASON.badResponse }; });
+    });
+  }
+
+  return {
+    CONFIG: CONFIG, MODE: MODE, REASON: REASON, NAME_MAX: NAME_MAX,
+    configured: configured, validateName: validateName, validateScore: validateScore, makeRunId: makeRunId,
+    submitRun: submitRun, fetchTop: fetchTop
+  };
+})();
+if (typeof module !== 'undefined' && module.exports) module.exports = SnakeLeaderboard;
+
 /* Grid Snake sound
  * Short synthesized effects (Web Audio), no audio files. No game logic: the page calls play(name).
  * Audio can only start after a tap or key press, so the context is created lazily by unlock().
@@ -2195,7 +2371,7 @@ if (typeof module !== 'undefined' && module.exports) module.exports = SnakeChase
 /* ===================== Page: wires the pure modules to the DOM ===================== */
 (function () {
   'use strict';
-  var Engine = SnakeEngine, Ach = SnakeAchievements;
+  var Engine = SnakeEngine, Ach = SnakeAchievements, Leaderboard = SnakeLeaderboard;
   var $ = function (id) { return document.getElementById(id); };
   var COLS = Engine.TUNING.cols, ROWS = Engine.TUNING.rows;
   var P = Engine.TUNING.power;
@@ -2281,11 +2457,12 @@ if (typeof module !== 'undefined' && module.exports) module.exports = SnakeChase
   /* ---------- page state ---------- */
   var game = null, tracker = null;
   var view = 'home', appReady = false, ovSecAction = 'menu';
+  var runId = null, postState = 'idle', boardPage = 0, boardHasMore = false;   // global board: one id per run
   var checkAcc = 0;
   var canvas = $('board'), ctx = canvas.getContext('2d'), wrap = $('boardWrap');
   var overlay = $('overlay'), ovTitle = $('ovTitle'), ovText = $('ovText'), ovStats = $('ovStats'), ovBest = $('ovBest'), ovAch = $('ovAch');
   var ovBtn = $('ovBtn'), ovSec = $('ovSec'), pauseBtn = $('pauseBtn'), playBtn = $('playBtn');
-  var dlg = $('settings'), achDlg = $('achDialog'), shopDlg = $('shopDlg'), pfDlg = $('profileDlg');
+  var dlg = $('settings'), achDlg = $('achDialog'), shopDlg = $('shopDlg'), pfDlg = $('profileDlg'), boardDlg = $('boardDlg');
   var el = {
     score: $('score'), best: $('best'), level: $('level'), speed: $('speed'),
     strip: $('strip'), stripL: $('stripL'), stripR: $('stripR'), bar: $('barFill'),
@@ -2678,6 +2855,7 @@ if (typeof module !== 'undefined' && module.exports) module.exports = SnakeChase
     if (side < 0) steer(h.y, 0 - h.x); else steer(0 - h.y, h.x);
   }
   function newGame() {
+    runId = Leaderboard.makeRunId(); postState = 'idle'; hidePost();
     var tuning = (mode === 'chase' ? Chase.DIFFICULTY : Engine.DIFFICULTY)[difficulty()];
     game = mode === 'chase' ? Chase.create({ edge: edge, tuning: tuning }) : Engine.create({ mode: mode, edge: edge, golden: golden, tuning: tuning });
     tracker = SnakeTracker.attach(game, profile, { onUnlock: onUnlock });   // first, so it has updated the profile before the page reacts
@@ -2843,6 +3021,7 @@ if (typeof module !== 'undefined' && module.exports) module.exports = SnakeChase
         var li = document.createElement('li'); li.textContent = d.name + ' ' + d.tier + '/' + d.of + ' (+' + d.reward + ')'; ovAch.appendChild(li);
       });
       ovBtn.textContent = 'Play again'; ovSec.textContent = 'Menu'; ovSecAction = 'menu';
+      if (mode === 'timeattack' && S.score > 0) showPost();
     }
     if (view === 'game' && !dlg.open && !achDlg.open) { try { ovBtn.focus({ preventScroll: true }); } catch (e) {} }
   }
@@ -3156,6 +3335,70 @@ if (typeof module !== 'undefined' && module.exports) module.exports = SnakeChase
   function openAchievements() {
     renderAchievements();
     if (achDlg.showModal) achDlg.showModal(); else achDlg.setAttribute('open', '');
+  }
+
+  /* ---------- global board (Time Attack only) ---------- */
+  /* runId, postState, boardPage and boardHasMore are declared with the page's state, above newGame(). */
+  var LB_MSG = {
+    'not-configured': 'The global board is not set up yet. Your scores still save on this device.',
+    offline: "You're offline. The global board needs a connection. Your scores still save on this device.",
+    timeout: 'The board took too long to answer. Try again.',
+    network: "Couldn't reach the global board. Try again.",
+    server: 'The global board is having trouble. Try again later.',
+    rejected: 'The board did not accept this score.',
+    invalid: 'This name cannot be posted. Change it in your profile.',
+    'bad-response': 'The board sent something unexpected. Try again.',
+    'wrong-mode': 'Only Time Attack scores go on the global board.'
+  };
+  function hidePost() { $('ovPostRow').hidden = true; setText($('ovPostMsg'), ''); $('ovPost').disabled = false; }
+  function showPost() {
+    var row = $('ovPostRow'), btn = $('ovPost'), msg = $('ovPostMsg');
+    row.hidden = false;
+    if (postState === 'posted') { btn.hidden = true; setText(msg, 'Posted to the global board.'); return; }
+    btn.hidden = false;
+    var name = Leaderboard.validateName(profile.getName());
+    if (!Leaderboard.configured()) { btn.disabled = true; setText(msg, LB_MSG['not-configured']); return; }
+    if (!name.ok) { btn.disabled = true; setText(msg, 'Set a name in your profile to post your score.'); return; }
+    btn.disabled = false;
+    setText(msg, navigator.onLine === false ? LB_MSG.offline : 'Share this score with everyone who plays.');
+  }
+  function postRun() {
+    var btn = $('ovPost'), msg = $('ovPostMsg');
+    if (postState === 'posting' || postState === 'posted') return;
+    postState = 'posting'; btn.disabled = true; setText(msg, 'Posting…');
+    Leaderboard.submitRun({ mode: mode, name: profile.getName(), score: Math.floor(game.state.score), runId: runId,
+      fetch: function (u, i) { return window.fetch(u, i); } }).then(function (r) {
+      if (r.ok) { postState = 'posted'; btn.hidden = true; setText(msg, r.duplicate ? 'This run is already on the global board.' : 'Posted to the global board.'); announce('Score posted to the global board'); return; }
+      postState = 'idle'; btn.disabled = false; setText(msg, LB_MSG[r.reason] || LB_MSG.network);
+    }, function () { postState = 'idle'; btn.disabled = false; setText(msg, LB_MSG.network); });
+  }
+  function openBoard() {
+    boardPage = 0; loadBoard();
+    if (boardDlg.showModal) boardDlg.showModal(); else boardDlg.setAttribute('open', '');
+  }
+  function loadBoard() {
+    var list = $('boardList'); list.textContent = '';
+    setText($('boardMsg'), Leaderboard.configured() ? 'Loading the board…' : LB_MSG['not-configured']);
+    $('boardPrev').disabled = true; $('boardNext').disabled = true;
+    if (!Leaderboard.configured()) return;
+    Leaderboard.fetchTop({ page: boardPage, fetch: function (u, i) { return window.fetch(u, i); } }).then(function (r) {
+      if (!r.ok) { setText($('boardMsg'), LB_MSG[r.reason] || LB_MSG.network); return; }
+      boardHasMore = r.hasMore;
+      if (!r.rows.length) { setText($('boardMsg'), boardPage ? 'No more scores.' : 'No scores yet. Be the first to post one.'); }
+      else setText($('boardMsg'), 'Best Time Attack scores, page ' + (boardPage + 1) + '.');
+      r.rows.forEach(function (row) {
+        var li = document.createElement('li');
+        var rk = document.createElement('span'); rk.className = 'rank'; rk.textContent = '#' + row.rank;
+        var who = document.createElement('span'); who.className = 'who'; who.textContent = row.name || 'Player';
+        var pts = document.createElement('span'); pts.className = 'pts'; pts.textContent = row.score;
+        var when = document.createElement('small'); var d = row.date ? new Date(row.date) : null;
+        when.textContent = d && !isNaN(d) ? d.toLocaleDateString() : '';
+        who.appendChild(when);
+        li.appendChild(rk); li.appendChild(who); li.appendChild(pts);
+        list.appendChild(li);
+      });
+      $('boardPrev').disabled = boardPage === 0; $('boardNext').disabled = !boardHasMore;
+    });
   }
 
   /* ---------- drawing ---------- */
@@ -3877,7 +4120,7 @@ if (typeof module !== 'undefined' && module.exports) module.exports = SnakeChase
     ArrowUp: [0, -1], ArrowDown: [0, 1], ArrowLeft: [-1, 0], ArrowRight: [1, 0],
     w: [0, -1], s: [0, 1], a: [-1, 0], d: [1, 0], W: [0, -1], S: [0, 1], A: [-1, 0], D: [1, 0]
   };
-  function dialogOpen() { return dlg.open || achDlg.open || shopDlg.open || pfDlg.open || $('welcomeDlg').open; }
+  function dialogOpen() { return dlg.open || achDlg.open || shopDlg.open || pfDlg.open || boardDlg.open || $('welcomeDlg').open; }
   ['pointerdown', 'keydown', 'touchend'].forEach(function (n) {       // browsers allow sound only after a tap or key press
     document.addEventListener(n, function () { sfx.unlock(); }, true);
   });
@@ -3927,6 +4170,11 @@ if (typeof module !== 'undefined' && module.exports) module.exports = SnakeChase
   $('homeSettingsBtn').addEventListener('click', openSettings);
   $('gameSettingsBtn').addEventListener('click', openSettings);
   $('homeAchBtn').addEventListener('click', openAchievements);
+  $('homeBoardBtn').addEventListener('click', openBoard);
+  $('boardClose').addEventListener('click', function () { closeDialog(boardDlg); });
+  $('boardPrev').addEventListener('click', function () { if (boardPage > 0) { boardPage--; loadBoard(); } });
+  $('boardNext').addEventListener('click', function () { if (boardHasMore) { boardPage++; loadBoard(); } });
+  $('ovPost').addEventListener('click', postRun);
   $('settingsClose').addEventListener('click', function () { closeDialog(dlg); });
   $('achClose').addEventListener('click', function () { closeDialog(achDlg); });
   $('homeShopBtn').addEventListener('click', openShop);
@@ -3971,7 +4219,7 @@ if (typeof module !== 'undefined' && module.exports) module.exports = SnakeChase
     } else msg.textContent = 'That code did not work. Check that you pasted all of it.';
   });
   $('shopClose').addEventListener('click', function () { closeDialog(shopDlg); });
-  [dlg, achDlg, shopDlg, pfDlg].forEach(function (d) { d.addEventListener('click', function (e) { if (e.target === d) closeDialog(d); }); });
+  [dlg, achDlg, shopDlg, pfDlg, boardDlg].forEach(function (d) { d.addEventListener('click', function (e) { if (e.target === d) closeDialog(d); }); });
 
   ovBtn.addEventListener('click', function () {
     var ph = game.state.phase;
