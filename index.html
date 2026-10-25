@@ -445,6 +445,11 @@ html[data-motion="off"] *, html[data-motion="off"] *::before, html[data-motion="
 .shop-item { border: 1px solid var(--line); border-radius: 14px; padding: 10px; background: var(--surface-2); display: flex; flex-direction: column; gap: 6px; }
 .shop-item canvas { width: 100%; height: 64px; border-radius: 10px; display: block; }
 .shop-item h4 { margin: 4px 0 0; font-size: 15px; font-weight: 600; }
+.rarity { align-self: flex-start; font-size: 11px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; padding: 2px 8px; border-radius: 999px; border: 1px solid currentColor; font-variant-numeric: tabular-nums; }
+.rarity--basic { color: #9AA5A0; }
+.rarity--rare { color: #5AA9F2; }
+.rarity--epic { color: #B07CF5; }
+.rarity--legendary { color: #F2C65A; }
 .shop-item p { margin: 0; font-size: 13px; color: var(--muted); flex: 1; }
 .shop-item .btn { min-height: 40px; }
 .shop-item .btn[disabled] { opacity: .55; cursor: default; }
@@ -1527,7 +1532,13 @@ var SnakeProfile = (function () {
       },
       getCoins: function () { return data.coins; },
       addCoins: function (n) { n = count(n); if (n) { data.coins += n; save(); } return data.coins; },
-      owns: function (id) { return premium.indexOf(id) < 0 || !!data.owned[id]; },
+      /* A shop item is owned once bought. A free look (skin:emerald, board:midnight) is always owned. Anything else is not:
+         an unknown id used to count as owned, which was wrong. */
+      owns: function (id) {
+        if (premium.indexOf(id) >= 0) return !!data.owned[id];
+        var p = String(id).split(':');
+        return p.length === 2 && LOOKS[p[0]] !== undefined && LOOKS[p[0]].indexOf(p[1]) >= 0;
+      },
       /* Spend coins on a shop item. False when unknown, already owned, or too expensive. */
       buy: function (id, price) {
         if (premium.indexOf(id) < 0 || data.owned[id] || !(price >= 0) || data.coins < price) return false;
@@ -1660,6 +1671,43 @@ var SnakeTracker = (function () {
   return { attach: attach, COINS: COINS };
 })();
 if (typeof module !== 'undefined' && module.exports) module.exports = SnakeTracker;
+
+/* Grid Snake shop catalogue
+ * What the shop sells, its rarity and its price. No DOM and no storage: src/profile.js keeps what is owned,
+ * and the page draws the cards. Coins come from play: a run pays one coin per point it scores when it ends,
+ * and each achievement tier pays its own reward (see src/tracker.js and src/achievements.js).
+ * id is kind:key (skin:jordan, board:neon). Rarity sets the price band; prices apply only to new purchases.
+ * Items a player already owns stay owned when a price changes.
+ */
+var SnakeShop = (function () {
+  'use strict';
+
+  var RARITY = {
+    basic:     { name: 'Basic',     min: 100,  max: 250 },
+    rare:      { name: 'Rare',      min: 500,  max: 1000 },
+    epic:      { name: 'Epic',      min: 1500, max: 3000 },
+    legendary: { name: 'Legendary', min: 5000, max: 10000 }
+  };
+
+  var ITEMS = [
+    { id: 'skin:palestine', rarity: 'basic', price: 150,  desc: 'A black and white keffiyeh wrapped around the head.' },
+    { id: 'skin:jordan',    rarity: 'basic', price: 200,  desc: 'A red and white keffiyeh wrapped around the head.' },
+    { id: 'board:desert',   rarity: 'basic', price: 200,  desc: 'A warm sandy board for late-night runs.' },
+    { id: 'skin:cyber',     rarity: 'rare',  price: 500,  desc: 'Neon circuit lines on the body and a glowing visor.' },
+    { id: 'board:neon',     rarity: 'rare',  price: 500,  desc: 'A dark board with a glowing purple grid.' },
+    { id: 'skin:galaxy',    rarity: 'rare',  price: 800,  desc: 'A twinkling night-sky body with a star halo.' },
+    { id: 'skin:dragon',    rarity: 'epic',  price: 1500, desc: 'Gold scales, spines and a pair of horns.' }
+  ];
+
+  /* A price outside its rarity band is a mistake in the catalogue, not a player problem. */
+  function inBand(item) {
+    var r = RARITY[item.rarity];
+    return !!r && item.price >= r.min && item.price <= r.max;
+  }
+
+  return { RARITY: RARITY, ITEMS: ITEMS, inBand: inBand };
+})();
+if (typeof module !== 'undefined' && module.exports) module.exports = SnakeShop;
 
 /* Grid Snake sound
  * Short synthesized effects (Web Audio), no audio files. No game logic: the page calls play(name).
@@ -2232,16 +2280,7 @@ if (typeof module !== 'undefined' && module.exports) module.exports = SnakeChase
     desert:   { premium: true, name: 'Desert night', bg: '#17110B', board: '#241A11', grid: '#33261A', tile: '#40301F' },
     neon:     { premium: true, name: 'Neon grid',    bg: '#0A0716', board: '#0F0A24', grid: '#2B1B66', tile: '#2A1A5C' }
   };
-  /* The shop: id is kind:key, price is in coins (1 coin per point scored, 30 per achievement). */
-  var SHOP = [
-    { id: 'skin:jordan',    price: 150, desc: 'A red and white keffiyeh wrapped around the head.' },
-    { id: 'skin:palestine', price: 150, desc: 'A black and white keffiyeh wrapped around the head.' },
-    { id: 'skin:cyber',     price: 300, desc: 'Neon circuit lines on the body and a glowing visor.' },
-    { id: 'skin:galaxy',    price: 450, desc: 'A twinkling night-sky body with a star halo.' },
-    { id: 'skin:dragon',    price: 600, desc: 'Gold scales, spines and a pair of horns.' },
-    { id: 'board:desert',   price: 200, desc: 'A warm sandy board for late-night runs.' },
-    { id: 'board:neon',     price: 250, desc: 'A dark board with a glowing purple grid.' }
-  ];
+  var RARITY = SnakeShop.RARITY, SHOP = SnakeShop.ITEMS;   // the catalogue lives in src/shop.js
   var FOODS = { dot: { name: 'Dot', color: '#F2B84B' }, apple: { name: 'Apple', color: '#E5594F' }, berry: { name: 'Berry', color: '#B06CF0' } };
 
   /* ---------- saved data ---------- */
@@ -3104,10 +3143,16 @@ if (typeof module !== 'undefined' && module.exports) module.exports = SnakeChase
       var m = shopMeta(item), meta = m.T[m.key], owned = profile.owns(item.id), on = owned && look[m.kind] === m.key;
       var card = document.createElement('div'); card.className = 'shop-item'; card.setAttribute('data-id', item.id);
       var cv = document.createElement('canvas'); cv.setAttribute('aria-hidden', 'true'); card.appendChild(cv);
+      var rar = RARITY[item.rarity] || RARITY.basic;
+      var tag = document.createElement('span'); tag.className = 'rarity rarity--' + (item.rarity || 'basic');
+      tag.textContent = rar.name + ' · ' + item.price + ' coins'; card.appendChild(tag);
       var h = document.createElement('h4'); h.textContent = meta.name; card.appendChild(h);
       var d = document.createElement('p'); d.textContent = item.desc; card.appendChild(d);
       var b = document.createElement('button'); b.type = 'button'; b.className = 'btn';
-      if (!owned) { b.textContent = 'Buy for ' + item.price; b.disabled = coins < item.price; if (b.disabled) b.title = 'Not enough coins yet'; }
+      if (!owned) {
+        b.textContent = 'Buy for ' + item.price; b.disabled = coins < item.price;
+        if (b.disabled) { b.title = 'You need ' + (item.price - coins) + ' more coins'; b.setAttribute('aria-label', meta.name + ', buy for ' + item.price + ' coins. You need ' + (item.price - coins) + ' more.'); }
+      }
       else if (on) { b.textContent = 'Equipped'; b.disabled = true; }
       else b.textContent = 'Equip';
       b.addEventListener('click', function () {

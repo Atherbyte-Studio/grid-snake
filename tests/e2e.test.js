@@ -949,11 +949,11 @@ test('E2E settings polish: volume, animations override, help text, and a two-ste
 });
 
 test('E2E shop: coins from a run, locked items, buying, equipping, and saved after reload', { timeout: 90000 }, async () => {
-  const { ctx, page, errors } = await open({ storage: seed({ prefs: { mode: 'classic', edge: 'walls' }, coins: 140 }) });
-  assert.equal(await text(page, '#homeCoins'), '140');
+  const { ctx, page, errors } = await open({ storage: seed({ prefs: { mode: 'classic', edge: 'walls' }, coins: 180 }) });
+  assert.equal(await text(page, '#homeCoins'), '180');
   await page.click('#homeShopBtn');
   assert.equal(await page.locator('.shop-item').count(), 7);
-  assert.equal(await text(page, '[data-id="skin:jordan"] button'), 'Buy for 150');
+  assert.equal(await text(page, '[data-id="skin:jordan"] button'), 'Buy for 200');
   assert.equal(await page.evaluate(() => document.querySelector('[data-id="skin:jordan"] button').disabled), true, 'not enough coins');
   await page.click('#shopClose');
   // finish a run to earn coins
@@ -963,7 +963,7 @@ test('E2E shop: coins from a run, locked items, buying, equipping, and saved aft
   assert.match(await text(page, '#ovStats'), /\+(\d+) coins/);
   await page.click('#ovSec');
   assert.equal(await text(page, '#homeCoins'), String(await page.evaluate(() => __t.profile.getCoins())));
-  assert.ok(await page.evaluate(() => __t.profile.getCoins()) >= 165);
+  assert.ok(await page.evaluate(() => __t.profile.getCoins()) >= 200, 'enough coins to buy the 200 keffiyeh after a run');
   await page.click('#homeShopBtn');
   await page.click('[data-id="skin:jordan"] button');
   assert.equal(await text(page, '[data-id="skin:jordan"] button'), 'Equipped');

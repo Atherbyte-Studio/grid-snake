@@ -171,7 +171,13 @@ var SnakeProfile = (function () {
       },
       getCoins: function () { return data.coins; },
       addCoins: function (n) { n = count(n); if (n) { data.coins += n; save(); } return data.coins; },
-      owns: function (id) { return premium.indexOf(id) < 0 || !!data.owned[id]; },
+      /* A shop item is owned once bought. A free look (skin:emerald, board:midnight) is always owned. Anything else is not:
+         an unknown id used to count as owned, which was wrong. */
+      owns: function (id) {
+        if (premium.indexOf(id) >= 0) return !!data.owned[id];
+        var p = String(id).split(':');
+        return p.length === 2 && LOOKS[p[0]] !== undefined && LOOKS[p[0]].indexOf(p[1]) >= 0;
+      },
       /* Spend coins on a shop item. False when unknown, already owned, or too expensive. */
       buy: function (id, price) {
         if (premium.indexOf(id) < 0 || data.owned[id] || !(price >= 0) || data.coins < price) return false;
