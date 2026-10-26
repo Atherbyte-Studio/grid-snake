@@ -1813,7 +1813,7 @@ var SnakeLeaderboard = (function () {
   var REASON = {
     notConfigured: 'not-configured', offline: 'offline', timeout: 'timeout', network: 'network',
     rejected: 'rejected', server: 'server', badResponse: 'bad-response', invalid: 'invalid',
-    setup: 'setup', notRanked: 'not-ranked', taken: 'taken', unknownPlayer: 'unknown-player', alreadyRegistered: 'already-registered'
+    setup: 'setup', notRanked: 'not-ranked', taken: 'taken', unknownPlayer: 'unknown-player', alreadyRegistered: 'already-registered', storage: 'storage'
   };
 
   function configured(cfg) { cfg = cfg || CONFIG; return !!(cfg.url && cfg.anonKey); }
@@ -1902,6 +1902,59 @@ var SnakeLeaderboard = (function () {
     return call(o.fetch, cfg, url, { method: 'POST', headers: headers(cfg), body: JSON.stringify(args) }, o.nav);
   }
 
+  /* ----- the pending code: a recovery code kept on this device until the server confirms it -----
+   * The code is created once and written to storage BEFORE the registration request leaves. If the answer is
+   * lost (timeout, dropped connection, closed tab), the same code is sent again, so the server either creates the
+   * player or says it already exists for this code. Either way the player gets their identity back, and no
+   * name is reserved for a code this device no longer has. The code is never logged. */
+  var PENDING_KEY = 'gridsnake-pending-player-v1';
+
+  function readPending(storage) {
+    try {
+      var v = JSON.parse(storage.getItem(PENDING_KEY) || 'null');
+      if (v && validateSecret(v.secret).ok) return { name: typeof v.name === 'string' ? v.name : '', secret: normalizeSecret(v.secret) };
+    } catch (e) {}
+    return null;
+  }
+  function writePending(storage, p) {
+    try { storage.setItem(PENDING_KEY, JSON.stringify(p)); return true; } catch (e) { return false; }
+  }
+  function clearPending(storage) {
+    try { storage.removeItem(PENDING_KEY); } catch (e) {}
+  }
+
+  /* Register a player with the safe mechanism. o: { name, storage, fetch, nav, config }.
+   * Returns { ok:true, name, secret, restored } on success. restored is true when the server already had this
+   * code (a lost answer, or a second tab), so the caller saves the identity and does not treat it as a failure.
+   * Returns { ok:false, reason, secret } otherwise; a taken name keeps the same pending code for a second try. */
+  function enrollPlayer(o) {
+    o = o || {};
+    var name = validateName(o.name);
+    if (!name.ok) return Promise.resolve({ ok: false, reason: REASON.invalid });
+    if (!o.storage) return Promise.resolve({ ok: false, reason: REASON.storage });
+    var pend = readPending(o.storage);
+    var secret = pend ? pend.secret : newSecret(o.random);
+    if (!writePending(o.storage, { name: name.name, secret: secret })) return Promise.resolve({ ok: false, reason: REASON.storage });
+    return registerPlayer({ config: o.config, fetch: o.fetch, nav: o.nav, name: name.name, secret: secret }).then(function (r) {
+      if (r.ok) { clearPending(o.storage); return { ok: true, name: r.name, secret: secret, restored: false }; }
+      if (r.reason === REASON.alreadyRegistered) { clearPending(o.storage); return { ok: true, name: r.name, secret: secret, restored: true }; }
+      return { ok: false, reason: r.reason, secret: secret };
+    });
+  }
+
+  /* On page load: a pending code that the server already knows means the earlier answer was lost. Recover it.
+   * Returns { ok:true, name, secret } or { ok:false, reason }. An unknown code stays pending for the next try. */
+  function resumePending(o) {
+    o = o || {};
+    var pend = o.storage ? readPending(o.storage) : null;
+    if (!pend) return Promise.resolve({ ok: false, reason: 'none' });
+    return getMe({ config: o.config, fetch: o.fetch, nav: o.nav, secret: pend.secret }).then(function (r) {
+      if (!r.ok) return { ok: false, reason: r.reason };
+      clearPending(o.storage);
+      return { ok: true, name: r.name, secret: pend.secret };
+    });
+  }
+
   /* Register a new player name. The server answers ok, taken, or invalid. Nothing is stored locally here. */
   function registerPlayer(o) {
     o = o || {};
@@ -1967,7 +2020,8 @@ var SnakeLeaderboard = (function () {
     CONFIG: CONFIG, RANKED: RANKED, REASON: REASON, NAME_MAX: NAME_MAX,
     configured: configured, validateName: validateName, validateScore: validateScore,
     validateSecret: validateSecret, normalizeSecret: normalizeSecret, formatSecret: formatSecret, newSecret: newSecret,
-    isRanked: isRanked, registerPlayer: registerPlayer, submitBest: submitBest, getMe: getMe, fetchTop: fetchTop
+    isRanked: isRanked, registerPlayer: registerPlayer, submitBest: submitBest, getMe: getMe, fetchTop: fetchTop,
+    enrollPlayer: enrollPlayer, resumePending: resumePending, PENDING_KEY: PENDING_KEY
   };
 })();
 if (typeof module !== 'undefined' && module.exports) module.exports = SnakeLeaderboard;
@@ -3464,7 +3518,8 @@ if (typeof module !== 'undefined' && module.exports) module.exports = SnakeChase
     setup: 'The global board is not set up on the server yet.',
     'unknown-player': 'This browser\'s player is not on the board. Restore it with your recovery code.',
     taken: 'That name is already taken. Choose another.',
-    'already-registered': 'This browser already has a player.'
+    'already-registered': 'This browser already has a player.',
+    storage: 'This browser will not keep your recovery code, so a player cannot be created here. Allow site storage and try again.'
   };
   function netFetch(u, i) { return window.fetch(u, i); }
   function ranked() { return mode === 'timeattack'; }
@@ -3506,15 +3561,16 @@ if (typeof module !== 'undefined' && module.exports) module.exports = SnakeChase
     var check = Leaderboard.validateName($('welcomeInput').value);
     if (!check.ok) { welcomeNote("Use 1 to 16 letters, digits, spaces, or _ . ' -. Other symbols are not allowed.", true); return; }
     if (!Leaderboard.configured()) { welcomeNote(LB_MSG['not-configured'], true); return; }
-    var secret = Leaderboard.newSecret(), btn = $('welcomeCreate');
+    var btn = $('welcomeCreate');
     btn.disabled = true; welcomeNote('Creating your player…');
-    Leaderboard.registerPlayer({ name: check.name, secret: secret, fetch: netFetch }).then(function (r) {
+    /* The recovery code is kept on this device before the request is sent, and the same code is reused on a retry. */
+    Leaderboard.enrollPlayer({ name: check.name, storage: store(), fetch: netFetch }).then(function (r) {
       btn.disabled = false;
       if (!r.ok) { welcomeNote(LB_MSG[r.reason] || LB_MSG.network, true); return; }
-      saveIdentity({ name: r.name, secret: secret });
+      saveIdentity({ name: r.name, secret: r.secret });
       profile.setName(r.name);
       $('welcomeInput').value = ''; welcomeNote('');
-      setText($('welcomeSecret'), Leaderboard.formatSecret(secret));
+      setText($('welcomeSecret'), Leaderboard.formatSecret(r.secret));
       $('welcomePick').hidden = true; $('welcomeCodeBox').hidden = false;
       try { $('welcomeSaved').focus({ preventScroll: true }); } catch (err) {}
     }, function () { btn.disabled = false; welcomeNote(LB_MSG.network, true); });
@@ -3538,8 +3594,19 @@ if (typeof module !== 'undefined' && module.exports) module.exports = SnakeChase
   }
   function playForNow() { skipWelcome = true; closeDialog($('welcomeDlg')); }
   /* Once per page load, check the stored player against the board, so the name and the best are the server's. */
+  /* localStorage can be blocked (private modes, some embedded views). Every use below copes with null. */
+  function store() { try { return window.localStorage; } catch (e) { return null; } }
   function refreshPlayer() {
-    if (!player || !Leaderboard.configured()) return;
+    if (!Leaderboard.configured()) return;
+    if (!player) {
+      /* A player created on this device whose answer was lost: if the server has the code, restore the identity. */
+      Leaderboard.resumePending({ storage: store(), fetch: netFetch }).then(function (r) {
+        if (!r.ok || player) return;
+        saveIdentity({ name: r.name, secret: r.secret }); profile.setName(r.name);
+        closeDialog($('welcomeDlg')); updateHome();
+      });
+      return;
+    }
     Leaderboard.getMe({ secret: player.secret, fetch: netFetch }).then(function (r) {
       if (r.ok) {
         if (r.name !== player.name) saveIdentity({ name: r.name, secret: player.secret });

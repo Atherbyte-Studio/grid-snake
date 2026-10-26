@@ -31,7 +31,7 @@ var SnakeLeaderboard = (function () {
   var REASON = {
     notConfigured: 'not-configured', offline: 'offline', timeout: 'timeout', network: 'network',
     rejected: 'rejected', server: 'server', badResponse: 'bad-response', invalid: 'invalid',
-    setup: 'setup', notRanked: 'not-ranked', taken: 'taken', unknownPlayer: 'unknown-player', alreadyRegistered: 'already-registered'
+    setup: 'setup', notRanked: 'not-ranked', taken: 'taken', unknownPlayer: 'unknown-player', alreadyRegistered: 'already-registered', storage: 'storage'
   };
 
   function configured(cfg) { cfg = cfg || CONFIG; return !!(cfg.url && cfg.anonKey); }
@@ -120,6 +120,59 @@ var SnakeLeaderboard = (function () {
     return call(o.fetch, cfg, url, { method: 'POST', headers: headers(cfg), body: JSON.stringify(args) }, o.nav);
   }
 
+  /* ----- the pending code: a recovery code kept on this device until the server confirms it -----
+   * The code is created once and written to storage BEFORE the registration request leaves. If the answer is
+   * lost (timeout, dropped connection, closed tab), the same code is sent again, so the server either creates the
+   * player or says it already exists for this code. Either way the player gets their identity back, and no
+   * name is reserved for a code this device no longer has. The code is never logged. */
+  var PENDING_KEY = 'gridsnake-pending-player-v1';
+
+  function readPending(storage) {
+    try {
+      var v = JSON.parse(storage.getItem(PENDING_KEY) || 'null');
+      if (v && validateSecret(v.secret).ok) return { name: typeof v.name === 'string' ? v.name : '', secret: normalizeSecret(v.secret) };
+    } catch (e) {}
+    return null;
+  }
+  function writePending(storage, p) {
+    try { storage.setItem(PENDING_KEY, JSON.stringify(p)); return true; } catch (e) { return false; }
+  }
+  function clearPending(storage) {
+    try { storage.removeItem(PENDING_KEY); } catch (e) {}
+  }
+
+  /* Register a player with the safe mechanism. o: { name, storage, fetch, nav, config }.
+   * Returns { ok:true, name, secret, restored } on success. restored is true when the server already had this
+   * code (a lost answer, or a second tab), so the caller saves the identity and does not treat it as a failure.
+   * Returns { ok:false, reason, secret } otherwise; a taken name keeps the same pending code for a second try. */
+  function enrollPlayer(o) {
+    o = o || {};
+    var name = validateName(o.name);
+    if (!name.ok) return Promise.resolve({ ok: false, reason: REASON.invalid });
+    if (!o.storage) return Promise.resolve({ ok: false, reason: REASON.storage });
+    var pend = readPending(o.storage);
+    var secret = pend ? pend.secret : newSecret(o.random);
+    if (!writePending(o.storage, { name: name.name, secret: secret })) return Promise.resolve({ ok: false, reason: REASON.storage });
+    return registerPlayer({ config: o.config, fetch: o.fetch, nav: o.nav, name: name.name, secret: secret }).then(function (r) {
+      if (r.ok) { clearPending(o.storage); return { ok: true, name: r.name, secret: secret, restored: false }; }
+      if (r.reason === REASON.alreadyRegistered) { clearPending(o.storage); return { ok: true, name: r.name, secret: secret, restored: true }; }
+      return { ok: false, reason: r.reason, secret: secret };
+    });
+  }
+
+  /* On page load: a pending code that the server already knows means the earlier answer was lost. Recover it.
+   * Returns { ok:true, name, secret } or { ok:false, reason }. An unknown code stays pending for the next try. */
+  function resumePending(o) {
+    o = o || {};
+    var pend = o.storage ? readPending(o.storage) : null;
+    if (!pend) return Promise.resolve({ ok: false, reason: 'none' });
+    return getMe({ config: o.config, fetch: o.fetch, nav: o.nav, secret: pend.secret }).then(function (r) {
+      if (!r.ok) return { ok: false, reason: r.reason };
+      clearPending(o.storage);
+      return { ok: true, name: r.name, secret: pend.secret };
+    });
+  }
+
   /* Register a new player name. The server answers ok, taken, or invalid. Nothing is stored locally here. */
   function registerPlayer(o) {
     o = o || {};
@@ -185,7 +238,8 @@ var SnakeLeaderboard = (function () {
     CONFIG: CONFIG, RANKED: RANKED, REASON: REASON, NAME_MAX: NAME_MAX,
     configured: configured, validateName: validateName, validateScore: validateScore,
     validateSecret: validateSecret, normalizeSecret: normalizeSecret, formatSecret: formatSecret, newSecret: newSecret,
-    isRanked: isRanked, registerPlayer: registerPlayer, submitBest: submitBest, getMe: getMe, fetchTop: fetchTop
+    isRanked: isRanked, registerPlayer: registerPlayer, submitBest: submitBest, getMe: getMe, fetchTop: fetchTop,
+    enrollPlayer: enrollPlayer, resumePending: resumePending, PENDING_KEY: PENDING_KEY
   };
 })();
 if (typeof module !== 'undefined' && module.exports) module.exports = SnakeLeaderboard;

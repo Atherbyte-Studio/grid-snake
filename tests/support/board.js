@@ -11,7 +11,7 @@ function identityStorage(name, secret) {
 }
 
 function makeBoard(players) {
-  const db = { players: [], calls: [], fail: [], seq: 0 };
+  const db = { players: [], calls: [], fail: [], seq: 0, dropAnswers: 0 };   // dropAnswers: register, but lose the answer that many times
   (players || []).forEach(p => db.players.push({ name: p.name, secret: p.secret || null, best: p.best, at: ++db.seq }));
   const byName = n => db.players.find(p => p.name.toLowerCase() === n.toLowerCase());
   const bySecret = s => db.players.find(p => p.secret === s);
@@ -32,6 +32,7 @@ function makeBoard(players) {
       if (byName(name)) return route.fulfill(json(200, { status: 'taken' }));
       if (!name || name.length > 16 || /[<>&"`\\]/.test(name)) return route.fulfill(json(200, { status: 'invalid' }));
       db.players.push({ name: name, secret: b.p_secret, best: null, at: null });
+      if (db.dropAnswers > 0) { db.dropAnswers--; return route.abort('failed'); }   // the player is created, the page never hears
       return route.fulfill(json(200, { status: 'ok', name: name }));
     }
     if (fn === 'submit_best') {

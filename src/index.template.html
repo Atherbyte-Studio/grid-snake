@@ -1892,7 +1892,8 @@ html[data-motion="off"] *, html[data-motion="off"] *::before, html[data-motion="
     setup: 'The global board is not set up on the server yet.',
     'unknown-player': 'This browser\'s player is not on the board. Restore it with your recovery code.',
     taken: 'That name is already taken. Choose another.',
-    'already-registered': 'This browser already has a player.'
+    'already-registered': 'This browser already has a player.',
+    storage: 'This browser will not keep your recovery code, so a player cannot be created here. Allow site storage and try again.'
   };
   function netFetch(u, i) { return window.fetch(u, i); }
   function ranked() { return mode === 'timeattack'; }
@@ -1934,15 +1935,16 @@ html[data-motion="off"] *, html[data-motion="off"] *::before, html[data-motion="
     var check = Leaderboard.validateName($('welcomeInput').value);
     if (!check.ok) { welcomeNote("Use 1 to 16 letters, digits, spaces, or _ . ' -. Other symbols are not allowed.", true); return; }
     if (!Leaderboard.configured()) { welcomeNote(LB_MSG['not-configured'], true); return; }
-    var secret = Leaderboard.newSecret(), btn = $('welcomeCreate');
+    var btn = $('welcomeCreate');
     btn.disabled = true; welcomeNote('Creating your player…');
-    Leaderboard.registerPlayer({ name: check.name, secret: secret, fetch: netFetch }).then(function (r) {
+    /* The recovery code is kept on this device before the request is sent, and the same code is reused on a retry. */
+    Leaderboard.enrollPlayer({ name: check.name, storage: store(), fetch: netFetch }).then(function (r) {
       btn.disabled = false;
       if (!r.ok) { welcomeNote(LB_MSG[r.reason] || LB_MSG.network, true); return; }
-      saveIdentity({ name: r.name, secret: secret });
+      saveIdentity({ name: r.name, secret: r.secret });
       profile.setName(r.name);
       $('welcomeInput').value = ''; welcomeNote('');
-      setText($('welcomeSecret'), Leaderboard.formatSecret(secret));
+      setText($('welcomeSecret'), Leaderboard.formatSecret(r.secret));
       $('welcomePick').hidden = true; $('welcomeCodeBox').hidden = false;
       try { $('welcomeSaved').focus({ preventScroll: true }); } catch (err) {}
     }, function () { btn.disabled = false; welcomeNote(LB_MSG.network, true); });
@@ -1966,8 +1968,19 @@ html[data-motion="off"] *, html[data-motion="off"] *::before, html[data-motion="
   }
   function playForNow() { skipWelcome = true; closeDialog($('welcomeDlg')); }
   /* Once per page load, check the stored player against the board, so the name and the best are the server's. */
+  /* localStorage can be blocked (private modes, some embedded views). Every use below copes with null. */
+  function store() { try { return window.localStorage; } catch (e) { return null; } }
   function refreshPlayer() {
-    if (!player || !Leaderboard.configured()) return;
+    if (!Leaderboard.configured()) return;
+    if (!player) {
+      /* A player created on this device whose answer was lost: if the server has the code, restore the identity. */
+      Leaderboard.resumePending({ storage: store(), fetch: netFetch }).then(function (r) {
+        if (!r.ok || player) return;
+        saveIdentity({ name: r.name, secret: r.secret }); profile.setName(r.name);
+        closeDialog($('welcomeDlg')); updateHome();
+      });
+      return;
+    }
     Leaderboard.getMe({ secret: player.secret, fetch: netFetch }).then(function (r) {
       if (r.ok) {
         if (r.name !== player.name) saveIdentity({ name: r.name, secret: player.secret });

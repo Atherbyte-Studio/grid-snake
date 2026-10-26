@@ -82,6 +82,34 @@ test('first visit: a name is asked for, and the new player gets a recovery code 
   await ctx.close();
 });
 
+test('lost answer: the player is created but the answer never arrives; the retry restores the same identity', { timeout: 90000 }, async () => {
+  const db = makeBoard([]);
+  db.dropAnswers = 1;
+  const { ctx, page, errors } = await open({ identity: false, board: db });
+  const consoleText = [];
+  page.on('console', m => consoleText.push(m.text()));
+  await page.fill('#welcomeInput', 'Waseem');
+  await page.click('#welcomeCreate');
+  await page.waitForFunction(() => /Couldn't reach/.test(document.getElementById('welcomeMsg').textContent), null, { timeout: 8000 });
+  assert.equal(db.players.length, 1, 'the server created the player');
+  assert.equal(await page.evaluate(() => localStorage.getItem('gridsnake-player-v1')), null, 'no identity saved yet');
+  const pending = JSON.parse(await page.evaluate(() => localStorage.getItem('gridsnake-pending-player-v1')));
+  assert.equal(pending.name, 'Waseem', 'the pending code is kept on this device');
+  assert.match(pending.secret, /^[0-9a-f]{32}$/);
+  await page.click('#welcomeCreate');
+  await page.waitForSelector('#welcomeCodeBox:not([hidden])', { timeout: 8000 });
+  const shown = await text(page, '#welcomeSecret');
+  assert.equal(shown.replace(/-/g, ''), pending.secret, 'the retry shows the same code, not a new one');
+  const stored = JSON.parse(await page.evaluate(() => localStorage.getItem('gridsnake-player-v1')));
+  assert.deepEqual({ name: stored.name, secret: stored.secret }, { name: 'Waseem', secret: pending.secret });
+  assert.equal(await page.evaluate(() => localStorage.getItem('gridsnake-pending-player-v1')), null, 'the pending code is cleared');
+  assert.equal(db.players.length, 1, 'no second player and no unreachable name');
+  assert.equal(db.players[0].secret, pending.secret);
+  assert.equal(consoleText.some(t => t.includes(pending.secret)), false, 'the recovery code is never logged');
+  assert.deepEqual(errors, []);
+  await ctx.close();
+});
+
 test('a taken name is refused, ignoring case, and nothing is stored', { timeout: 60000 }, async () => {
   const db = makeBoard([{ name: 'Ali', best: 10 }]);
   const { ctx, page } = await open({ identity: false, board: db });

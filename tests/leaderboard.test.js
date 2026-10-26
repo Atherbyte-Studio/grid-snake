@@ -169,3 +169,115 @@ test('the board: asks for ten at most, maps ranks and dates, and refuses an odd 
   assert.equal((await L.fetchTop({ config: LIVE, fetch: recorder(() => resp(200, { no: 1 })), nav: ONLINE })).reason, L.REASON.badResponse);
   assert.deepEqual((await L.fetchTop({ config: LIVE, fetch: recorder(() => resp(200, [])), nav: ONLINE })).rows, []);
 });
+
+/* ----- phase 1: identity is not lost when the answer is lost ----- */
+function memoryStorage() {
+  const m = new Map();
+  return { getItem: k => (m.has(k) ? m.get(k) : null), setItem: (k, v) => m.set(k, String(v)), removeItem: k => m.delete(k), _m: m };
+}
+/* A fake server that really registers: it stores the code and the name, and can drop its answer once. */
+function fakeServer(opts) {
+  opts = opts || {};
+  const players = new Map();           // secret -> name
+  const sent = [];                     // every register_player call, as the server received it
+  let dropNext = !!opts.dropFirstAnswer;
+  const fetch = (url, init) => {
+    const body = init && init.body ? JSON.parse(init.body) : {};
+    const fn = url.split('/rest/v1/rpc/')[1];
+    if (fn === 'register_player') {
+      sent.push(body.p_secret);
+      let answer;
+      if (players.has(body.p_secret)) answer = { status: 'already-registered', name: players.get(body.p_secret) };
+      else if ([...players.values()].some(n => n.toLowerCase() === body.p_name.toLowerCase())) answer = { status: 'taken' };
+      else { players.set(body.p_secret, body.p_name); answer = { status: 'ok', name: body.p_name }; }
+      if (dropNext && answer.status === 'ok') {
+        dropNext = false;          // the server has registered, but the answer never reaches the page
+        return Promise.reject(new TypeError('network connection was lost'));
+      }
+      return Promise.resolve(resp(200, answer));
+    }
+    if (fn === 'get_me') {
+      if (!players.has(body.p_secret)) return Promise.resolve(resp(200, { status: 'unknown-player' }));
+      return Promise.resolve(resp(200, { status: 'ok', name: players.get(body.p_secret), best: null, rank: null }));
+    }
+    return Promise.resolve(resp(404, {}));
+  };
+  return { fetch, players, sent };
+}
+
+test('lost answer: the server registers, the answer is lost, and the retry with the same code restores the identity', async () => {
+  const storage = memoryStorage();
+  const server = fakeServer({ dropFirstAnswer: true });
+  const first = await L.enrollPlayer({ config: LIVE, nav: ONLINE, storage, fetch: server.fetch, name: 'Waseem' });
+  assert.equal(first.ok, false);
+  assert.equal(first.reason, L.REASON.network, 'the page sees a network failure, not a success');
+  assert.equal(server.players.size, 1, 'the server did register the name');
+  assert.ok(storage.getItem(L.PENDING_KEY), 'the code stays on this device after the failure');
+
+  const retry = await L.enrollPlayer({ config: LIVE, nav: ONLINE, storage, fetch: server.fetch, name: 'Waseem' });
+  assert.equal(retry.ok, true, 'the retry is treated as success');
+  assert.equal(retry.restored, true, 'and reported as restored, not newly created');
+  assert.equal(retry.name, 'Waseem');
+  assert.equal(retry.secret, first.secret, 'the same code is used on the retry');
+  assert.deepEqual([...new Set(server.sent)], [first.secret], 'the server only ever saw one code');
+  assert.equal(server.players.size, 1, 'no second player and no unreachable name');
+  assert.equal(storage.getItem(L.PENDING_KEY), null, 'the pending code is cleared once the identity is saved');
+});
+
+test('the code is written to storage before the registration request leaves', async () => {
+  const storage = memoryStorage();
+  let seenAtRequest = null;
+  const fetch = (url, init) => { seenAtRequest = storage.getItem(L.PENDING_KEY); return Promise.resolve(resp(200, { status: 'ok', name: 'Ali' })); };
+  const r = await L.enrollPlayer({ config: LIVE, nav: ONLINE, storage, fetch, name: 'Ali' });
+  assert.equal(r.ok, true);
+  assert.ok(seenAtRequest, 'storage held the code when the request was sent');
+  assert.equal(JSON.parse(seenAtRequest).secret, r.secret);
+});
+
+test('a name taken by someone else is refused, and the same pending code is kept for another name', async () => {
+  const storage = memoryStorage();
+  const server = fakeServer();
+  server.players.set('f'.repeat(32), 'Ali');
+  const taken = await L.enrollPlayer({ config: LIVE, nav: ONLINE, storage, fetch: server.fetch, name: 'ali' });
+  assert.equal(taken.ok, false);
+  assert.equal(taken.reason, L.REASON.taken);
+  const other = await L.enrollPlayer({ config: LIVE, nav: ONLINE, storage, fetch: server.fetch, name: 'Maya' });
+  assert.equal(other.ok, true);
+  assert.equal(other.secret, taken.secret, 'the code was reused, so nothing is reserved for an unknown code');
+  assert.equal(server.players.get(other.secret), 'Maya');
+});
+
+test('a new code is generated only when nothing is pending', async () => {
+  const storage = memoryStorage();
+  const server = fakeServer({ dropFirstAnswer: true });
+  const a = await L.enrollPlayer({ config: LIVE, nav: ONLINE, storage, fetch: server.fetch, name: 'Ruba' });
+  const b = await L.enrollPlayer({ config: LIVE, nav: ONLINE, storage, fetch: server.fetch, name: 'Ruba' });
+  assert.equal(b.secret, a.secret);
+  const c = await L.enrollPlayer({ config: LIVE, nav: ONLINE, storage: memoryStorage(), fetch: server.fetch, name: 'Omar' });
+  assert.notEqual(c.secret, a.secret, 'a fresh device gets a fresh code');
+});
+
+test('no storage: nothing is sent, because a code that cannot be kept must not reserve a name', async () => {
+  const server = fakeServer();
+  const broken = { getItem: () => null, setItem: () => { throw new Error('quota'); }, removeItem: () => {} };
+  const r = await L.enrollPlayer({ config: LIVE, nav: ONLINE, storage: broken, fetch: server.fetch, name: 'Sara' });
+  assert.equal(r.ok, false);
+  assert.equal(r.reason, L.REASON.storage);
+  assert.equal(server.sent.length, 0);
+});
+
+test('resume on page load: a pending code the server knows is restored; an unknown one stays for the next try', async () => {
+  const storage = memoryStorage();
+  const server = fakeServer({ dropFirstAnswer: true });
+  await L.enrollPlayer({ config: LIVE, nav: ONLINE, storage, fetch: server.fetch, name: 'Lina' });
+  const back = await L.resumePending({ config: LIVE, nav: ONLINE, storage, fetch: server.fetch });
+  assert.equal(back.ok, true);
+  assert.equal(back.name, 'Lina');
+  assert.equal(storage.getItem(L.PENDING_KEY), null);
+
+  storage.setItem(L.PENDING_KEY, JSON.stringify({ name: 'Nour', secret: '1'.repeat(32) }));
+  const none = await L.resumePending({ config: LIVE, nav: ONLINE, storage, fetch: server.fetch });
+  assert.equal(none.ok, false);
+  assert.equal(none.reason, L.REASON.unknownPlayer);
+  assert.ok(storage.getItem(L.PENDING_KEY), 'an unknown code is kept, not thrown away');
+});
