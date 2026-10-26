@@ -1,73 +1,54 @@
 'use strict';
-/* The global board in a real page, against a mock of Supabase's REST API (no network, no real project).
- * Covers: posting a Time Attack run, the retry that reuses one run id, offline, server errors, the board
- * dialog, the not-configured state, and that classic runs never offer a post.
- * Run: node build.js && NODE_PATH=$(npm root -g) node --test tests/leaderboard_ui.test.js */
+/* The global board in a real page, against a stand-in for the database functions (tests/support/board.js).
+ * No network. Covers: the first visit (name, recovery code), taken names, automatic posting of ranked rounds,
+ * failure and retry, offline, locked ranked settings, the top ten and your own row, recovery on a new device,
+ * and the not-configured state. Run: node build.js && NODE_PATH=$(npm root -g) node --test tests/leaderboard_ui.test.js */
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('fs');
 const path = require('path');
 const { chromium } = require('playwright');
+const { KEY, SECRET, identityStorage, makeBoard, defaultBoard } = require('./support/board.js');
 
 const ROOT = path.join(__dirname, '..');
 const base = fs.readFileSync(path.join(ROOT, 'index.html'), 'utf8');
-// Point the shipped config at a fake project, in memory only, and expose the game for the crash helper.
 const MOCK = 'https://mock.supabase.test';
 const SHIPPED_URL = "url: 'https://tmmzahzkqmcgbtjimtjn.supabase.co'";
 const SHIPPED_KEY = "anonKey: 'sb_publishable_HC2_4BGM2Foe0SIduZBMwg__Ln0bKx4'";
 const hook = 'window.__t = { game: function () { return game; }, profile: profile };';
-const withConfig = base
-  .replace(SHIPPED_URL, "url: '" + MOCK + "'")
-  .replace(SHIPPED_KEY, "anonKey: 'sb_publishable_mock'")
-  .replace('/*TEST_HOOK*/', hook);
+const withConfig = base.replace(SHIPPED_URL, "url: '" + MOCK + "'").replace(SHIPPED_KEY, "anonKey: 'sb_publishable_mock'").replace('/*TEST_HOOK*/', hook);
 if (!withConfig.includes("url: '" + MOCK + "'")) throw new Error('could not inject the mock config');
-const notConfigured = base
-  .replace(SHIPPED_URL, "url: ''")
-  .replace(SHIPPED_KEY, "anonKey: ''")
-  .replace('/*TEST_HOOK*/', hook);
+const notConfigured = base.replace(SHIPPED_URL, "url: ''").replace(SHIPPED_KEY, "anonKey: ''").replace('/*TEST_HOOK*/', hook);
 if (notConfigured.includes('tmmzahzkqmcgbtjimtjn')) throw new Error('could not blank the config');
 
-function mockBoard() {
-  const state = { rows: [], posts: [], gets: 0, fail: [] };   // fail: queue of HTTP statuses to return before succeeding
-  state.route = async route => {
-    const req = route.request();
-    if (req.method() === 'POST') {
-      const body = JSON.parse(req.postData() || '{}');
-      state.posts.push(body);
-      const code = state.fail.length ? state.fail.shift() : 201;
-      if (code === 201) {
-        if (state.rows.some(r => r.run_id === body.run_id)) return route.fulfill({ status: 409, body: '{"message":"duplicate"}', contentType: 'application/json' });
-        state.rows.push({ name: body.name, score: body.score, created_at: new Date().toISOString(), run_id: body.run_id });
-      }
-      return route.fulfill({ status: code, body: code === 201 ? '' : '{"message":"x"}', contentType: 'application/json' });
-    }
-    state.gets++;
-    const url = new URL(req.url());
-    const sorted = state.rows.slice().sort((a, b) => b.score - a.score || a.created_at.localeCompare(b.created_at));
-    const off = Number(url.searchParams.get('offset') || 0), lim = Number(url.searchParams.get('limit') || 20);
-    const page = sorted.slice(off, off + lim).map(r => ({ name: r.name, score: r.score, created_at: r.created_at }));
-    return route.fulfill({ status: 200, body: JSON.stringify(page), contentType: 'application/json' });
-  };
-  return state;
-}
+let browser;
+test.before(async () => { browser = await chromium.launch(); });
+test.after(async () => { await browser.close(); });
 
-async function openGame(browser, { html, mode = 'timeattack', name = 'Waseem', mock }) {
+async function open({ html = withConfig, mode = 'timeattack', identity = true, board = null }) {
   const ctx = await browser.newContext({ viewport: { width: 390, height: 780 }, isMobile: true, hasTouch: true });
-  await ctx.addInitScript(([p]) => { try { localStorage.setItem('gridsnake-profile-v2', JSON.stringify(p)); } catch (e) {} },
-    [{ name: name, prefs: { mode: mode, edge: 'walls', controls: 'turn' } }]);
+  const stored = Object.assign({ 'gridsnake-profile-v2': JSON.stringify({ name: identity ? 'Waseem' : '', prefs: { mode: mode, edge: 'walls', controls: 'turn' } }) },
+    identity ? identityStorage('Waseem') : {});
+  await ctx.addInitScript(s => Object.keys(s).forEach(k => { try { if (localStorage.getItem(k) === null) localStorage.setItem(k, s[k]); } catch (e) {} }), stored);
   const page = await ctx.newPage();
   const errors = [];
   page.on('pageerror', e => errors.push(e.message));
+  const requests = [];
+  page.on('request', r => { if (/rest\/v1/.test(r.url())) requests.push(r.url()); });
   await page.route(/fonts\.(googleapis|gstatic)\.com/, r => r.abort());
   await page.route('https://lb.test/**', r => r.fulfill({ contentType: 'text/html', body: html }));
-  if (mock) await page.route(MOCK + '/**', mock.route);
+  if (board) await page.route(MOCK + '/**', board.route);
   await page.goto('https://lb.test/index.html');
+  await page.waitForFunction(() => !document.getElementById('playBtn').disabled);
   await page.evaluate(m => document.querySelector('[data-mode="' + m + '"]').click(), mode);
-  await page.click('#playBtn');
-  await page.waitForTimeout(300);
-  return { ctx, page, errors };
+  return { ctx, page, errors, requests };
 }
 
+async function startRound(page) {
+  await page.evaluate(() => { if (document.getElementById('welcomeDlg').open) document.getElementById('welcomeDlg').close(); });
+  await page.click('#playBtn');
+  await page.waitForTimeout(250);
+}
 async function endRun(page, score) {
   await page.evaluate(sc => {
     const s = window.__t.game().state;
@@ -77,97 +58,191 @@ async function endRun(page, score) {
   await page.waitForFunction(() => window.__t.game().state.phase === 'over', null, { timeout: 8000 });
   await page.waitForTimeout(150);
 }
+const text = (page, sel) => page.evaluate(s => document.querySelector(s).textContent.trim(), sel);
+const waitText = (page, sel, part) => page.waitForFunction(([s, p]) => document.querySelector(s).textContent.includes(p), [sel, part], { timeout: 8000 });
+const others = n => Array.from({ length: n }, (_, i) => ({ name: 'P' + (i + 1), best: 200 - i * 10 }));
 
-const txt = (page, sel) => page.$eval(sel, e => e.textContent.trim());
-
-test('a Time Attack run posts once, and a retry of the same run is not counted twice', async () => {
-  const browser = await chromium.launch();
-  try {
-    const mock = mockBoard();
-    mock.fail = [500];                                   // the first post fails, the retry succeeds
-    const { ctx, page, errors } = await openGame(browser, { html: withConfig, mock });
-    await endRun(page, 25);
-    assert.equal(await page.$eval('#ovPostRow', e => e.hidden), false, 'the post row shows after a Time Attack run');
-    await page.click('#ovPost');
-    await page.waitForFunction(() => /trouble|try again/i.test(document.getElementById('ovPostMsg').textContent), null, { timeout: 8000 });
-    assert.equal(await page.$eval('#ovPost', e => e.disabled), false, 'the button comes back after a failure');
-    await page.click('#ovPost');
-    await page.waitForFunction(() => /Posted to the global board/.test(document.getElementById('ovPostMsg').textContent), null, { timeout: 8000 });
-    assert.equal(mock.posts.length, 2, 'two requests: the failed one and the retry');
-    assert.equal(mock.posts[0].run_id, mock.posts[1].run_id, 'the retry reuses the run id');
-    assert.equal(mock.rows.length, 1, 'the board holds the run once');
-    assert.equal(mock.posts[1].name, 'Waseem');
-    assert.equal(mock.posts[1].score, 25);
-    assert.deepEqual(errors, [], 'no page errors');
-    await ctx.close();
-  } finally { await browser.close(); }
+test('first visit: a name is asked for, and the new player gets a recovery code to save', { timeout: 60000 }, async () => {
+  const db = makeBoard([]);
+  const { ctx, page, errors } = await open({ identity: false, board: db });
+  assert.equal(await page.evaluate(() => document.getElementById('welcomeDlg').open), true, 'the welcome box opens');
+  await page.fill('#welcomeInput', 'Waseem');
+  await page.click('#welcomeCreate');
+  await page.waitForSelector('#welcomeCodeBox:not([hidden])', { timeout: 8000 });
+  const shown = await text(page, '#welcomeSecret');
+  assert.match(shown, /^[0-9a-f]{4}(-[0-9a-f]{4}){7}$/, 'the code is shown in groups of four');
+  const stored = JSON.parse(await page.evaluate(k => localStorage.getItem(k), KEY));
+  assert.equal(stored.name, 'Waseem');
+  assert.equal(stored.secret, shown.replace(/-/g, ''), 'the browser keeps the same code that was shown');
+  await page.click('#welcomeSaved');
+  assert.equal(await page.evaluate(() => document.getElementById('welcomeDlg').open), false);
+  assert.equal(db.players.length, 1);
+  assert.equal(db.players[0].name, 'Waseem');
+  assert.deepEqual(errors, []);
+  await ctx.close();
 });
 
-test('the board dialog lists the posted score with its rank, and the names are plain text', async () => {
-  const browser = await chromium.launch();
-  try {
-    const mock = mockBoard();
-    mock.rows.push({ name: '<img src=x onerror=alert(1)>', score: 99, created_at: '2026-10-01T10:00:00Z', run_id: 'a' });
-    mock.rows.push({ name: 'Ann', score: 40, created_at: '2026-10-02T10:00:00Z', run_id: 'b' });
-    const { ctx, page, errors } = await openGame(browser, { html: withConfig, mock });
-    await page.click('#ovSec').catch(() => {});                          // back to the menu
-    await page.waitForTimeout(200);
-    await page.click('#homeBoardBtn');
-    await page.waitForFunction(() => document.querySelectorAll('#boardList li').length === 2, null, { timeout: 8000 });
-    const rows = await page.$$eval('#boardList li', li => li.map(x => ({
-      rank: x.querySelector('.rank').textContent, who: x.querySelector('.who').firstChild.textContent, pts: x.querySelector('.pts').textContent })));
-    assert.deepEqual(rows.map(r => r.rank), ['#1', '#2'], 'ranked best first');
-    assert.equal(rows[0].pts, '99');
-    assert.equal(rows[1].who, 'Ann');
-    assert.equal(rows[1].pts, '40');
-    assert.equal(await page.$$eval('#boardList img', i => i.length), 0, 'a name is never rendered as HTML');
-    // The display keeps the first 16 characters (the board's limit), as plain text.
-    assert.equal(rows[0].who, '<img src=x onerr', 'the name is shown as plain text, cut to 16 characters');
-    assert.deepEqual(errors, [], 'no page errors');
-    await ctx.close();
-  } finally { await browser.close(); }
+test('a taken name is refused, ignoring case, and nothing is stored', { timeout: 60000 }, async () => {
+  const db = makeBoard([{ name: 'Ali', best: 10 }]);
+  const { ctx, page } = await open({ identity: false, board: db });
+  await page.fill('#welcomeInput', 'ALI');
+  await page.click('#welcomeCreate');
+  await waitText(page, '#welcomeMsg', 'already taken');
+  assert.equal(await page.evaluate(() => document.getElementById('welcomeDlg').open), true, 'the box stays open for another name');
+  assert.equal(await page.evaluate(k => localStorage.getItem(k), KEY), null);
+  await ctx.close();
 });
 
-test('offline: the post is not sent and the player is told why', async () => {
-  const browser = await chromium.launch();
-  try {
-    const mock = mockBoard();
-    const { ctx, page } = await openGame(browser, { html: withConfig, mock });
-    await endRun(page, 12);
-    await ctx.setOffline(true);
-    await page.click('#ovPost');
-    await page.waitForFunction(() => /offline/i.test(document.getElementById('ovPostMsg').textContent), null, { timeout: 8000 });
-    assert.equal(mock.posts.length, 0, 'nothing was sent');
-    await ctx.close();
-  } finally { await browser.close(); }
+test('a name outside the rules is refused before anything is sent', { timeout: 60000 }, async () => {
+  const db = makeBoard([]);
+  const { ctx, page } = await open({ identity: false, board: db });
+  await page.fill('#welcomeInput', '<b>x');
+  await page.click('#welcomeCreate');
+  await waitText(page, '#welcomeMsg', 'Use 1 to 16');
+  assert.equal(db.calls.filter(c => c.fn === 'register_player').length, 0);
+  await ctx.close();
 });
 
-test('with no project set up: no request is made and the board says so', async () => {
-  const browser = await chromium.launch();
-  try {
-    let requests = 0;
-    const { ctx, page } = await openGame(browser, { html: notConfigured, mock: { route: r => { requests++; return r.fulfill({ status: 200, body: '[]' }); } } });
-    await endRun(page, 12);
-    assert.match(await txt(page, '#ovPostMsg'), /not set up yet/);
-    assert.equal(await page.$eval('#ovPost', e => e.disabled), true);
-    await page.click('#ovSec').catch(() => {});
-    await page.waitForTimeout(200);
-    await page.click('#homeBoardBtn');
-    await page.waitForTimeout(300);
-    assert.match(await txt(page, '#boardMsg'), /not set up yet/);
-    assert.equal(requests, 0, 'nothing was requested while unconfigured');
-    await ctx.close();
-  } finally { await browser.close(); }
+test('a ranked round is sent by itself: a new best, then a lower score that keeps it', { timeout: 90000 }, async () => {
+  const db = defaultBoard();
+  const { ctx, page, errors } = await open({ board: db });
+  await startRound(page);
+  await endRun(page, 120);
+  await waitText(page, '#ovRankMsg', 'New Personal Best! 120');
+  assert.equal(db.players[0].best, 120);
+  assert.equal(await page.$('#ovPost'), null, 'there is no Post score button');
+  await page.click('#ovBtn');                 // Play again starts the next round
+  await page.waitForTimeout(250);
+  await endRun(page, 50);
+  await waitText(page, '#ovRankMsg', 'Your best remains 120.');
+  assert.equal(db.players[0].best, 120, 'a lower score never lowers the best');
+  assert.equal(db.submits().length, 2);
+  assert.deepEqual(errors, []);
+  await ctx.close();
 });
 
-test('a classic run never offers a post', async () => {
-  const browser = await chromium.launch();
-  try {
-    const mock = mockBoard();
-    const { ctx, page } = await openGame(browser, { html: withConfig, mode: 'classic', mock });
-    await endRun(page, 12);
-    assert.equal(await page.$eval('#ovPostRow', e => e.hidden), true, 'no post row for Classic');
-    assert.equal(mock.posts.length, 0);
-    await ctx.close();
-  } finally { await browser.close(); }
+test('a failed send says so, keeps the score, and sends it on Try again, once', { timeout: 90000 }, async () => {
+  const db = defaultBoard();
+  db.fail = [500];
+  const { ctx, page } = await open({ board: db });
+  await startRound(page);
+  await endRun(page, 90);
+  await waitText(page, '#ovRankMsg', 'will be sent again');
+  assert.equal(await page.evaluate(() => document.getElementById('ovRankMsg').textContent.includes('saved')), false, 'no false claim of saving');
+  assert.equal(await page.evaluate(() => document.getElementById('ovRetry').hidden), false, 'Try again is offered');
+  await page.click('#ovRetry');
+  await waitText(page, '#ovRankMsg', 'New Personal Best! 90');
+  assert.equal(db.players[0].best, 90);
+  assert.equal(db.submits().length, 2, 'one failed try and one success');
+  await ctx.close();
+});
+
+test('offline: nothing is claimed as saved, and the score is sent when the connection returns', { timeout: 90000 }, async () => {
+  const db = defaultBoard();
+  const { ctx, page } = await open({ board: db });
+  await startRound(page);
+  await ctx.setOffline(true);
+  await endRun(page, 70);
+  await waitText(page, '#ovRankMsg', 'offline');
+  assert.equal(db.players[0].best, null, 'nothing reached the board while offline');
+  await ctx.setOffline(false);
+  await page.evaluate(() => window.dispatchEvent(new Event('online')));
+  await waitText(page, '#ovRankMsg', 'New Personal Best! 70');
+  assert.equal(db.players[0].best, 70);
+  await ctx.close();
+});
+
+test('a classic round is never sent to the board', { timeout: 60000 }, async () => {
+  const db = defaultBoard();
+  const { ctx, page } = await open({ board: db, mode: 'classic' });
+  await startRound(page);
+  await endRun(page, 80);
+  await page.waitForTimeout(300);
+  assert.equal(db.submits().length, 0);
+  assert.equal(await page.evaluate(() => document.getElementById('ovRankRow').hidden), true);
+  await ctx.close();
+});
+
+test('Time Attack fixes the ranked settings and sends them with the score', { timeout: 90000 }, async () => {
+  const db = defaultBoard();
+  const { ctx, page } = await open({ board: db });
+  for (const id of ['#modeWrap', '#goldOff', '#diffEasy', '#diffNormal']) {
+    assert.equal(await page.evaluate(s => document.querySelector(s).disabled, id), true, id + ' is locked');
+  }
+  await startRound(page);
+  await endRun(page, 60);
+  await waitText(page, '#ovRankMsg', 'New Personal Best! 60');
+  assert.deepEqual(db.submits()[0].body, { p_secret: SECRET, p_score: 60, p_walls: true, p_golden: true, p_difficulty: 'hard' });
+  await ctx.close();
+});
+
+test('the board: ten rows at most, and your own best below them when you are outside the top ten', { timeout: 90000 }, async () => {
+  const db = makeBoard([{ name: 'Waseem', secret: SECRET, best: 50 }].concat(others(12)));
+  const { ctx, page } = await open({ board: db });
+  await page.click('#homeBoardBtn');
+  await page.waitForSelector('#boardList li');
+  assert.equal(await page.evaluate(() => document.querySelectorAll('#boardList li').length), 10);
+  assert.equal(await page.evaluate(() => document.getElementById('boardYou').hidden), false);
+  assert.match(await text(page, '#boardYouList'), /#13/, 'the true rank, not 11');
+  assert.match(await text(page, '#boardYouList'), /Waseem/);
+  await ctx.close();
+});
+
+test('a player inside the top ten is highlighted once, with no extra row', { timeout: 90000 }, async () => {
+  const db = makeBoard([{ name: 'Waseem', secret: SECRET, best: 150 }].concat(others(5)));
+  const { ctx, page } = await open({ board: db });
+  await page.click('#homeBoardBtn');
+  await page.waitForSelector('#boardList li');
+  assert.equal(await page.evaluate(() => document.querySelectorAll('#boardList li.me').length), 1);
+  assert.equal(await page.evaluate(() => document.getElementById('boardYou').hidden), true);
+  assert.equal(await page.evaluate(() => document.querySelectorAll('#boardList li').length), 6);
+  await ctx.close();
+});
+
+test('a new device: the recovery code brings back the same name and best', { timeout: 90000 }, async () => {
+  const db = makeBoard([{ name: 'Waseem', secret: SECRET, best: 150 }].concat(others(3)));
+  const { ctx, page } = await open({ identity: false, board: db });
+  await page.click('summary:has-text("recovery code")');
+  await page.fill('#welcomeRecover', '0123-4567-89AB-CDEF-0123-4567-89ab-cdef');
+  await page.click('#welcomeRecoverBtn');
+  await page.waitForFunction(() => !document.getElementById('welcomeDlg').open, null, { timeout: 8000 });
+  const stored = JSON.parse(await page.evaluate(k => localStorage.getItem(k), KEY));
+  assert.equal(stored.name, 'Waseem');
+  assert.equal(stored.secret, SECRET);
+  assert.equal(await page.evaluate(() => window.__t.profile.getName()), 'Waseem');
+  await ctx.close();
+});
+
+test('a wrong recovery code says so and does not change anything', { timeout: 60000 }, async () => {
+  const db = makeBoard([{ name: 'Waseem', secret: SECRET, best: 150 }]);
+  const { ctx, page } = await open({ identity: false, board: db });
+  await page.click('summary:has-text("recovery code")');
+  await page.fill('#welcomeRecover', 'ffffffffffffffffffffffffffffffff');
+  await page.click('#welcomeRecoverBtn');
+  await waitText(page, '#welcomeMsg', 'does not match any player');
+  assert.equal(await page.evaluate(k => localStorage.getItem(k), KEY), null);
+  await ctx.close();
+});
+
+test('without a configured board, no name is asked for and nothing is sent', { timeout: 60000 }, async () => {
+  const { ctx, page, errors, requests } = await open({ html: notConfigured, identity: false });
+  assert.equal(await page.evaluate(() => document.getElementById('welcomeDlg').open), false);
+  await startRound(page);
+  await endRun(page, 50);
+  await waitText(page, '#ovRankMsg', 'not set up yet');
+  assert.equal(requests.length, 0);
+  assert.deepEqual(errors, []);
+  await ctx.close();
+});
+
+test('a ranked round waits for a player: "Play for now" then Play asks for the name again', { timeout: 60000 }, async () => {
+  const db = makeBoard([]);
+  const { ctx, page } = await open({ identity: false, board: db });
+  await page.click('#welcomeLater');
+  assert.equal(await page.evaluate(() => document.getElementById('welcomeDlg').open), false);
+  await page.click('#playBtn');
+  await page.waitForTimeout(200);
+  assert.equal(await page.evaluate(() => document.getElementById('welcomeDlg').open), true, 'a ranked round needs a player');
+  assert.equal(await page.evaluate(() => document.getElementById('game').hidden), true, 'the round did not start');
+  await ctx.close();
 });

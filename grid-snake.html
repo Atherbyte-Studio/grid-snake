@@ -235,6 +235,14 @@ canvas#board { display: block; width: 100%; height: 100%; }
 .ov-post[hidden] { display: none; }
 .ov-post-msg { flex-basis: 100%; order: 9; margin: 2px 0 0; font-size: 13px; color: var(--muted); text-align: center; }
 .ov-post-msg:empty { display: none; }
+.ov-post-msg.err { color: #E8A26A; }
+.board-list li.me { border-color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent); }
+.board-you { margin-top: 14px; }
+.board-you-label { margin: 0 0 6px; font-size: 12px; font-weight: 700; letter-spacing: .12em; color: var(--muted); }
+.lock-note { margin: 8px 0 10px; font-size: 13px; color: var(--muted); }
+.lock-note:empty { display: none; }
+.recovery-code { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 17px; letter-spacing: .04em; padding: 12px 14px; border-radius: 12px; border: 1px dashed var(--line-strong); background: var(--surface-2); word-break: break-all; text-align: center; margin: 4px 0; user-select: all; }
+.recovery-code:empty { display: none; }
 /* Short phone screens: the board is small, so the game-over panel is tighter. Desktop and taller screens are unchanged. */
 @media (pointer: coarse) and (max-height: 820px) {
   .overlay { gap: 7px; padding: 14px 16px; }
@@ -629,9 +637,9 @@ html[data-motion="off"] *, html[data-motion="off"] *::before, html[data-motion="
         <span class="pill" id="ovBest" hidden>New best</span>
         <ul class="ov-ach" id="ovAch" aria-label="Unlocked this run" hidden></ul>
         <div class="ov-actions">
-          <div class="ov-post" id="ovPostRow" hidden>
-            <button class="btn" id="ovPost" type="button">Post score</button>
-            <p class="ov-post-msg" id="ovPostMsg" role="status" aria-live="polite"></p>
+          <div class="ov-post" id="ovRankRow" hidden>
+            <p class="ov-post-msg" id="ovRankMsg" role="status" aria-live="polite"></p>
+            <button class="btn" id="ovRetry" type="button" hidden>Try again</button>
           </div>
           <button class="btn btn--primary" id="ovBtn" type="button">Start</button>
           <button class="btn" id="ovSec" type="button">Menu</button>
@@ -683,6 +691,7 @@ html[data-motion="off"] *, html[data-motion="off"] *::before, html[data-motion="
     <button class="btn" id="settingsClose" type="button">Close</button>
   </div>
   <div class="dlg-section">
+    <p class="lock-note" id="rankedLock"></p>
     <h3>Difficulty</h3>
     <div class="seg" role="group" aria-label="Difficulty">
       <button type="button" id="diffEasy" aria-pressed="false">Easy</button>
@@ -799,18 +808,32 @@ html[data-motion="off"] *, html[data-motion="off"] *::before, html[data-motion="
 <dialog id="welcomeDlg" aria-labelledby="welcomeTitle">
   <div class="welcome">
     <p class="wordmark">Grid <span>Snake</span></p>
-    <h2 id="welcomeTitle">Welcome!</h2>
-    <p class="welcome-text">What should we call you? Your name goes on your profile.</p>
-    <form class="pf-name" id="welcomeForm">
-      <input id="welcomeInput" type="text" maxlength="16" autocomplete="nickname" placeholder="Your name" aria-label="Your name" required>
-      <button class="btn btn--primary" type="submit">Let's play</button>
-    </form>
-    <p class="pf-status" id="welcomeMsg" role="status"></p>
-    <details class="help">
-      <summary>I already have a backup code</summary>
-      <textarea class="pf-code" id="welcomeCode" placeholder="Paste a code that starts with GS2." aria-label="Backup code"></textarea>
-      <div class="pf-row"><button class="btn" id="welcomeRestore" type="button">Restore my progress</button></div>
-    </details>
+    <div id="welcomePick">
+      <h2 id="welcomeTitle">Choose your player name</h2>
+      <p class="welcome-text">This name is yours on the Global board and cannot be changed later. Use 1 to 16 letters, digits, spaces, or _ . ' - (Arabic is fine). Played here before, or on another device? Open <em>I already have a recovery code</em> below first, so your name and best score come back.</p>
+      <form class="pf-name" id="welcomeForm">
+        <input id="welcomeInput" type="text" maxlength="16" autocomplete="nickname" placeholder="Your name" aria-label="Your name" required>
+        <button class="btn btn--primary" id="welcomeCreate" type="submit">Create player</button>
+      </form>
+      <p class="pf-status" id="welcomeMsg" role="status"></p>
+      <details class="help">
+        <summary>I already have a recovery code</summary>
+        <input id="welcomeRecover" type="text" autocomplete="off" spellcheck="false" placeholder="xxxx-xxxx-xxxx-xxxx-xxxx-xxxx-xxxx-xxxx" aria-label="Recovery code">
+        <div class="pf-row"><button class="btn" id="welcomeRecoverBtn" type="button">Restore my player</button></div>
+      </details>
+      <details class="help">
+        <summary>I have a progress backup code</summary>
+        <textarea class="pf-code" id="welcomeCode" placeholder="Paste a code that starts with GS2." aria-label="Backup code"></textarea>
+        <div class="pf-row"><button class="btn" id="welcomeRestore" type="button">Restore my progress</button></div>
+      </details>
+      <button class="btn" id="welcomeLater" type="button">Play for now</button>
+    </div>
+    <div id="welcomeCodeBox" hidden>
+      <h2>Save your recovery code</h2>
+      <p class="welcome-text">This code is the only way back to your name and best score after you clear this browser or play on another device. It is shown once, so write it down. Anyone with it can post as you.</p>
+      <p class="recovery-code" id="welcomeSecret" aria-live="polite"></p>
+      <button class="btn btn--primary" id="welcomeSaved" type="button">I saved it, continue</button>
+    </div>
   </div>
 </dialog>
 
@@ -826,11 +849,12 @@ html[data-motion="off"] *, html[data-motion="off"] *::before, html[data-motion="
       <p class="pf-hero-sub" id="pfHeroSub"></p>
     </div>
   </div>
-  <form class="pf-name" id="nameForm">
-    <input id="nameInput" type="text" maxlength="16" autocomplete="nickname" placeholder="Your name" aria-label="Player name" required>
-    <button class="btn btn--primary" type="submit">Save name</button>
-  </form>
-  <p class="pf-status" id="pfNameMsg" role="status"></p>
+  <div class="pf-lock">
+    <p class="dlg-note" style="margin:0" id="pfNameState"></p>
+    <div class="pf-row"><button class="btn" id="pfShowCode" type="button">Show recovery code</button></div>
+    <p class="recovery-code" id="pfCodeShow" hidden></p>
+    <p class="pf-status" id="pfNameMsg" role="status"></p>
+  </div>
   <dl class="pf-cards" id="pfStats"></dl>
   <h3 class="pf-h">Best scores</h3>
   <ul class="pf-bests" id="pfBests"></ul>
@@ -854,12 +878,14 @@ html[data-motion="off"] *, html[data-motion="off"] *::before, html[data-motion="
     <h2 id="boardTitle">Global board</h2>
     <button class="btn" id="boardClose" type="button">Close</button>
   </div>
-  <p class="ach-summary" id="boardMsg" role="status" aria-live="polite">Time Attack scores from every player.</p>
-  <ol class="board-list" id="boardList" aria-label="Top Time Attack scores"></ol>
-  <div class="board-pager">
-    <button class="btn" id="boardPrev" type="button" disabled>Previous</button>
-    <button class="btn" id="boardNext" type="button" disabled>Next</button>
+  <p class="ach-summary" id="boardMsg" role="status" aria-live="polite">Top ten ranked Time Attack players.</p>
+  <ol class="board-list" id="boardList" aria-label="Top ten Time Attack scores"></ol>
+  <div class="board-you" id="boardYou" hidden>
+    <p class="board-you-label">YOUR BEST</p>
+    <ol class="board-list" id="boardYouList" aria-label="Your best score"></ol>
   </div>
+  <p class="ach-summary" id="boardHint" hidden></p>
+  <p class="dlg-note" style="margin-top:14px">Only ranked Time Attack rounds count: Walls ON, Golden Apple ON, Hard. A lower score never replaces your best.</p>
 </dialog>
 <dialog id="achDialog" aria-labelledby="achTitle">
   <div class="dlg-head">
@@ -1727,52 +1753,78 @@ var SnakeShop = (function () {
 })();
 if (typeof module !== 'undefined' && module.exports) module.exports = SnakeShop;
 
-/* Grid Snake global leaderboard (Time Attack only)
- * A shared online board kept in Supabase, reached over its plain REST API (no SDK, no service key).
+/* Grid Snake global board, version 2: one permanent player per name, one personal best per player.
  * Pure module: no DOM, no storage. The page passes in fetch, so tests can run without a network.
  *
- * Honest limits, also written in the setup notes (supabase/README.md):
- *  - A score sent from a browser can be forged. The database checks the shape and the range of a row
- *    (name length, score 0..1000), not whether the run really happened. Stronger checks need a trusted
- *    Edge Function that replays the run. This is not cheat-proof.
- *  - The public anon key is meant for browsers, and row-level security decides what it may do. Never put
- *    the service-role key in this file or anywhere in the repository.
+ * How identity works (see supabase/README.md):
+ *  - Registering creates a player row with a unique name (case-insensitive) and a recovery code.
+ *    The code is 128 random bits shown once to the player. The server stores only its SHA-256 hash.
+ *  - Every later call sends the code. The server finds the player by hash, so a name alone never
+ *    grants access. Losing the code (cleared storage, no copy) means the player cannot prove ownership.
+ *  - Scores are written with a single update that only raises the best. The name is never sent when
+ *    submitting, so a score can never be written under someone else's name.
+ *
+ * Honest limits: a browser-side game can be modified, so the ranked settings and scores are checked by
+ * shape and range, not by replaying the run. This is not cheat-proof.
  */
 var SnakeLeaderboard = (function () {
   'use strict';
 
-  /* Fill these from your Supabase project (Project Settings > API): the Project URL and the public anon key.
-     Left empty, the game reports "not set up yet" and sends nothing. */
+  /* Project URL and publishable key (Project Settings > API). Left empty, the board is off and nothing is sent. */
   var CONFIG = {
     url: 'https://tmmzahzkqmcgbtjimtjn.supabase.co',
-    anonKey: 'sb_publishable_HC2_4BGM2Foe0SIduZBMwg__Ln0bKx4',   // the public key only: safe in a browser, the row rules protect the table
-    table: 'time_attack_scores',
-    pageSize: 20,
+    anonKey: 'sb_publishable_HC2_4BGM2Foe0SIduZBMwg__Ln0bKx4',   // public by design; row rules protect the data
     timeoutMs: 8000,
-    maxScore: 1000                 // a sanity bound from the rules: a Time Attack run is 60 s and steps are at least 60 ms apart
+    maxScore: 1000,      // a Time Attack run is 60 s; this is a sanity bound, not a proof
+    topSize: 10
   };
 
-  var MODE = 'timeattack';
+  /* The only settings a ranked Time Attack round may use. */
+  var RANKED = { walls: true, golden: true, difficulty: 'hard' };
   var NAME_MAX = 16;
 
   var REASON = {
-    notConfigured: 'not-configured', wrongMode: 'wrong-mode', offline: 'offline', timeout: 'timeout',
-    network: 'network', rejected: 'rejected', server: 'server', badResponse: 'bad-response', invalid: 'invalid', setup: 'setup'
+    notConfigured: 'not-configured', offline: 'offline', timeout: 'timeout', network: 'network',
+    rejected: 'rejected', server: 'server', badResponse: 'bad-response', invalid: 'invalid',
+    setup: 'setup', notRanked: 'not-ranked', taken: 'taken', unknownPlayer: 'unknown-player', alreadyRegistered: 'already-registered'
   };
 
   function configured(cfg) { cfg = cfg || CONFIG; return !!(cfg.url && cfg.anonKey); }
 
-  /* A display name: trimmed, single spaces, no control characters, no markup, 1 to 16 characters. Letters of
-     any script are allowed, so Arabic names work, and apostrophes and hyphens are fine. */
+  /* A display name: trimmed, single spaces, 1 to 16 characters. Letters of any script (Arabic included),
+     digits, space, underscore, dot, apostrophe and hyphen. No markup, quotes, backslashes or control characters. */
   function validateName(v) {
     if (typeof v !== 'string') return { ok: false, reason: REASON.invalid };
-    if (/[\u0000-\u001f\u007f<>&"`\\]/.test(v)) return { ok: false, reason: REASON.invalid };   // apostrophes are fine: names are shown as plain text
+    if (/[\u0000-\u001f\u007f<>&"`\\]/.test(v)) return { ok: false, reason: REASON.invalid };
     var t = v.replace(/\s+/g, ' ').trim();
     if (!t) return { ok: false, reason: REASON.invalid };
     if (Array.from(t).length > NAME_MAX) return { ok: false, reason: REASON.invalid };
     if (!/^[\p{L}\p{N} _.'\-]+$/u.test(t)) return { ok: false, reason: REASON.invalid };
-    if (!/[\p{L}\p{N}]/u.test(t)) return { ok: false, reason: REASON.invalid };   // at least one letter or digit
+    if (!/[\p{L}\p{N}]/u.test(t)) return { ok: false, reason: REASON.invalid };
     return { ok: true, name: t };
+  }
+
+  /* The recovery code: 32 hex characters. Users may type dashes or spaces and any letter case. */
+  function normalizeSecret(v) {
+    if (typeof v !== 'string') return '';
+    return v.replace(/[\s-]/g, '').toLowerCase();
+  }
+  function validateSecret(v) {
+    var s = normalizeSecret(v);
+    return /^[0-9a-f]{32}$/.test(s) ? { ok: true, secret: s } : { ok: false, reason: REASON.invalid };
+  }
+  /* Shown to the player in groups of four, for example 1a2b-3c4d-... */
+  function formatSecret(hex) {
+    var s = normalizeSecret(hex);
+    return s.replace(/(.{4})(?=.)/g, '$1-');
+  }
+  /* A new code: 16 random bytes. */
+  function newSecret(random) {
+    var b = new Uint8Array(16), i;
+    if (random) { for (i = 0; i < 16; i++) b[i] = Math.floor(random() * 256); }
+    else if (typeof crypto !== 'undefined' && crypto.getRandomValues) crypto.getRandomValues(b);
+    else for (i = 0; i < 16; i++) b[i] = Math.floor(Math.random() * 256);
+    return Array.prototype.map.call(b, function (x) { return ('0' + x.toString(16)).slice(-2); }).join('');
   }
 
   function validateScore(v, maxScore) {
@@ -1782,21 +1834,14 @@ var SnakeLeaderboard = (function () {
     return { ok: true, score: v };
   }
 
-  /* A random id per run, so the database can refuse the same run twice. */
-  function makeRunId(random) {
-    var b = new Uint8Array(16), i;
-    if (random) { for (i = 0; i < 16; i++) b[i] = Math.floor(random() * 256); }
-    else if (typeof crypto !== 'undefined' && crypto.getRandomValues) crypto.getRandomValues(b);
-    else for (i = 0; i < 16; i++) b[i] = Math.floor(Math.random() * 256);
-    b[6] = (b[6] & 0x0f) | 0x40; b[8] = (b[8] & 0x3f) | 0x80;          // version 4
-    var h = Array.prototype.map.call(b, function (x) { return ('0' + x.toString(16)).slice(-2); }).join('');
-    return h.slice(0, 8) + '-' + h.slice(8, 12) + '-' + h.slice(12, 16) + '-' + h.slice(16, 20) + '-' + h.slice(20);
+  /* True only for the exact ranked rule set. Any other combination is not ranked. */
+  function isRanked(settings) {
+    return !!settings && settings.walls === RANKED.walls && settings.golden === RANKED.golden && settings.difficulty === RANKED.difficulty;
   }
 
-  /* The publishable key (sb_publishable_...) goes in apikey only. A legacy JWT-style anon key is also sent as a Bearer token. */
   function headers(cfg) {
     var h = { apikey: cfg.anonKey, 'Content-Type': 'application/json' };
-    if (/^eyJ/.test(cfg.anonKey)) h.Authorization = 'Bearer ' + cfg.anonKey;
+    if (/^eyJ/.test(cfg.anonKey)) h.Authorization = 'Bearer ' + cfg.anonKey;   // legacy JWT-style keys only
     return h;
   }
 
@@ -1810,11 +1855,11 @@ var SnakeLeaderboard = (function () {
     var opts = Object.assign({}, init, ctrl ? { signal: ctrl.signal } : {});
     return Promise.resolve().then(function () { return fetchImpl(url, opts); }).then(function (res) {
       clearTimeout(timer);
-      if (res.status === 409) return { ok: true, duplicate: true };          // this run is already on the board
-      if (res.status === 404) return { ok: false, reason: REASON.setup, status: res.status };   // table missing: supabase/leaderboard.sql not run
+      if (res.status === 404) return { ok: false, reason: REASON.setup, status: res.status };   // migration not run yet
       if (res.status >= 500) return { ok: false, reason: REASON.server, status: res.status };
       if (res.status >= 400) return { ok: false, reason: REASON.rejected, status: res.status };
-      return { ok: true, status: res.status, response: res };
+      return res.json().then(function (body) { return { ok: true, body: body }; },
+                             function () { return { ok: false, reason: REASON.badResponse }; });
     }, function (err) {
       clearTimeout(timer);
       if (err && err.name === 'AbortError') return { ok: false, reason: REASON.timeout };
@@ -1822,46 +1867,80 @@ var SnakeLeaderboard = (function () {
     });
   }
 
-  /* Post one finished Time Attack run. Other modes are refused here as well as in the page. */
-  function submitRun(o) {
-    o = o || {};
+  /* Calls one database function (RPC). Returns { ok:true, body } or { ok:false, reason }. */
+  function rpc(o, fn, args) {
     var cfg = o.config || CONFIG;
-    if (o.mode !== MODE) return Promise.resolve({ ok: false, reason: REASON.wrongMode });
     if (!configured(cfg)) return Promise.resolve({ ok: false, reason: REASON.notConfigured });
-    var name = validateName(o.name), score = validateScore(o.score, cfg.maxScore);
-    if (!name.ok || !score.ok) return Promise.resolve({ ok: false, reason: REASON.invalid });
-    var body = JSON.stringify({ run_id: o.runId || makeRunId(), name: name.name, score: score.score });
-    var url = cfg.url.replace(/\/+$/, '') + '/rest/v1/' + cfg.table;
-    return call(o.fetch, cfg, url, { method: 'POST', headers: Object.assign(headers(cfg), { Prefer: 'return=minimal' }), body: body }, o.nav).then(function (r) {
-      if (r.ok && !r.duplicate) return { ok: true };
-      return r;
+    var url = cfg.url.replace(/\/+$/, '') + '/rest/v1/rpc/' + fn;
+    return call(o.fetch, cfg, url, { method: 'POST', headers: headers(cfg), body: JSON.stringify(args) }, o.nav);
+  }
+
+  /* Register a new player name. The server answers ok, taken, or invalid. Nothing is stored locally here. */
+  function registerPlayer(o) {
+    o = o || {};
+    var name = validateName(o.name), sec = validateSecret(o.secret);
+    if (!name.ok || !sec.ok) return Promise.resolve({ ok: false, reason: REASON.invalid });
+    return rpc(o, 'register_player', { p_name: name.name, p_secret: sec.secret }).then(function (r) {
+      if (!r.ok) return r;
+      var st = r.body && r.body.status;
+      if (st === 'ok') return { ok: true, name: r.body.name };
+      if (st === 'taken') return { ok: false, reason: REASON.taken };
+      if (st === 'already-registered') return { ok: false, reason: REASON.alreadyRegistered, name: r.body.name };
+      if (st === 'invalid') return { ok: false, reason: REASON.invalid };
+      return { ok: false, reason: REASON.badResponse };
     });
   }
 
-  /* One page of the board: best score first, and the earlier run first on a tie. */
+  /* Send a finished Time Attack round. The server raises the personal best only when the score is higher.
+   * Refused here, before any request, if the round did not use the ranked settings. */
+  function submitBest(o) {
+    o = o || {};
+    if (!isRanked(o.settings)) return Promise.resolve({ ok: false, reason: REASON.notRanked });
+    var sec = validateSecret(o.secret), score = validateScore(o.score, (o.config || CONFIG).maxScore);
+    if (!sec.ok || !score.ok) return Promise.resolve({ ok: false, reason: REASON.invalid });
+    return rpc(o, 'submit_best', { p_secret: sec.secret, p_score: score.score, p_walls: RANKED.walls, p_golden: RANKED.golden, p_difficulty: RANKED.difficulty }).then(function (r) {
+      if (!r.ok) return r;
+      var st = r.body && r.body.status;
+      if (st === 'improved' || st === 'kept') return { ok: true, improved: st === 'improved', best: Number(r.body.best) || 0, rank: r.body.rank == null ? null : Number(r.body.rank) };
+      if (st === 'unknown-player') return { ok: false, reason: REASON.unknownPlayer };
+      if (st === 'invalid') return { ok: false, reason: REASON.invalid };
+      return { ok: false, reason: REASON.badResponse };
+    });
+  }
+
+  /* The player's own record: name, personal best and the true global rank (null if not ranked yet). */
+  function getMe(o) {
+    o = o || {};
+    var sec = validateSecret(o.secret);
+    if (!sec.ok) return Promise.resolve({ ok: false, reason: REASON.invalid });
+    return rpc(o, 'get_me', { p_secret: sec.secret }).then(function (r) {
+      if (!r.ok) return r;
+      var b = r.body || {};
+      if (b.status === 'unknown-player') return { ok: false, reason: REASON.unknownPlayer };
+      if (typeof b.name !== 'string') return { ok: false, reason: REASON.badResponse };
+      return { ok: true, name: b.name, best: b.best == null ? null : Number(b.best), rank: b.rank == null ? null : Number(b.rank) };
+    });
+  }
+
+  /* The top of the board, best first. Only the top ten are ever requested. */
   function fetchTop(o) {
     o = o || {};
-    var cfg = o.config || CONFIG;
-    if (!configured(cfg)) return Promise.resolve({ ok: false, reason: REASON.notConfigured });
-    var size = Math.max(1, Math.min(50, o.pageSize || cfg.pageSize)), page = Math.max(0, o.page || 0), offset = page * size;
-    var q = '?select=name,score,created_at&order=score.desc,created_at.asc&limit=' + size + '&offset=' + offset;
-    var url = cfg.url.replace(/\/+$/, '') + '/rest/v1/' + cfg.table + q;
-    return call(o.fetch, cfg, url, { method: 'GET', headers: headers(cfg) }, o.nav).then(function (r) {
+    var size = Math.max(1, Math.min(10, o.limit || CONFIG.topSize));
+    return rpc(o, 'get_top', { p_limit: size }).then(function (r) {
       if (!r.ok) return r;
-      return r.response.json().then(function (rows) {
-        if (!Array.isArray(rows)) return { ok: false, reason: REASON.badResponse };
-        var out = rows.slice(0, size).map(function (row, i) {
-          return { rank: offset + i + 1, name: String(row.name || '').slice(0, NAME_MAX), score: Number(row.score) || 0, date: row.created_at || '' };
-        });
-        return { ok: true, rows: out, page: page, hasMore: rows.length === size };
-      }, function () { return { ok: false, reason: REASON.badResponse }; });
+      if (!Array.isArray(r.body)) return { ok: false, reason: REASON.badResponse };
+      var rows = r.body.slice(0, size).map(function (row, i) {
+        return { rank: Number(row.rank) || i + 1, name: String(row.name || '').slice(0, NAME_MAX), score: Number(row.score) || 0, date: row.achieved_at || '' };
+      });
+      return { ok: true, rows: rows };
     });
   }
 
   return {
-    CONFIG: CONFIG, MODE: MODE, REASON: REASON, NAME_MAX: NAME_MAX,
-    configured: configured, validateName: validateName, validateScore: validateScore, makeRunId: makeRunId,
-    submitRun: submitRun, fetchTop: fetchTop
+    CONFIG: CONFIG, RANKED: RANKED, REASON: REASON, NAME_MAX: NAME_MAX,
+    configured: configured, validateName: validateName, validateScore: validateScore,
+    validateSecret: validateSecret, normalizeSecret: normalizeSecret, formatSecret: formatSecret, newSecret: newSecret,
+    isRanked: isRanked, registerPlayer: registerPlayer, submitBest: submitBest, getMe: getMe, fetchTop: fetchTop
   };
 })();
 if (typeof module !== 'undefined' && module.exports) module.exports = SnakeLeaderboard;
@@ -2461,7 +2540,6 @@ if (typeof module !== 'undefined' && module.exports) module.exports = SnakeChase
   /* ---------- page state ---------- */
   var game = null, tracker = null;
   var view = 'home', appReady = false, ovSecAction = 'menu';
-  var runId = null, postState = 'idle', boardPage = 0, boardHasMore = false;   // global board: one id per run
   var checkAcc = 0;
   var canvas = $('board'), ctx = canvas.getContext('2d'), wrap = $('boardWrap');
   var overlay = $('overlay'), ovTitle = $('ovTitle'), ovText = $('ovText'), ovStats = $('ovStats'), ovBest = $('ovBest'), ovAch = $('ovAch');
@@ -2734,8 +2812,8 @@ if (typeof module !== 'undefined' && module.exports) module.exports = SnakeChase
     document.querySelectorAll('.mode').forEach(function (b) {
       b.setAttribute('aria-pressed', b.getAttribute('data-mode') === mode ? 'true' : 'false');
     });
-    setText($('homeEdge'), edge === 'walls' ? 'Walls' : 'Wrap');
-    setText($('homeBest'), profile.getBest(mode, edge, mode === 'chase' ? false : golden));
+    setText($('homeEdge'), effEdge() === 'walls' ? 'Walls' : 'Wrap');
+    setText($('homeBest'), profile.getBest(mode, effEdge(), mode === 'chase' ? false : effGolden()));
     $('hapticSection').hidden = !navigator.vibrate;
     $('hapticOff').setAttribute('aria-pressed', hapticsOn ? 'false' : 'true');
     $('hapticOn').setAttribute('aria-pressed', hapticsOn ? 'true' : 'false');
@@ -2745,18 +2823,19 @@ if (typeof module !== 'undefined' && module.exports) module.exports = SnakeChase
     $('soundOn').setAttribute('aria-pressed', soundOn ? 'true' : 'false');
     ['easy', 'normal', 'hard'].forEach(function (d) { $('diff' + d[0].toUpperCase() + d.slice(1)).setAttribute('aria-pressed', difficulty() === d ? 'true' : 'false'); });
     [['turn', 'Turn'], ['arrows', 'Arrows'], ['swipe', 'Swipe']].forEach(function (c) { $('ctrl' + c[1]).setAttribute('aria-pressed', controlsKind() === c[0] ? 'true' : 'false'); });
-    $('goldOff').setAttribute('aria-pressed', golden ? 'false' : 'true');
-    $('goldOn').setAttribute('aria-pressed', golden ? 'true' : 'false');
+    $('goldOff').setAttribute('aria-pressed', effGolden() ? 'false' : 'true');
+    $('goldOn').setAttribute('aria-pressed', effGolden() ? 'true' : 'false');
     setText($('homeCoins'), profile.getCoins());
     setText($('homeAchCount'), Ach.completedTiers(profile.achMap()) + '/' + Ach.totalTiers());
-    var nm = profile.getName();
+    var nm = displayName();
     setText($('homeName'), nm || 'Player');
     setText($('homeCoinPill'), profile.getCoins());
     setText($('homeLede'), nm ? 'Welcome back, ' + nm + '. Pick a mode and beat your best.' : 'Steer the snake, eat to grow, and keep clear of your own tail. Pick a mode and play.');
     setText($('homeAvatar'), nm ? Array.from(nm)[0].toUpperCase() : '?');
-    $('modeWalls').setAttribute('aria-pressed', edge === 'walls' ? 'true' : 'false');
-    $('modeWrap').setAttribute('aria-pressed', edge === 'wrap' ? 'true' : 'false');
-    setText($('edgeNote'), EDGE_NOTE[edge]);
+    $('modeWalls').setAttribute('aria-pressed', effEdge() === 'walls' ? 'true' : 'false');
+    $('modeWrap').setAttribute('aria-pressed', effEdge() === 'wrap' ? 'true' : 'false');
+    setText($('edgeNote'), EDGE_NOTE[effEdge()]);
+    setLocked(ranked());
   }
 
   /* ---------- legend (only for modes that have pick-ups) ---------- */
@@ -2807,8 +2886,9 @@ if (typeof module !== 'undefined' && module.exports) module.exports = SnakeChase
   /* ---------- a new run ---------- */
   function applyModeUi() {
     var M = MODES[mode], chase = mode === 'chase';
-    setText($('modeTag'), M.label);
-    setText($('edgeTag'), edge === 'walls' ? 'Walls' : 'Wrap');
+    setText($('modeTag'), ranked() ? M.label + ' · Ranked' : M.label);
+    setText($('edgeTag'), effEdge() === 'walls' ? 'Walls' : 'Wrap');
+    setLocked(ranked());
     el.strip.hidden = !M.timed && mode !== 'survival' && !chase;
     el.strip.classList.remove('urgent');
     el.effects.hidden = !M.powerups && !chase;
@@ -2823,7 +2903,7 @@ if (typeof module !== 'undefined' && module.exports) module.exports = SnakeChase
 
   /* Difficulty and touch controls. 'auto' means: easy and two turn buttons on a touch screen, the original game elsewhere. */
   function isTouch() { return !!(window.matchMedia && window.matchMedia('(pointer: coarse)').matches); }
-  function difficulty() { return diffPref !== 'auto' ? diffPref : (isTouch() ? 'easy' : 'hard'); }
+  function difficulty() { if (ranked()) return 'hard'; return diffPref !== 'auto' ? diffPref : (isTouch() ? 'easy' : 'hard'); }
   function controlsKind() { return ctrlPref !== 'auto' ? ctrlPref : 'turn'; }
   function applyControls() { document.documentElement.setAttribute('data-controls', controlsKind()); fitBoard(); }
   /* Phone portrait: the board gets what is left under the stats rows and above the thumb controls. Measured, so the
@@ -2839,7 +2919,7 @@ if (typeof module !== 'undefined' && module.exports) module.exports = SnakeChase
     document.documentElement.style.setProperty('--reserve', Math.round(reserve) + 'px');
   }
   function setDifficulty(d) {
-    if (diffPref === d) return;
+    if (ranked() || diffPref === d) return;
     var changed = difficulty() !== d;               // clicking the level that "auto" already chose only saves the choice
     diffPref = d; profile.setPrefs({ difficulty: d });
     if (changed) newGame(); else updateHome();
@@ -2859,9 +2939,10 @@ if (typeof module !== 'undefined' && module.exports) module.exports = SnakeChase
     if (side < 0) steer(h.y, 0 - h.x); else steer(0 - h.y, h.x);
   }
   function newGame() {
-    runId = Leaderboard.makeRunId(); postState = 'idle'; hidePost();
+    runCounted = false; curRun = 0; hideRankRow();
+    runSettings = { walls: effEdge() === 'walls', golden: effGolden(), difficulty: difficulty() };
     var tuning = (mode === 'chase' ? Chase.DIFFICULTY : Engine.DIFFICULTY)[difficulty()];
-    game = mode === 'chase' ? Chase.create({ edge: edge, tuning: tuning }) : Engine.create({ mode: mode, edge: edge, golden: golden, tuning: tuning });
+    game = mode === 'chase' ? Chase.create({ edge: edge, tuning: tuning }) : Engine.create({ mode: mode, edge: effEdge(), golden: effGolden(), tuning: tuning });
     tracker = SnakeTracker.attach(game, profile, { onUnlock: onUnlock });   // first, so it has updated the profile before the page reacts
     game.on(onEvent);
     fxReset();
@@ -2870,6 +2951,7 @@ if (typeof module !== 'undefined' && module.exports) module.exports = SnakeChase
     pauseBtn.textContent = 'Pause';
     syncHud();
     showOverlay('ready');
+    updateHome();                                         // every setting change starts a new game, so the buttons always match it
     updateHome();
   }
 
@@ -3002,13 +3084,14 @@ if (typeof module !== 'undefined' && module.exports) module.exports = SnakeChase
     overlay.hidden = false;
     overlay.classList.remove('late');
     var over = kind === 'over';
+    if (!over) hideRankRow();
     ovStats.hidden = !over;
     ovBest.hidden = !(over && tracker.info.newBest);
     ovAch.textContent = '';
     ovAch.hidden = !(over && tracker.info.unlocked.length);
     if (kind === 'ready') {
       ovTitle.textContent = 'Ready';
-      ovText.textContent = MODE_COPY[mode].ready;
+      ovText.textContent = MODE_COPY[mode].ready + (ranked() ? ' Ranked Rules: Walls ON · Golden Apple ON · Hard.' : '');
       ovBtn.textContent = 'Start'; ovSec.textContent = 'Menu'; ovSecAction = 'menu';
     } else if (kind === 'paused') {
       ovTitle.textContent = 'Paused';
@@ -3025,7 +3108,7 @@ if (typeof module !== 'undefined' && module.exports) module.exports = SnakeChase
         var li = document.createElement('li'); li.textContent = d.name + ' ' + d.tier + '/' + d.of + ' (+' + d.reward + ')'; ovAch.appendChild(li);
       });
       ovBtn.textContent = 'Play again'; ovSec.textContent = 'Menu'; ovSecAction = 'menu';
-      if (mode === 'timeattack' && S.score > 0) showPost();
+      if (ranked()) rankRun();
     }
     if (view === 'game' && !dlg.open && !achDlg.open) { try { ovBtn.focus({ preventScroll: true }); } catch (e) {} }
   }
@@ -3071,6 +3154,7 @@ if (typeof module !== 'undefined' && module.exports) module.exports = SnakeChase
   }
   function play() {
     if (!appReady) return;
+    if (ranked() && needsName()) { skipWelcome = false; maybeWelcome(); return; }   // a ranked round needs a player
     setView('game');
     newGame();
     startRun();
@@ -3087,9 +3171,10 @@ if (typeof module !== 'undefined' && module.exports) module.exports = SnakeChase
     newGame();
   }
   function setEdge(e) {
+    if (ranked()) return;
     edge = e;
     profile.setPrefs({ mode: mode, edge: edge });
-    newGame();
+    newGame(); updateHome();
   }
   function setSound(on) {
     soundOn = on;
@@ -3133,10 +3218,10 @@ if (typeof module !== 'undefined' && module.exports) module.exports = SnakeChase
     $('resetNote').textContent = 'Done. Scores, totals and achievements were cleared.';
   }
   function setGolden(on) {
-    if (golden === on) return;
+    if (ranked() || golden === on) return;
     golden = on;
     profile.setPrefs({ mode: mode, edge: edge, golden: golden });
-    newGame();
+    newGame(); updateHome();
   }
 
   /* ---------- dialogs ---------- */
@@ -3188,8 +3273,9 @@ if (typeof module !== 'undefined' && module.exports) module.exports = SnakeChase
       : 'Saved on this device only. Copy your backup code to keep a spare.';
   }
   function renderProfile() {
-    var t = profile.getTotals(), nm = profile.getName(), tiers = Ach.completedTiers(profile.achMap()), items = SHOP.filter(function (i) { return profile.owns(i.id); }).length;
-    $('nameInput').value = nm;
+    var t = profile.getTotals(), nm = displayName(), tiers = Ach.completedTiers(profile.achMap()), items = SHOP.filter(function (i) { return profile.owns(i.id); }).length;
+    setText($('pfNameState'), player ? 'Your player name is ' + player.name + '. It is permanent.' : 'No player on this browser yet. You create one when you first play.');
+    $('pfCodeShow').hidden = true;
     setText($('pfAvatar'), nm ? Array.from(nm)[0].toUpperCase() : '?');
     setText($('pfHeroName'), nm || 'Player');
     setText($('pfHeroSub'), tiers + ' of ' + Ach.totalTiers() + ' achievement tiers · ' + items + ' of ' + SHOP.length + ' shop items');
@@ -3215,14 +3301,7 @@ if (typeof module !== 'undefined' && module.exports) module.exports = SnakeChase
     $('pfSave').textContent = cloudText();
     $('pfSave').className = 'pf-status' + (cloud.state === 'on' ? ' ok' : '');
     $('pfCode').value = profile.exportCode();
-    $('pfBackupMsg').textContent = ''; $('pfNameMsg').textContent = ''; $('pfNameMsg').className = 'pf-status';
-  }
-  /* A name is required before the first game. The welcome box cannot be dismissed until there is one. */
-  function maybeWelcome() {
-    var d = $('welcomeDlg');
-    if (profile.getName()) { if (d.open) closeDialog(d); return; }
-    if (!d.open) { if (d.showModal) d.showModal(); else d.setAttribute('open', ''); }
-    try { $('welcomeInput').focus({ preventScroll: true }); } catch (e) {}
+    $('pfBackupMsg').textContent = ''; setText($('pfNameMsg'), playerNote); $('pfNameMsg').className = 'pf-status';
   }
   function openProfile() {
     renderProfile();
@@ -3235,7 +3314,7 @@ if (typeof module !== 'undefined' && module.exports) module.exports = SnakeChase
     hapticsOn = pf.haptics; motionPref = pf.motion; document.documentElement.setAttribute('data-motion', motionPref);
     applyLook('skin', pf.skin); applyLook('board', pf.board); applyLook('food', pf.food);
     if (!game || game.state.phase === 'ready' || game.state.phase === 'over') newGame(); else updateHome();
-    if (profile.getName() && $('welcomeDlg').open) closeDialog($('welcomeDlg'));
+    maybeWelcome();
   }
   function cloudUpload() {
     if (cloud.state === 'off' || !cloud.ref) return;
@@ -3341,69 +3420,194 @@ if (typeof module !== 'undefined' && module.exports) module.exports = SnakeChase
     if (achDlg.showModal) achDlg.showModal(); else achDlg.setAttribute('open', '');
   }
 
-  /* ---------- global board (Time Attack only) ---------- */
-  /* runId, postState, boardPage and boardHasMore are declared with the page's state, above newGame(). */
+  /* ---------- player identity and the global board (Time Attack only) ---------- */
+  /* A player is created once: a unique name and a recovery code. The browser keeps the code as a cache. The server
+     keeps only a hash of it and is the authority for the name and the personal best. */
+  var IDENTITY_KEY = 'gridsnake-player-v1';
   var LB_MSG = {
     'not-configured': 'The global board is not set up yet. Your scores still save on this device.',
-    offline: "You're offline. The global board needs a connection. Your scores still save on this device.",
-    timeout: 'The board took too long to answer. Try again.',
-    network: "Couldn't reach the global board. Try again.",
-    server: 'The global board is having trouble. Try again later.',
-    rejected: 'The board did not accept this score.',
-    invalid: 'This name cannot be posted. Change it in your profile.',
+    offline: "You're offline. The score is kept on this device and sent when you are back online.",
+    timeout: 'The board took too long to answer. The score will be sent again.',
+    network: "Couldn't reach the global board. The score will be sent again.",
+    server: 'The global board is having trouble. The score will be sent again.',
+    rejected: 'The board did not accept this request.',
+    invalid: 'That name or code is not valid.',
     'bad-response': 'The board sent something unexpected. Try again.',
-    'wrong-mode': 'Only Time Attack scores go on the global board.',
-    setup: 'The global board is not set up on the server yet.'
+    'not-ranked': 'Only ranked Time Attack rounds go on the board.',
+    setup: 'The global board is not set up on the server yet.',
+    'unknown-player': 'This browser\'s player is not on the board. Restore it with your recovery code.',
+    taken: 'That name is already taken. Choose another.',
+    'already-registered': 'This browser already has a player.'
   };
-  function hidePost() { $('ovPostRow').hidden = true; setText($('ovPostMsg'), ''); $('ovPost').disabled = false; }
-  function showPost() {
-    var row = $('ovPostRow'), btn = $('ovPost'), msg = $('ovPostMsg');
-    row.hidden = false;
-    if (postState === 'posted') { btn.hidden = true; setText(msg, 'Posted to the global board.'); return; }
-    btn.hidden = false;
-    var name = Leaderboard.validateName(profile.getName());
-    if (!Leaderboard.configured()) { btn.disabled = true; setText(msg, LB_MSG['not-configured']); return; }
-    if (!name.ok) { btn.disabled = true; setText(msg, profile.getName() ? LB_MSG.invalid : 'Set a name in your profile to post your score.'); return; }
-    btn.disabled = false;
-    setText(msg, navigator.onLine === false ? LB_MSG.offline : 'Share this score with everyone who plays.');
+  function netFetch(u, i) { return window.fetch(u, i); }
+  function ranked() { return mode === 'timeattack'; }
+  function effEdge() { return ranked() ? 'walls' : edge; }
+  function effGolden() { return ranked() ? true : golden; }
+  function readIdentity() {
+    try {
+      var v = JSON.parse(localStorage.getItem(IDENTITY_KEY) || 'null');
+      if (v && typeof v.name === 'string' && Leaderboard.validateSecret(v.secret).ok) return { name: v.name, secret: Leaderboard.normalizeSecret(v.secret) };
+    } catch (e) {}
+    return null;
   }
-  function postRun() {
-    var btn = $('ovPost'), msg = $('ovPostMsg');
-    if (postState === 'posting' || postState === 'posted') return;
-    postState = 'posting'; btn.disabled = true; setText(msg, 'Posting…');
-    Leaderboard.submitRun({ mode: mode, name: profile.getName(), score: Math.floor(game.state.score), runId: runId,
-      fetch: function (u, i) { return window.fetch(u, i); } }).then(function (r) {
-      if (r.ok) { postState = 'posted'; btn.hidden = true; setText(msg, r.duplicate ? 'This run is already on the global board.' : 'Posted to the global board.'); announce('Score posted to the global board'); return; }
-      postState = 'idle'; btn.disabled = false; setText(msg, LB_MSG[r.reason] || LB_MSG.network);
-    }, function () { postState = 'idle'; btn.disabled = false; setText(msg, LB_MSG.network); });
+  var player = readIdentity();                 // { name, secret } once a player is created here or restored
+  var rankQueue = [], rankSeq = 0, rankFlushing = false, runCounted = false, runSettings = null, curRun = 0;
+  var skipWelcome = false, playerNote = '';
+  function saveIdentity(p) { player = p; try { localStorage.setItem(IDENTITY_KEY, JSON.stringify(p)); } catch (e) {} }
+  function needsName() { return Leaderboard.configured() && !player; }
+  /* The name on screen is the player's (the server's), not the local profile's copy, so loading the page never writes the save. */
+  function displayName() { return player ? player.name : profile.getName(); }
+  /* Locked settings in Time Attack: walls, golden apple and difficulty are fixed. */
+  function setLocked(on) {
+    ['modeWalls', 'modeWrap', 'goldOff', 'goldOn', 'diffEasy', 'diffNormal', 'diffHard'].forEach(function (id) { $(id).disabled = on; });
+    setText($('rankedLock'), on ? 'Time Attack is always ranked, so these are fixed: Walls ON · Golden Apple ON · Hard. Pick another mode to change them.' : '');
   }
+
+  /* ----- the welcome box: create a player, or restore one with a recovery code ----- */
+  function welcomeNote(text, bad) { var m = $('welcomeMsg'); setText(m, text); m.className = 'pf-status' + (bad ? ' err' : ''); }
+  function maybeWelcome() {
+    var d = $('welcomeDlg');
+    if (!needsName() || skipWelcome) { if (d.open) closeDialog(d); return; }
+    if (!d.open) {
+      $('welcomePick').hidden = false; $('welcomeCodeBox').hidden = true;
+      if (d.showModal) d.showModal(); else d.setAttribute('open', '');
+    }
+    try { $('welcomeInput').focus({ preventScroll: true }); } catch (e) {}
+  }
+  function createPlayer(e) {
+    e.preventDefault();
+    var check = Leaderboard.validateName($('welcomeInput').value);
+    if (!check.ok) { welcomeNote("Use 1 to 16 letters, digits, spaces, or _ . ' -. Other symbols are not allowed.", true); return; }
+    if (!Leaderboard.configured()) { welcomeNote(LB_MSG['not-configured'], true); return; }
+    var secret = Leaderboard.newSecret(), btn = $('welcomeCreate');
+    btn.disabled = true; welcomeNote('Creating your player…');
+    Leaderboard.registerPlayer({ name: check.name, secret: secret, fetch: netFetch }).then(function (r) {
+      btn.disabled = false;
+      if (!r.ok) { welcomeNote(LB_MSG[r.reason] || LB_MSG.network, true); return; }
+      saveIdentity({ name: r.name, secret: secret });
+      profile.setName(r.name);
+      $('welcomeInput').value = ''; welcomeNote('');
+      setText($('welcomeSecret'), Leaderboard.formatSecret(secret));
+      $('welcomePick').hidden = true; $('welcomeCodeBox').hidden = false;
+      try { $('welcomeSaved').focus({ preventScroll: true }); } catch (err) {}
+    }, function () { btn.disabled = false; welcomeNote(LB_MSG.network, true); });
+  }
+  function finishCodeBox() {
+    $('welcomeCodeBox').hidden = true; $('welcomePick').hidden = false; setText($('welcomeSecret'), '');
+    closeDialog($('welcomeDlg')); updateHome();
+    try { playBtn.focus({ preventScroll: true }); } catch (err) {}
+  }
+  function restorePlayer() {
+    var v = Leaderboard.validateSecret($('welcomeRecover').value);
+    if (!v.ok) { welcomeNote('That recovery code is not valid. It has 32 letters and digits.', true); return; }
+    if (!Leaderboard.configured()) { welcomeNote(LB_MSG['not-configured'], true); return; }
+    welcomeNote('Checking your code…');
+    Leaderboard.getMe({ secret: v.secret, fetch: netFetch }).then(function (r) {
+      if (!r.ok) { welcomeNote(r.reason === 'unknown-player' ? 'That recovery code does not match any player.' : (LB_MSG[r.reason] || LB_MSG.network), true); return; }
+      saveIdentity({ name: r.name, secret: v.secret }); profile.setName(r.name);
+      $('welcomeRecover').value = ''; welcomeNote('');
+      closeDialog($('welcomeDlg')); updateHome();
+    }, function () { welcomeNote(LB_MSG.network, true); });
+  }
+  function playForNow() { skipWelcome = true; closeDialog($('welcomeDlg')); }
+  /* Once per page load, check the stored player against the board, so the name and the best are the server's. */
+  function refreshPlayer() {
+    if (!player || !Leaderboard.configured()) return;
+    Leaderboard.getMe({ secret: player.secret, fetch: netFetch }).then(function (r) {
+      if (r.ok) {
+        if (r.name !== player.name) saveIdentity({ name: r.name, secret: player.secret });
+        playerNote = ''; updateHome();
+      } else if (r.reason === 'unknown-player') playerNote = LB_MSG['unknown-player'];
+    });
+  }
+
+  /* ----- the result of a ranked round, shown on the Game over screen ----- */
+  function showRankMsg(text, bad) {
+    $('ovRankRow').hidden = false;
+    var m = $('ovRankMsg'); setText(m, text); m.className = 'ov-post-msg' + (bad ? ' err' : '');
+    $('ovRetry').hidden = !(bad && rankQueue.length);
+  }
+  function hideRankRow() { $('ovRankRow').hidden = true; setText($('ovRankMsg'), ''); $('ovRetry').hidden = true; }
+  /* Called once when a Time Attack round ends. It is queued and sent at once: no button to press. */
+  function rankRun() {
+    if (runCounted) return;
+    runCounted = true;
+    var score = Math.floor(game.state.score);
+    if (score <= 0) { showRankMsg('A score of 0 does not go on the board.'); return; }
+    if (!Leaderboard.configured()) { showRankMsg(LB_MSG['not-configured']); return; }
+    if (!player) { showRankMsg('Create your player name to put this score on the global board.'); return; }
+    rankSeq++; curRun = rankSeq;
+    rankQueue.push({ id: curRun, secret: player.secret, score: score, settings: runSettings });
+    flushRanks();
+  }
+  /* Sends the queue in order. A score is only ever reported as saved after the server confirmed it. */
+  function flushRanks() {
+    if (rankFlushing || !rankQueue.length) return;
+    var item = rankQueue[0];
+    rankFlushing = true;
+    if (item.id === curRun) showRankMsg('Saving your score…');
+    Leaderboard.submitBest({ secret: item.secret, score: item.score, settings: item.settings, fetch: netFetch }).then(function (r) {
+      rankFlushing = false;
+      var dropped = r.ok || r.reason === 'invalid' || r.reason === 'not-ranked' || r.reason === 'unknown-player';
+      if (dropped) rankQueue.shift();
+      if (r.ok) {
+        var text = r.improved ? 'New Personal Best! ' + r.best : 'Your best remains ' + r.best + '.';
+        if (r.rank) text += ' You are #' + r.rank + ' on the global board.';
+        if (item.id === curRun) { showRankMsg(text); announce(text); }
+        else announce('An earlier score was saved to the global board');
+        if (boardDlg.open) loadBoard();
+        flushRanks();
+        return;
+      }
+      if (item.id === curRun) showRankMsg(LB_MSG[r.reason] || LB_MSG.network, true);
+      if (dropped) flushRanks();
+    }, function () { rankFlushing = false; if (item.id === curRun) showRankMsg(LB_MSG.network, true); });
+  }
+
+  /* ----- the board: the top ten, and your own best if you are outside it ----- */
   function openBoard() {
-    boardPage = 0; loadBoard();
+    loadBoard();
     if (boardDlg.showModal) boardDlg.showModal(); else boardDlg.setAttribute('open', '');
   }
+  function boardHint(text) { var h = $('boardHint'); setText(h, text); h.hidden = !text; }
+  function boardRow(row, mine) {
+    var li = document.createElement('li');
+    if (mine) li.className = 'me';
+    var rk = document.createElement('span'); rk.className = 'rank'; rk.textContent = '#' + row.rank;
+    var who = document.createElement('span'); who.className = 'who'; who.textContent = row.name || 'Player';
+    var pts = document.createElement('span'); pts.className = 'pts'; pts.textContent = row.score;
+    var when = document.createElement('small'); var d = row.date ? new Date(row.date) : null;
+    when.textContent = d && !isNaN(d) ? d.toLocaleDateString() : '';
+    who.appendChild(when);
+    li.appendChild(rk); li.appendChild(who); li.appendChild(pts);
+    return li;
+  }
   function loadBoard() {
-    var list = $('boardList'); list.textContent = '';
-    setText($('boardMsg'), Leaderboard.configured() ? 'Loading the board…' : LB_MSG['not-configured']);
-    $('boardPrev').disabled = true; $('boardNext').disabled = true;
-    if (!Leaderboard.configured()) return;
-    Leaderboard.fetchTop({ page: boardPage, fetch: function (u, i) { return window.fetch(u, i); } }).then(function (r) {
-      if (!r.ok) { setText($('boardMsg'), LB_MSG[r.reason] || LB_MSG.network); return; }
-      boardHasMore = r.hasMore;
-      if (!r.rows.length) { setText($('boardMsg'), boardPage ? 'No more scores.' : 'No scores yet. Be the first to post one.'); }
-      else setText($('boardMsg'), 'Best Time Attack scores, page ' + (boardPage + 1) + '.');
-      r.rows.forEach(function (row) {
-        var li = document.createElement('li');
-        var rk = document.createElement('span'); rk.className = 'rank'; rk.textContent = '#' + row.rank;
-        var who = document.createElement('span'); who.className = 'who'; who.textContent = row.name || 'Player';
-        var pts = document.createElement('span'); pts.className = 'pts'; pts.textContent = row.score;
-        var when = document.createElement('small'); var d = row.date ? new Date(row.date) : null;
-        when.textContent = d && !isNaN(d) ? d.toLocaleDateString() : '';
-        who.appendChild(when);
-        li.appendChild(rk); li.appendChild(who); li.appendChild(pts);
-        list.appendChild(li);
+    var list = $('boardList'), you = $('boardYouList');
+    list.textContent = ''; you.textContent = ''; $('boardYou').hidden = true; boardHint('');
+    if (!Leaderboard.configured()) { setText($('boardMsg'), LB_MSG['not-configured']); return; }
+    setText($('boardMsg'), 'Loading the board…');
+    Promise.all([
+      Leaderboard.fetchTop({ fetch: netFetch }),
+      player ? Leaderboard.getMe({ secret: player.secret, fetch: netFetch }) : Promise.resolve(null)
+    ]).then(function (res) {
+      var top = res[0], me = res[1];
+      if (!top.ok) { setText($('boardMsg'), LB_MSG[top.reason] || LB_MSG.network); return; }
+      setText($('boardMsg'), top.rows.length ? 'The ten best ranked Time Attack players.' : 'No ranked scores yet. Be the first.');
+      var inTop = false;
+      top.rows.forEach(function (row) {
+        var mine = !!player && row.name.toLowerCase() === player.name.toLowerCase();   // names are unique, ignoring case
+        if (mine) inTop = true;
+        list.appendChild(boardRow(row, mine));
       });
-      $('boardPrev').disabled = boardPage === 0; $('boardNext').disabled = !boardHasMore;
-    });
+      if (!player) { boardHint('Create your player name to join the board.'); return; }
+      if (!me || !me.ok) { boardHint(me && LB_MSG[me.reason] ? LB_MSG[me.reason] : LB_MSG.network); return; }
+      if (me.best == null) { boardHint('You have no ranked score yet. Play a ranked Time Attack round to get on the board.'); return; }
+      if (!inTop) {
+        you.appendChild(boardRow({ rank: me.rank, name: me.name, score: me.best, date: '' }, true));
+        $('boardYou').hidden = false;
+      }
+    }, function () { setText($('boardMsg'), LB_MSG.network); });
   }
 
   /* ---------- drawing ---------- */
@@ -4177,35 +4381,27 @@ if (typeof module !== 'undefined' && module.exports) module.exports = SnakeChase
   $('homeAchBtn').addEventListener('click', openAchievements);
   $('homeBoardBtn').addEventListener('click', openBoard);
   $('boardClose').addEventListener('click', function () { closeDialog(boardDlg); });
-  $('boardPrev').addEventListener('click', function () { if (boardPage > 0) { boardPage--; loadBoard(); } });
-  $('boardNext').addEventListener('click', function () { if (boardHasMore) { boardPage++; loadBoard(); } });
-  $('ovPost').addEventListener('click', postRun);
+  $('ovRetry').addEventListener('click', flushRanks);
+  window.addEventListener('online', flushRanks);
   $('settingsClose').addEventListener('click', function () { closeDialog(dlg); });
   $('achClose').addEventListener('click', function () { closeDialog(achDlg); });
   $('homeShopBtn').addEventListener('click', openShop);
   $('homeProfileBtn').addEventListener('click', openProfile);
   $('profileClose').addEventListener('click', function () { closeDialog(pfDlg); });
-  $('nameForm').addEventListener('submit', function (e) {
-    e.preventDefault();
-    var msg = $('pfNameMsg');
-    if (!$('nameInput').value.replace(/[<>&"\s]/g, '')) { msg.textContent = 'Please type a name.'; msg.className = 'pf-status err'; return; }
-    profile.setName($('nameInput').value);
-    updateHome(); renderProfile();
-    $('pfNameMsg').textContent = 'Name saved.'; $('pfNameMsg').className = 'pf-status ok';
+  $('pfShowCode').addEventListener('click', function () {
+    var box = $('pfCodeShow');
+    if (!player) { setText($('pfNameMsg'), 'There is no player on this browser yet.'); return; }
+    setText(box, Leaderboard.formatSecret(player.secret)); box.hidden = false;
+    setText($('pfNameMsg'), 'Keep this code private. Anyone who has it can post as your player.');
   });
-  $('welcomeForm').addEventListener('submit', function (e) {
-    e.preventDefault();
-    var v = $('welcomeInput').value;
-    if (!v.replace(/[<>&"\s]/g, '')) { $('welcomeMsg').textContent = 'Please type a name to continue.'; $('welcomeMsg').className = 'pf-status err'; return; }
-    profile.setName(v);
-    updateHome();
-    closeDialog($('welcomeDlg'));
-    try { playBtn.focus({ preventScroll: true }); } catch (err) {}
-  });
-  $('welcomeDlg').addEventListener('cancel', function (e) { if (!profile.getName()) e.preventDefault(); });   // Esc cannot skip it
+  $('welcomeForm').addEventListener('submit', createPlayer);
+  $('welcomeSaved').addEventListener('click', finishCodeBox);
+  $('welcomeRecoverBtn').addEventListener('click', restorePlayer);
+  $('welcomeLater').addEventListener('click', playForNow);
+  $('welcomeDlg').addEventListener('cancel', function (e) { e.preventDefault(); });   // Esc does not skip: "Play for now" does
   $('welcomeRestore').addEventListener('click', function () {
     if (profile.importCode($('welcomeCode').value)) { applyProfileToPage(); maybeWelcome(); }
-    else { $('welcomeMsg').textContent = 'That code did not work. Check that you pasted all of it.'; $('welcomeMsg').className = 'pf-status err'; }
+    else { welcomeNote('That code did not work. Check that you pasted all of it.', true); }
   });
   $('pfCopy').addEventListener('click', function () {
     var ta = $('pfCode'), msg = $('pfBackupMsg');
@@ -4284,6 +4480,7 @@ if (typeof module !== 'undefined' && module.exports) module.exports = SnakeChase
   applyControls();
   buildModes();
   initCloud();
+  refreshPlayer();
   maybeWelcome();
   $('legend').open = window.matchMedia && window.matchMedia('(min-width: 781px)').matches;
   newGame();

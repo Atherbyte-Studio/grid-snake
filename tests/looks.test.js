@@ -1,4 +1,5 @@
 'use strict';
+const { KEY, SECRET, defaultBoard } = require('./support/board.js');
 /* Each new look renders in a real game: no page errors, and the board is painted (not blank) with the snake on it.
  * Run: node build.js && NODE_PATH=$(npm root -g) node --test tests/looks.test.js */
 const test = require('node:test');
@@ -22,6 +23,8 @@ test('each new skin and board renders in a game without errors', async () => {
       const ctx = await browser.newContext({ viewport: { width: 390, height: 780 }, isMobile: true, hasTouch: true });
       await ctx.addInitScript(([p, o]) => { try { localStorage.setItem('gridsnake-profile-v2', JSON.stringify({ name: 'T', prefs: p, owned: o })); } catch (e) {} }, [prefs, owned]);
       const page = await ctx.newPage();
+      await ctx.addInitScript(([k, v]) => { try { if (localStorage.getItem(k) === null) localStorage.setItem(k, v); } catch (e) {} }, [KEY, JSON.stringify({ name: 'Waseem', secret: SECRET })]);
+      await page.route('**/rest/v1/rpc/**', defaultBoard().route);
       const errors = [];
       page.on('pageerror', e => errors.push(e.message));
       page.on('console', m => { if (m.type() === 'error' && !/Failed to load resource/.test(m.text())) errors.push(m.text()); });
