@@ -47,7 +47,7 @@ async function open({ html = withConfig, mode = 'timeattack', identity = true, b
 async function startRound(page) {
   await page.evaluate(() => { if (document.getElementById('welcomeDlg').open) document.getElementById('welcomeDlg').close(); });
   await page.click('#playBtn');
-  await page.waitForTimeout(250);
+  await page.waitForFunction(() => window.__t.game().state.phase === 'running', null, { timeout: 8000 });
 }
 async function endRun(page, score) {
   await page.evaluate(sc => {

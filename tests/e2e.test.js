@@ -17,6 +17,7 @@ const ROOT = path.join(__dirname, '..');
 const OUT = process.env.E2E_OUT || fs.mkdtempSync(path.join(os.tmpdir(), 'snake-e2e-'));
 fs.mkdirSync(OUT, { recursive: true });
 const sleep = ms => new Promise(r => setTimeout(r, ms));
+const E2E_ORIGIN = 'https://e2e.test';
 
 const FAST_TA = ['duration: 60000,', 'duration: 3000,'];
 const FAST_SURVIVAL = ['levelMs: 20000,', 'levelMs: 800,'];
@@ -66,10 +67,14 @@ async function open(opts) {
   if (opts.init) await page.addInitScript(opts.init);
   const storage = opts.storage === undefined ? seed() : opts.storage;
   const file = path.join(OUT, 'page-' + (++counter) + '.html');
-  fs.writeFileSync(file, pageHtml(opts.tweaks));
+  const html = pageHtml(opts.tweaks);
+  fs.writeFileSync(file, html);
   /* the saved data is written before the page's own scripts run, once: later reloads keep what the game saved */
   if (storage) await ctx.addInitScript(s => Object.keys(s).forEach(k => { try { if (localStorage.getItem(k) === null) localStorage.setItem(k, s[k]); } catch (e) {} }), storage);
-  await page.goto('file://' + file);
+  /* Served from a normal https origin, as the game is in production. On a file:// page the saved-setting checks
+   * failed about one run in five: a localStorage write made just before a reload was lost (seen in a reload probe). */
+  await page.route(E2E_ORIGIN + '/**', r => r.fulfill({ contentType: 'text/html', body: html }));
+  await page.goto(E2E_ORIGIN + '/index.html');
   await page.waitForFunction(() => !document.getElementById('playBtn').disabled);
   return { ctx, page, errors };
 }
@@ -707,7 +712,7 @@ test('E2E sound: starts after the first tap, plays for eating, pick-ups and game
   await play(page);
   assert.equal((await audio()).contexts, 1, 'created by the first tap');
   await waitState(page, () => __t.game().state.phase === 'running');
-  await sleep(100);
+  await waitState(page, () => __audio.osc > 0);            // the start sound has really begun
   let n = (await audio()).osc;
   assert.ok(n > 0, 'start sound');
   await eatOne(page);
@@ -736,13 +741,15 @@ test('E2E golden apple: disappears after its 5 seconds, and golden points do not
   assert.equal(await page.evaluate(() => __t.game().tuning.golden.lifetime), 5000);
   await page.evaluate(() => { const s = __t.game().state, h = s.snake[0]; s.score = 9; s.food = { x: (h.x + s.dir.x + 20) % 20, y: (h.y + s.dir.y + 20) % 20 }; });
   await waitState(page, () => __t.game().state.gold !== null);
-  await page.evaluate(() => { __t.game().state.gold.ttl = 600; });   // shorten the wait for the test
+  // shorten the wait, and move the apple away from the snake so a random path cannot eat it under load
+  await page.evaluate(() => { const s = __t.game().state, h = s.snake[0]; s.gold.x = (h.x + 10) % 20; s.gold.y = (h.y + 10) % 20; s.gold.ttl = 600; });
   await waitState(page, () => __t.game().state.gold === null);
   assert.equal(await page.evaluate(() => __t.game().state.goldEaten), 0);
   // eat a golden apple at score 12: no new apple, because only 7 are normal points
-  await page.evaluate(() => { const g = __t.game(), s = g.state, h = s.snake[0]; s.score = 7; s.goldNext = 10; s.gold = { x: (h.x + s.dir.x + 20) % 20, y: (h.y + s.dir.y + 20) % 20, ttl: 5000, life: 5000 }; });
+  // The normal apple is moved far away, so a random spawn cannot add a point during the wait (that made this flaky).
+  await page.evaluate(() => { const g = __t.game(), s = g.state, h = s.snake[0]; s.score = 7; s.goldNext = 10; s.food = { x: (h.x + 10) % 20, y: (h.y + 10) % 20 }; s.gold = { x: (h.x + s.dir.x + 20) % 20, y: (h.y + s.dir.y + 20) % 20, ttl: 5000, life: 5000 }; });
   await waitState(page, () => __t.game().state.goldEaten === 1);
-  await sleep(300);
+  await waitState(page, () => __t.game().state.gold === null);
   assert.equal(await page.evaluate(() => __t.game().state.gold), null);
   assert.equal(await page.evaluate(() => __t.game().state.score), 12);
   await finish(ctx, errors);
