@@ -11,14 +11,18 @@ const fs = require('fs');
 const os = require('os');
 const path = require('path');
 const { chromium } = require('playwright');
+const { KEY, SECRET, defaultBoard, makeBoard } = require('./support/board.js');
 
 const ROOT = path.join(__dirname, '..');
 const OUT = process.env.E2E_OUT || fs.mkdtempSync(path.join(os.tmpdir(), 'snake-e2e-'));
 fs.mkdirSync(OUT, { recursive: true });
 const sleep = ms => new Promise(r => setTimeout(r, ms));
+const E2E_ORIGIN = 'https://e2e.test';
 
 const FAST_TA = ['duration: 60000,', 'duration: 3000,'];
 const FAST_SURVIVAL = ['levelMs: 20000,', 'levelMs: 800,'];
+// Time Attack is ranked (walls, golden apple, hard) in the game. These tests check the clock and pick-ups, so they switch that off in the test copy.
+const RANK_OFF = ["function ranked() { return mode === 'timeattack'; }", "function ranked() { return false; }"];
 
 const INSTR = `(() => {
   const orig = window.requestAnimationFrame.bind(window);
@@ -53,21 +57,24 @@ async function open(opts) {
   opts = opts || {};
   const ctx = await browser.newContext(Object.assign({ viewport: { width: 1280, height: 800 } }, opts.context || {}));
   const page = await ctx.newPage();
+  if (!opts.noIdentity) await ctx.addInitScript(([k, v]) => { try { if (localStorage.getItem(k) === null) localStorage.setItem(k, v); } catch (e) {} }, [KEY, JSON.stringify({ name: 'Waseem', secret: SECRET })]);
+  await page.route('**/rest/v1/rpc/**', (opts.noIdentity ? makeBoard([]) : defaultBoard()).route);
   const errors = [];
-  page.on('pageerror', e => errors.push('pageerror: ' + e.message));
+  page.on('pageerror', e => { errors.push('pageerror: ' + e.message); if (process.env.DEBUG_PAGE) console.log('PAGEERROR', e.stack || e.message); });
   page.on('console', m => { if (m.type() === 'error' && !/Failed to load resource/.test(m.text())) errors.push('console: ' + m.text()); });
   await page.route(/fonts\.(googleapis|gstatic)\.com/, r => r.abort());
   await page.addInitScript(INSTR);
   if (opts.init) await page.addInitScript(opts.init);
   const storage = opts.storage === undefined ? seed() : opts.storage;
   const file = path.join(OUT, 'page-' + (++counter) + '.html');
-  fs.writeFileSync(file, pageHtml(opts.tweaks));
-  await page.goto('file://' + file);
-  if (storage) {
-    /* seed once, then reload so the game boots with it; later reloads keep what the game saved */
-    await page.evaluate(s => Object.keys(s).forEach(k => localStorage.setItem(k, s[k])), storage);
-    await page.reload();
-  }
+  const html = pageHtml(opts.tweaks);
+  fs.writeFileSync(file, html);
+  /* the saved data is written before the page's own scripts run, once: later reloads keep what the game saved */
+  if (storage) await ctx.addInitScript(s => Object.keys(s).forEach(k => { try { if (localStorage.getItem(k) === null) localStorage.setItem(k, s[k]); } catch (e) {} }), storage);
+  /* Served from a normal https origin, as the game is in production. On a file:// page the saved-setting checks
+   * failed about one run in five: a localStorage write made just before a reload was lost (seen in a reload probe). */
+  await page.route(E2E_ORIGIN + '/**', r => r.fulfill({ contentType: 'text/html', body: html }));
+  await page.goto(E2E_ORIGIN + '/index.html');
   await page.waitForFunction(() => !document.getElementById('playBtn').disabled);
   return { ctx, page, errors };
 }
@@ -270,7 +277,7 @@ test('E2E restart keeps permanent stats: best score, totals and unlocks stay, th
    ===================================================================== */
 
 test('E2E Time Attack: the countdown shows, pausing stops it, and the run ends at zero', { timeout: 60000 }, async () => {
-  const { ctx, page, errors } = await open({ tweaks: [FAST_TA], storage: seed({ prefs: { mode: 'timeattack', edge: 'wrap', controls: 'arrows', difficulty: 'hard' } }) });
+  const { ctx, page, errors } = await open({ tweaks: [FAST_TA, RANK_OFF], storage: seed({ prefs: { mode: 'timeattack', edge: 'wrap', controls: 'arrows', difficulty: 'hard' } }) });
   await select(page, 'timeattack');
   const t0 = Date.now();
   await play(page);
@@ -340,13 +347,14 @@ test('E2E pick-ups: each type has its own colour and shape on the board', { time
 });
 
 test('E2E pick-ups: Speed Boost, Slow Motion, Bonus Food and Shield apply, show on screen, and end', { timeout: 90000 }, async () => {
-  const { ctx, page, errors } = await open({ storage: seed({ prefs: { mode: 'timeattack', edge: 'wrap', controls: 'arrows', difficulty: 'hard' } }) });
+  const { ctx, page, errors } = await open({ tweaks: [RANK_OFF], storage: seed({ prefs: { mode: 'timeattack', edge: 'wrap', controls: 'arrows', difficulty: 'hard' } }) });
   await play(page);
   await page.evaluate(() => { __t.game().state.timeLeft = 1e9; __t.game().state.food = { x: 0, y: 0 }; });
   const normal = parseFloat(await text(page, '#speed'));
 
   await putAhead(page, 'boost', 2);
   await waitState(page, () => __t.game().state.effect && __t.game().state.effect.type === 'boost');
+  await waitState(page, () => !document.getElementById('chipSpeed').hidden, undefined, 3000);   // the HUD draws on the next frame
   assert.match(await text(page, '#chipSpeed'), /^Speed Boost \d\.\d s$/);
   assert.ok(parseFloat(await text(page, '#speed')) > normal, 'faster while boosted');
   assert.equal(await shown(page, '#chipIdle'), false);
@@ -558,6 +566,7 @@ test('E2E one animation loop only: restarting, switching modes and replaying nev
 
 test('E2E touch: the direction pad and swipes steer, and the layout fits a phone in every mode', { timeout: 90000 }, async () => {
   const { ctx, page, errors } = await open({
+    tweaks: [RANK_OFF],
     context: { viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true, deviceScaleFactor: 2 },
     storage: seed({ prefs: { mode: 'timeattack', edge: 'wrap', controls: 'arrows', difficulty: 'hard' } })
   });
@@ -703,7 +712,7 @@ test('E2E sound: starts after the first tap, plays for eating, pick-ups and game
   await play(page);
   assert.equal((await audio()).contexts, 1, 'created by the first tap');
   await waitState(page, () => __t.game().state.phase === 'running');
-  await sleep(100);
+  await waitState(page, () => __audio.osc > 0);            // the start sound has really begun
   let n = (await audio()).osc;
   assert.ok(n > 0, 'start sound');
   await eatOne(page);
@@ -732,13 +741,15 @@ test('E2E golden apple: disappears after its 5 seconds, and golden points do not
   assert.equal(await page.evaluate(() => __t.game().tuning.golden.lifetime), 5000);
   await page.evaluate(() => { const s = __t.game().state, h = s.snake[0]; s.score = 9; s.food = { x: (h.x + s.dir.x + 20) % 20, y: (h.y + s.dir.y + 20) % 20 }; });
   await waitState(page, () => __t.game().state.gold !== null);
-  await page.evaluate(() => { __t.game().state.gold.ttl = 600; });   // shorten the wait for the test
+  // shorten the wait, and move the apple away from the snake so a random path cannot eat it under load
+  await page.evaluate(() => { const s = __t.game().state, h = s.snake[0]; s.gold.x = (h.x + 10) % 20; s.gold.y = (h.y + 10) % 20; s.gold.ttl = 600; });
   await waitState(page, () => __t.game().state.gold === null);
   assert.equal(await page.evaluate(() => __t.game().state.goldEaten), 0);
   // eat a golden apple at score 12: no new apple, because only 7 are normal points
-  await page.evaluate(() => { const g = __t.game(), s = g.state, h = s.snake[0]; s.score = 7; s.goldNext = 10; s.gold = { x: (h.x + s.dir.x + 20) % 20, y: (h.y + s.dir.y + 20) % 20, ttl: 5000, life: 5000 }; });
+  // The normal apple is moved far away, so a random spawn cannot add a point during the wait (that made this flaky).
+  await page.evaluate(() => { const g = __t.game(), s = g.state, h = s.snake[0]; s.score = 7; s.goldNext = 10; s.food = { x: (h.x + 10) % 20, y: (h.y + 10) % 20 }; s.gold = { x: (h.x + s.dir.x + 20) % 20, y: (h.y + s.dir.y + 20) % 20, ttl: 5000, life: 5000 }; });
   await waitState(page, () => __t.game().state.goldEaten === 1);
-  await sleep(300);
+  await waitState(page, () => __t.game().state.gold === null);
   assert.equal(await page.evaluate(() => __t.game().state.gold), null);
   assert.equal(await page.evaluate(() => __t.game().state.score), 12);
   await finish(ctx, errors);
@@ -860,7 +871,7 @@ test('E2E death animation: a crash plays an animation (red tint, then the snake 
 });
 
 test('E2E no death animation for running out of time', { timeout: 60000 }, async () => {
-  const { ctx, page, errors } = await open({ tweaks: [FAST_TA], storage: seed({ prefs: { mode: 'timeattack', edge: 'wrap', controls: 'arrows', difficulty: 'hard' } }) });
+  const { ctx, page, errors } = await open({ tweaks: [FAST_TA, RANK_OFF], storage: seed({ prefs: { mode: 'timeattack', edge: 'wrap', controls: 'arrows', difficulty: 'hard' } }) });
   await play(page);
   await waitState(page, () => __t.game().state.phase === 'over');
   assert.equal(await page.evaluate(() => __t.game().state.reason), 'time');
@@ -1019,49 +1030,50 @@ test('E2E phone: the whole game fits one screen, controls are reachable, no page
    Profile: name, backup code, online copy
    ===================================================================== */
 
-test('E2E name gate: a name is required once, cannot be skipped, and is remembered', { timeout: 90000 }, async () => {
-  const { ctx, page, errors } = await open({ storage: seed({ name: '' }) });
+test('E2E name gate: a name is asked for once, Esc cannot skip it, and the player is remembered', { timeout: 90000 }, async () => {
+  const { ctx, page, errors } = await open({ noIdentity: true, storage: seed({ name: '' }) });
   const isOpen = () => page.evaluate(() => document.getElementById('welcomeDlg').open);
   assert.equal(await isOpen(), true);
   await page.keyboard.press('Escape');
   assert.equal(await isOpen(), true, 'Esc cannot skip');
   await page.fill('#welcomeInput', '   ');
-  await page.click('#welcomeForm button[type="submit"]');
+  await page.click('#welcomeCreate');
   assert.equal(await isOpen(), true, 'blank rejected');
   await shot(page, '33-welcome');
-  await page.fill('#welcomeInput', 'Waseem');
-  await page.click('#welcomeForm button[type="submit"]');
+  await page.fill('#welcomeInput', 'Waseem Ali');
+  await page.click('#welcomeCreate');
+  await page.waitForSelector('#welcomeCodeBox:not([hidden])');
+  assert.match(await text(page, '#welcomeSecret'), /^[0-9a-f]{4}(-[0-9a-f]{4}){7}$/, 'a recovery code is shown');
+  await page.click('#welcomeSaved');
   assert.equal(await isOpen(), false);
-  assert.equal(await text(page, '#homeName'), 'Waseem');
+  assert.equal(await text(page, '#homeName'), 'Waseem Ali');
   await page.reload();
   assert.equal(await isOpen(), false, 'not asked again');
+  assert.equal(await text(page, '#homeName'), 'Waseem Ali', 'kept after reload');
   await finish(ctx, errors);
 });
 
-test('E2E name gate: restoring a backup code with a name closes it', { timeout: 90000 }, async () => {
-  const { ctx, page, errors } = await open({ storage: seed({ name: '' }) });
-  const code = await page.evaluate(() => { const c = __t.profile.exportCode(); return c; });
-  await page.evaluate(() => __t.profile.setName('Rana'));
-  const code2 = await page.evaluate(() => __t.profile.exportCode());
-  await page.evaluate(() => __t.profile.setName(''));
-  await page.reload();
-  await page.click('#welcomeDlg summary');
-  await page.fill('#welcomeCode', code2);
-  await page.click('#welcomeRestore');
-  assert.equal(await page.evaluate(() => document.getElementById('welcomeDlg').open), false);
-  assert.equal(await text(page, '#homeName'), 'Rana');
+test('E2E name gate: restoring a progress backup keeps the player name', { timeout: 90000 }, async () => {
+  const { ctx, page, errors } = await open({ storage: seed({ coins: 40 }) });
+  const code = await page.evaluate(() => __t.profile.exportCode());
+  await page.evaluate(() => __t.profile.addCoins(500));
+  await page.click('#homeProfileBtn');
+  await page.click('#pfBackupSummary');
+  await page.fill('#pfRestoreCode', code);
+  await page.click('#pfRestore');
+  assert.match(await text(page, '#pfBackupMsg'), /Restored/);
+  assert.equal(await page.evaluate(() => __t.profile.getCoins()), 40, 'progress came back');
+  assert.equal(await text(page, '#homeName'), 'Waseem', 'the stored player name wins');
   await finish(ctx, errors);
 });
 
-test('E2E profile: set a name, see stats, and restore from a backup code', { timeout: 90000 }, async () => {
+test('E2E profile: see stats, the name is fixed, and a progress backup restores', { timeout: 90000 }, async () => {
   const { ctx, page, errors } = await open({ storage: seed({ prefs: { mode: 'classic', edge: 'walls' }, coins: 321, totals: { foods: 12, bonus: 1, runs: 4 } }) });
-  assert.equal(await text(page, '#homeName'), 'Tester');
+  assert.equal(await text(page, '#homeName'), 'Waseem');
   await page.click('#homeProfileBtn');
   assert.equal(await page.evaluate(() => document.getElementById('profileDlg').open), true);
-  await page.fill('#nameInput', '  Waseem  ');
-  await page.click('#nameForm button[type="submit"]');
-  assert.equal(await text(page, '#homeName'), 'Waseem');
-  assert.equal(await text(page, '#homeAvatar'), 'W');
+  assert.equal(await page.evaluate(() => !!document.getElementById('nameForm')), false, 'there is no name change');
+  assert.match(await text(page, '#pfNameState'), /permanent/);
   assert.match(await text(page, '#pfStats'), /Coins\s*321/);
   assert.match(await text(page, '#pfStats'), /Foods eaten\s*12/);
   assert.equal(await text(page, '#pfHeroName'), 'Waseem');
@@ -1074,8 +1086,7 @@ test('E2E profile: set a name, see stats, and restore from a backup code', { tim
   await page.fill('#pfRestoreCode', 'GS2.nonsense');
   await page.click('#pfRestore');
   assert.match(await text(page, '#pfBackupMsg'), /did not work/);
-  // wipe, then restore from the code
-  await page.evaluate(() => { __t.profile.resetProgress(); __t.profile.setName(''); });
+  await page.evaluate(() => { __t.profile.resetProgress(); });
   assert.equal(await page.evaluate(() => __t.profile.getCoins()), 0);
   await page.fill('#pfRestoreCode', code);
   await page.click('#pfRestore');
@@ -1088,28 +1099,6 @@ test('E2E profile: set a name, see stats, and restore from a backup code', { tim
   await finish(ctx, errors);
 });
 
-test('E2E profile: the online copy brings progress back on a device with nothing saved', { timeout: 90000 }, async () => {
-  const fake = `(() => {
-    const key = p => '__cloud:' + p;
-    window.claude = { use: async n => n === 'user' ? { id: async () => 'u1' } : n === 'db' ? { doc: p => ({
-      get: async () => { const v = sessionStorage.getItem(key(p)); return { exists: v !== null, data: () => JSON.parse(v) }; },
-      set: async d => { sessionStorage.setItem(key(p), JSON.stringify(d)); }
-    }) } : null };
-  })();`;
-  const { ctx, page, errors } = await open({ init: fake, storage: seed({ name: '', prefs: { mode: 'classic', edge: 'walls' } }) });
-  await page.fill('#welcomeInput', 'Temp'); await page.click('#welcomeForm button[type="submit"]');
-  await page.evaluate(() => { __t.profile.setName('Waseem'); __t.profile.addCoins(777); });
-  await waitState(page, () => Object.keys(sessionStorage).some(k => k.startsWith('__cloud:')), undefined, 8000);
-  assert.match(await page.evaluate(() => sessionStorage.getItem(Object.keys(sessionStorage).find(k => k.startsWith('__cloud:')))), /777/);
-  await page.evaluate(() => localStorage.clear());               // a new device: nothing saved locally
-  await page.reload();
-  await waitState(page, () => __t.profile.getCoins() === 777, undefined, 8000);
-  assert.equal(await page.evaluate(() => __t.profile.getName()), 'Waseem');
-  assert.equal(await text(page, '#homeName'), 'Waseem');
-  await page.click('#homeProfileBtn');
-  assert.match(await text(page, '#pfSave'), /online profile/);
-  await finish(ctx, errors);
-});
 
 test('E2E golden apple is drawn as a golden apple (gold body and a leaf), not a plain ball', { timeout: 60000 }, async () => {
   const { ctx, page, errors } = await open({ storage: seed({ prefs: { mode: 'classic', edge: 'walls', golden: true } }) });
@@ -1147,9 +1136,9 @@ test('E2E difficulty: a computer keeps the original (Hard) speed, a phone starts
   assert.equal(await page.getAttribute('#diffEasy', 'aria-pressed'), 'true');
   await shot(page, '40-settings-mobile');
   await page.tap('#diffNormal');
-  assert.equal(await page.evaluate(() => __t.game().interval()), 170);
+  await page.waitForFunction(() => __t.game().interval() === 170, null, { timeout: 5000 });
   await page.tap('#diffHard');
-  assert.equal(await page.evaluate(() => __t.game().interval()), 150);
+  await page.waitForFunction(() => __t.game().interval() === 150, null, { timeout: 5000 });
   assert.equal(await page.getAttribute('#diffHard', 'aria-pressed'), 'true');
   assert.equal(await page.evaluate(() => JSON.parse(localStorage.getItem('gridsnake-profile-v2')).prefs.difficulty), 'hard');
   await page.reload();
@@ -1226,4 +1215,26 @@ test('E2E toasts on phones: an achievement message never covers the steering but
     if (name === 'portrait turn') await shot(page, '43-toast-mobile');
     await finish(ctx, errors);
   }
+});
+
+test('E2E profile: the online copy brings progress back on a device with nothing saved', { timeout: 90000 }, async () => {
+  const fake = `(() => {
+    const key = p => '__cloud:' + p;
+    window.claude = { use: async n => n === 'user' ? { id: async () => 'u1' } : n === 'db' ? { doc: p => ({
+      get: async () => { const v = sessionStorage.getItem(key(p)); return { exists: v !== null, data: () => JSON.parse(v) }; },
+      set: async d => { sessionStorage.setItem(key(p), JSON.stringify(d)); }
+    }) } : null };
+  })();`;
+  const { ctx, page, errors } = await open({ init: fake, storage: seed({ prefs: { mode: 'classic', edge: 'walls' } }) });
+  await page.evaluate(() => { __t.profile.setName('Waseem'); __t.profile.addCoins(777); });
+  await waitState(page, () => Object.keys(sessionStorage).some(k => k.startsWith('__cloud:')), undefined, 8000);
+  assert.match(await page.evaluate(() => sessionStorage.getItem(Object.keys(sessionStorage).find(k => k.startsWith('__cloud:')))), /777/);
+  await page.evaluate(() => localStorage.clear());               // a new device: nothing saved locally
+  await page.reload();
+  await waitState(page, () => __t.profile.getCoins() === 777, undefined, 8000);
+  assert.equal(await page.evaluate(() => __t.profile.getName()), 'Waseem');
+  assert.equal(await text(page, '#homeName'), 'Waseem');
+  await page.click('#homeProfileBtn');
+  assert.match(await text(page, '#pfSave'), /online profile/);
+  await finish(ctx, errors);
 });

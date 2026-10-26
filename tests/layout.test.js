@@ -1,4 +1,5 @@
 'use strict';
+const { KEY, SECRET, defaultBoard } = require('./support/board.js');
 /* Layout regression: on phone widths, the Survival / Time Attack effect chips must not cover the board.
  * Run: node build.js && NODE_PATH=$(npm root -g) node --test tests/layout.test.js
  * Loads index.html (the phone-viewport page) in memory with the same test hook as e2e.test.js. */
@@ -19,6 +20,8 @@ test('Survival and Time Attack effect chips never cover the board on phones', as
       const ctx = await browser.newContext({ viewport: { width: w, height: 760 }, isMobile: true, hasTouch: true });
       await ctx.addInitScript(() => { try { localStorage.setItem('gridsnake-profile-v2', JSON.stringify({ name: 'T', prefs: { mode: 'survival', edge: 'walls', controls: 'turn' } })); } catch (e) {} });
       const page = await ctx.newPage();
+      await ctx.addInitScript(([k, v]) => { try { if (localStorage.getItem(k) === null) localStorage.setItem(k, v); } catch (e) {} }, [KEY, JSON.stringify({ name: 'Waseem', secret: SECRET })]);
+      await page.route('**/rest/v1/rpc/**', defaultBoard().route);
       await page.route(/fonts\.(googleapis|gstatic)\.com/, r => r.abort());
       await page.route('https://layout.test/**', r => r.fulfill({ contentType: 'text/html', body: hooked }));
       await page.goto('https://layout.test/index.html');
