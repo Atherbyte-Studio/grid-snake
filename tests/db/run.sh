@@ -79,4 +79,23 @@ db="gs_privileges_$$"; new_db "$db"
 grep -q 'ok: privileges as designed' "$LOG" || { echo "FAILED: privileges notice missing"; exit 1; }
 echo "ok: anon and authenticated: four game functions only, internal functions and the table refused"
 
+# ---- account link (account_link.sql and its rollback)
+db="gs_account_link_$$"; new_db "$db"
+"${P[@]}" -d "$db" -f account_link.sql >"$LOG" 2>&1 || { echo "FAILED: account link"; grep -E 'FAILED|ERROR' "$LOG" | head -5; exit 1; }
+grep -q 'ok: reapply: linking works again' "$LOG" || { echo "FAILED: account link notices missing"; exit 1; }
+grep -c 'NOTICE:  ok:' "$LOG" | sed 's/^/account link checks passed: /'
+
+# Concurrency: two accounts and two players, linked in every combination at once: never one account with two players.
+"${P[@]}" -d "$db" -c "insert into auth.users values ('66666666-6666-4666-8666-666666666666'), ('77777777-7777-4777-8777-777777777777')" >/dev/null
+"${P[@]}" -d "$db" -c "select register_player('Race1', 'eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee'), register_player('Race2', 'ffffffffffffffffffffffffffffffff')" >/dev/null
+for a in 66666666-6666-4666-8666-666666666666 77777777-7777-4777-8777-777777777777; do
+  for s in eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee ffffffffffffffffffffffffffffffff; do
+    for i in 1 2 3; do "${P[@]}" -d "$db" -c "select gs_link_player('$a', '$s')" >/dev/null & done
+  done
+done
+wait
+pairs=$("${P[@]}" -d "$db" -tA -c "select count(*) from players where name in ('Race1', 'Race2') and account_id is not null")
+dup=$("${P[@]}" -d "$db" -tA -c "select count(*) from (select account_id from players where account_id is not null group by account_id having count(*) > 1) d")
+[ "$dup" = "0" ] && [ "$pairs" -ge 1 ] && echo "ok: parallel links never give one account two players ($pairs linked)" || { echo "FAILED: parallel links ($pairs linked, $dup duplicated)"; exit 1; }
+
 echo "all database checks passed"
