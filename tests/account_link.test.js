@@ -53,15 +53,25 @@ function worker(opts = {}) {
       return ok({ version: w.save.version });
     }
     if (p.endsWith('/score')) { if (body.score > w.best) w.best = body.score; return ok({ improved: w.best === body.score, best: w.best, rank: 1 }); }
+    if (p.endsWith('/name')) {
+      if (w.linkedTo) { const renamed = w.linkedTo !== 'ronaldo'; w.linkedTo = 'ronaldo'; return ok({ status: 'ok', name: 'ronaldo', renamed }); }
+      if (!body.create) return err(409, 'not_linked');
+      w.linkedTo = 'ronaldo'; w.best = null;
+      return ok({ status: 'created', name: 'ronaldo', renamed: false });
+    }
     return err(404, 'not_found');
   };
   return w;
 }
-function client(w, signedIn = true) {
-  return {
+function client(w, signedIn = true, me) {
+  const c = {
     isConfigured: () => true, hasSession: () => signedIn, username: () => (signedIn ? RONALDO.username : ''),
-    getSession: () => (signedIn ? { user: RONALDO } : null), authed: w.authed
+    getSession: () => (signedIn ? { user: RONALDO } : null), authed: w.authed,
+    // GET /v1/me: me(c) can end the session (an expired, unrefreshable one) or fail on the network
+    me: () => Promise.resolve(me ? me(c) : { ok: true, profile: { id: RONALDO.id, username: 'ronaldo' } })
   };
+  c.end = () => { signedIn = false; };
+  return c;
 }
 const make = (st, w, signedIn) => AL.create({ account: client(w, signedIn), storage: st, now: () => 42 });
 const snapshot = (st) => JSON.stringify([...st.map.entries()].filter(([k]) => k.startsWith('gridsnake-') && !/backups|account-sync/.test(k)).sort());
@@ -111,18 +121,22 @@ test('the backup code is the game\'s own GS2 format: the profile restores from i
   assert.equal(p.getAch('foods').tier, 3);
 });
 
-test('backups: the five most recent are kept', () => {
-  const c = make(benzemaDevice(), worker());
-  for (let i = 0; i < 8; i++) c.backup('r' + i);
+test('backups: the five most recent are kept, with the player\'s code; the same progress twice is kept once', () => {
+  const st = benzemaDevice();
+  const c = make(st, worker());
+  for (let i = 0; i < 8; i++) { st.setItem('gridsnake-best-walls', String(100 + i)); c.backup('r' + i); }
+  c.backup('again');
   assert.equal(c.backups().length, 5);
   assert.equal(c.backups()[0].reason, 'r7');
+  assert.deepEqual(c.backups()[0].player, { name: 'Benzema', secret: BENZ });
 });
 
-test('link refused: no player, pending player, player linked elsewhere; nothing on the device changes', async () => {
+test('link refused: no player, an unknown pending code, player linked elsewhere; nothing on the device changes', async () => {
   const none = make(emptyDevice(), worker());
   assert.match((await none.link()).message, /no player/);
-  const pending = make(storage({ 'gridsnake-pending-player-v1': '{"name":"X","secret":"' + BENZ + '"}' }), worker());
-  assert.match((await pending.link()).message, /Finish creating/);
+  // a player whose creation answer was lost: its code is tried (the server knows it or not), never a name
+  const pending = make(storage({ 'gridsnake-pending-player-v1': '{"name":"X","secret":"' + 'e'.repeat(32) + '"}' }), worker());
+  assert.match((await pending.link()).message, /does not match any player/);
   const st = benzemaDevice(), before = snapshot(st), w = worker({ elsewhere: true });
   const c = make(st, w);
   assert.match((await c.link()).message, /another Atherbyte account/);
@@ -215,26 +229,74 @@ test('an unchanged device that is behind takes the newer account copy (after a b
   assert.equal(c.backups()[0].reason, 'before-restore');
 });
 
-test('another player on this device: no sync, no restore, scores keep the old path', async () => {
-  const w = worker({ linkedTo: 'Benzema', save: { version: 1, data: { v: 2, savedAt: 1, data: { coins: 5 }, bests: {} } } });
-  const st = storage({ 'gridsnake-player-v1': JSON.stringify({ name: 'Messi', secret: 'c'.repeat(32) }), 'gridsnake-profile-v2': '{"coins":3}' });
-  const before = snapshot(st);
-  const c = make(st, w);
-  await c.refresh();
-  assert.equal(c.state.phase, 'other-player');
-  assert.equal(c.routesScores(), false);
-  assert.equal(snapshot(st), before);
-});
-
-test('scores of the linked player go through the Worker with the ranked rules', async () => {
+test('scores go through the Worker with the ranked rules; the board cannot create or restore a local player', async () => {
   const w = worker();
   const c = make(benzemaDevice(), w);
-  assert.equal(c.routesScores(), false, 'not before linking');
   await c.refresh(); await c.link();
-  assert.equal(c.routesScores(), true);
-  const r = await c.submitScore(450);
-  assert.deepEqual(r, { ok: true, improved: true, best: 450, rank: 1 });
+  const board = AL.patchBoard(Object.assign({}, require('../src/leaderboard.js')), c);
+  assert.deepEqual(await board.submitBest({ secret: 'x', score: 450, settings: { walls: true, golden: true, difficulty: 'hard' } }), { ok: true, improved: true, best: 450, rank: 1 });
   assert.deepEqual(w.calls.find((x) => x.path.endsWith('/score')).body, { score: 450, walls: true, golden: true, difficulty: 'hard' });
+  assert.equal((await board.submitBest({ score: 450, settings: { walls: false, golden: true, difficulty: 'hard' } })).reason, 'not-ranked');
+  const before = w.calls.length;
+  assert.equal((await board.enrollPlayer({ name: 'Someone' })).ok, false);
+  assert.equal((await board.registerPlayer({ name: 'Someone', secret: BENZ })).ok, false);
+  assert.equal((await board.resumePending({})).ok, false);
+  assert.equal(w.calls.length, before, 'none of them reach a server');
+  assert.deepEqual(await board.getMe({ secret: 'anything' }), { ok: true, name: 'Benzema', best: 450, rank: 1 });
+});
+
+test('session: none, refused or expired means signed out; a network failure is not a sign-out', async () => {
+  assert.equal(await AL.create({ account: client(worker(), false), storage: storage() }).verifySession(), 'signed-out');
+  assert.equal(await AL.create({ account: client(worker()), storage: storage() }).verifySession(), 'ok');
+  const expired = client(worker(), true, (c) => { c.end(); return { ok: false, status: 401, code: 'unauthorized' }; });
+  assert.equal(await AL.create({ account: expired, storage: storage() }).verifySession(), 'signed-out');
+  const offline = client(worker(), true, () => ({ ok: false, status: 0, code: 'network' }));
+  assert.equal(await AL.create({ account: offline, storage: storage() }).verifySession(), 'offline');
+});
+
+test('old player: linked by its code, then named after the account on the same record; progress kept', async () => {
+  const st = benzemaDevice(), w = worker(), before = snapshot(st);
+  const c = make(st, w);
+  await c.fetchPlayer();
+  assert.equal((await c.linkWithCode(BENZ)).ok, true);
+  const r = await c.useAccountName(false);
+  assert.deepEqual([r.ok, r.name], [true, 'ronaldo']);
+  assert.ok(c.localPlayerChecked(), 'the code on this device belongs to the account player');
+  c.writeIdentity(r.name);
+  assert.deepEqual(JSON.parse(st.getItem('gridsnake-player-v1')), { name: 'ronaldo', secret: BENZ }, 'the real recovery code stays');
+  await c.fetchPlayer(); await c.decideSync();
+  assert.equal(w.save.data.data.coins, 1234);
+  assert.deepEqual(w.save.data.data.owned, { 'skin:jordan': true });
+  const after = JSON.parse(snapshot(st)).filter(([k]) => k !== 'gridsnake-player-v1');
+  assert.deepEqual(after, JSON.parse(before).filter(([k]) => k !== 'gridsnake-player-v1'), 'coins, items, achievements, settings and bests untouched');
+});
+
+test('new account on an empty device: a player named after the account, and a stand-in code that is never sent', async () => {
+  const st = emptyDevice(), w = worker();
+  const c = AL.create({ account: client(w), storage: st, random: () => 0.5 });
+  await c.fetchPlayer();
+  assert.equal(c.state.linked, false);
+  assert.equal((await c.useAccountName(false)).ok, false, 'no player is made without asking');
+  const r = await c.useAccountName(true);
+  assert.deepEqual([r.ok, r.status, r.name], [true, 'created', 'ronaldo']);
+  c.writeIdentity('ronaldo');
+  const id = JSON.parse(st.getItem('gridsnake-player-v1'));
+  assert.equal(id.name, 'ronaldo');
+  assert.equal(JSON.parse(st.getItem(AL.LOCAL_ONLY_KEY)).secret, id.secret);
+  assert.equal(c.localPlayer(), null, 'the stand-in is not treated as an old player');
+  assert.ok(!w.calls.some((x) => JSON.stringify(x.body || {}).includes(id.secret)));
+});
+
+test('progress but no recovery code: nothing is linked by guess and nothing is deleted', async () => {
+  const st = storage({ 'gridsnake-profile-v2': JSON.stringify({ coins: 77, owned: { 'board:neon': true }, savedAt: 9 }), 'gridsnake-best-walls': '12' });
+  const before = snapshot(st), w = worker();
+  const c = make(st, w);
+  await c.fetchPlayer();
+  assert.equal(c.localPlayer(), null);
+  assert.equal(c.state.linked, false);
+  assert.ok(!w.calls.some((x) => x.path.endsWith('/link') || x.path.endsWith('/name')));
+  assert.match(c.backup('before-choice'), /^GS2\./);
+  assert.equal(snapshot(st), before);
 });
 
 test('network down: nothing on the device changes and the state says so', async () => {

@@ -155,6 +155,37 @@ select pg_temp.check('account deleted: player kept, unlinked, score kept',
   (select account_id is null and best_score = 500 from public.players where name = 'Messi'));
 select gs_link_player(:'NEYMAR', :'MESSI');
 
+-- 7b. the Atherbyte username becomes the name (account_name.sql): same row, old name kept in the history
+create table public.profiles (id uuid primary key references auth.users (id) on delete cascade, username text not null unique);
+insert into auth.users values ('88888888-8888-4888-8888-888888888888'), ('99999999-9999-4999-8999-999999999999');
+insert into public.profiles values (:'RONALDO', 'ronaldo'), (:'NEYMAR', 'neymar'), ('88888888-8888-4888-8888-888888888888', 'newbie'),
+  ('99999999-9999-4999-8999-999999999999', 'messi');
+\i ../../supabase/account_name.sql
+\i ../../supabase/account_name.sql
+create temporary table before_rename as select id, best_score, best_at, secret_hash, account_id from public.players where account_id = :'RONALDO'::uuid;
+select pg_temp.check('name: browsers cannot call it', not has_function_privilege('anon', 'public.gs_use_account_name(uuid, boolean)', 'execute')
+  and not has_function_privilege('authenticated', 'public.gs_use_account_name(uuid, boolean)', 'execute')
+  and has_function_privilege('service_role', 'public.gs_use_account_name(uuid, boolean)', 'execute'));
+select pg_temp.check('name: Benzema becomes ronaldo', (select r->>'status' = 'ok' and r->>'name' = 'ronaldo' and (r->>'renamed')::boolean from gs_use_account_name(:'RONALDO', false) r));
+select pg_temp.check('name: same id, score, date, code and link', (select p.id = b.id and p.best_score = b.best_score and p.best_at = b.best_at
+  and p.secret_hash = b.secret_hash and p.account_id = b.account_id and p.name = 'ronaldo' from public.players p join before_rename b using (id)));
+select pg_temp.check('name: the old name is kept in the history', (select old_name = 'Benzema' and new_name = 'ronaldo' from public.player_name_history));
+select pg_temp.check('name: the recovery code still finds the player', (select get_me(:'BENZ')->>'name' = 'ronaldo'));
+select pg_temp.check('name: again changes nothing', (select (r->>'renamed')::boolean = false from gs_use_account_name(:'RONALDO', false) r)
+  and (select count(*) = 1 from public.player_name_history));
+select pg_temp.check('name: no player and no create', (select gs_use_account_name('88888888-8888-4888-8888-888888888888', false)->>'status' = 'no-player')
+  and not exists (select 1 from public.players where account_id = '88888888-8888-4888-8888-888888888888'));
+select pg_temp.check('name: create makes a linked player named after the account, without a code',
+  (select gs_use_account_name('88888888-8888-4888-8888-888888888888', true)->>'status' = 'created'));
+select pg_temp.check('name: the new player', (select name = 'newbie' and secret_hash is null and best_score is null and linked_at is not null
+  from public.players where account_id = '88888888-8888-4888-8888-888888888888'));
+select pg_temp.check('name: create again does not make a second player', (select gs_use_account_name('88888888-8888-4888-8888-888888888888', true)->>'status' = 'ok')
+  and (select count(*) = 1 from public.players where account_id = '88888888-8888-4888-8888-888888888888'));
+select pg_temp.check('name: a name used by another player is refused for a new player', (select gs_use_account_name('99999999-9999-4999-8999-999999999999', true)->>'status' = 'name-taken')
+  and (select best_score = 500 from public.players where name = 'Messi')
+  and not exists (select 1 from public.players where account_id = '99999999-9999-4999-8999-999999999999'));
+select pg_temp.check('name: no profile, no name', (select gs_use_account_name(:'ZIDANE', true)->>'status' = 'no-profile'));
+
 -- 8. rollback: every player stays, links are copied out, tables move aside, and the file can be applied again
 create temporary table before_rollback as select id, name, secret_hash, best_score, best_at, created_at from public.players;
 \i ../../supabase/rollback_account_link.sql
@@ -165,10 +196,11 @@ select pg_temp.check('rollback: every player, id, code and score kept',
   (select count(*) = (select count(*) from before_rollback) from public.players p join before_rollback b using (id)
     where p.name = b.name and p.secret_hash is not distinct from b.secret_hash and p.best_score is not distinct from b.best_score
       and p.best_at is not distinct from b.best_at));
-select pg_temp.check('rollback: links copied out', (select count(*) = 2 from gs_rolledback.players_account_link where account_id is not null));
+select pg_temp.check('rollback: links copied out', (select count(*) = 3 from gs_rolledback.players_account_link where account_id is not null));
+select pg_temp.check('rollback: the name history is kept aside', (select count(*) = 1 from gs_rolledback.player_name_history));
 select pg_temp.check('rollback: saves kept aside', (select count(*) = 1 from gs_rolledback.player_saves) and (select count(*) = 20 from gs_rolledback.player_save_history));
 select pg_temp.check('rollback: functions gone', to_regprocedure('public.gs_link_player(uuid, text)') is null);
-select pg_temp.check('rollback: the recovery code still works', (select get_me(:'BENZ')->>'name' = 'Benzema'));
+select pg_temp.check('rollback: the recovery code still works', (select get_me(:'BENZ')->>'name' = 'ronaldo'));
 \i ../../supabase/account_link.sql
 select pg_temp.check('reapply: works after a rollback, starting unlinked',
   (select count(*) = 0 from public.players where account_id is not null) and (select count(*) = 0 from public.player_saves));

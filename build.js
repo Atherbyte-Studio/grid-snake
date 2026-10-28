@@ -60,8 +60,10 @@ if (web === html) throw new Error('build.js: <title>Grid Snake</title> not found
 const meta = web.match(/<p class="home-meta">[\s\S]*?<\/p>/);
 if (!meta) throw new Error('build.js: home-meta line not found, cannot add the studio link');
 web = web.replace(meta[0], () => meta[0] + CREDIT);
-/* The Atherbyte account (web page only). On atherbyte.online it loads the studio site's config and account client
-   (/js/site-config.js, /js/atherbyte-account.js) and adds the link panel. grid-snake.html and the Android app never get it. */
+/* The Atherbyte account (web page only). The game's script is shipped inert; account-link.js runs it: at once on any
+   other host, and on atherbyte.online only after an Atherbyte sign-in. grid-snake.html and the Android app never get this. */
+if (web.split('<script>').length !== 2) throw new Error('build.js: expected exactly one <script> (the game) in the page');
+web = web.replace('<script>', '<script type="text/plain" id="gs-game">');
 const ACCOUNT = '\n<script>\n' + read('src/web/account-link.js') + '</script>';
 fs.writeFileSync(path.join(root, 'index.html'), FRAME_HEAD + WEB_HEAD + web + ACCOUNT + '\n</body></html>');
 console.log('built index.html (web page)');
