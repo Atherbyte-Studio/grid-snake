@@ -320,3 +320,82 @@ test('build: the account code is only in the web page, never in grid-snake.html 
   }
   assert.ok(web.includes('pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-3219161174659178'), 'the AdSense tag survives a rebuild');
 });
+
+/* ---------- several accounts on one device ---------- */
+const NEYMAR = { id: '22222222-2222-4222-8222-222222222222', username: 'neymar' };
+function switchable(w) {   // a client whose signed-in user can change, like a browser after sign-out and sign-in
+  const c = { user: RONALDO, isConfigured: () => true, hasSession: () => !!c.user, username: () => (c.user ? c.user.username : ''),
+    getSession: () => (c.user ? { user: c.user } : null), authed: w.authed, me: () => Promise.resolve({ ok: true }) };
+  return c;
+}
+const liveOf = (st) => JSON.stringify([...st.map.entries()].filter(([k]) => k.startsWith('gridsnake-') && !k.startsWith(AL.SLOT_PREFIX) && k !== AL.OWNER_KEY && k !== AL.SYNC_KEY).sort());
+
+test('switching accounts: A\'s data goes aside unchanged, B starts empty, and A gets exactly its data back', () => {
+  const st = benzemaDevice(), acct = switchable(worker());
+  const c = AL.create({ account: acct, storage: st });
+  st.setItem(AL.OWNER_KEY, RONALDO.id);
+  const aLive = liveOf(st);
+  acct.user = NEYMAR;
+  assert.equal(c.useSlotOf(NEYMAR.id), 'switched');
+  assert.equal(liveOf(st), '[]', 'none of A\'s player, code, coins, skins, achievements or bests is visible to B');
+  assert.equal(c.localPlayer(), null, 'so nothing of A is ever sent for B (the cause of the false warning)');
+  assert.equal(st.getItem(AL.OWNER_KEY), NEYMAR.id);
+  st.setItem('gridsnake-profile-v2', JSON.stringify({ coins: 5, savedAt: 1 }));   // B plays
+  const bLive = liveOf(st);
+  acct.user = RONALDO;
+  assert.equal(c.useSlotOf(RONALDO.id), 'switched');
+  assert.equal(liveOf(st), aLive, 'A\'s data is back exactly as it was');
+  acct.user = NEYMAR;
+  c.useSlotOf(NEYMAR.id);
+  assert.equal(liveOf(st), bLive, 'and so is B\'s');
+});
+
+test('switching accounts: an old player with no owner is left in place, never claimed by a sign-in alone', () => {
+  const st = benzemaDevice(), before = liveOf(st);
+  const c = AL.create({ account: switchable(worker()), storage: st });
+  assert.equal(c.useSlotOf(NEYMAR.id), 'unclaimed');
+  assert.equal(liveOf(st), before);
+  assert.equal(st.getItem(AL.OWNER_KEY), null);
+});
+
+test('switching accounts: data from the earlier version is recognised as its account\'s, not as an unclaimed player', () => {
+  const st = benzemaDevice();
+  st.setItem(AL.SYNC_KEY, JSON.stringify({ [RONALDO.id]: { version: 2, at: 5000, checked: BENZ } }));
+  const c = AL.create({ account: switchable(worker()), storage: st });
+  assert.equal(c.owner(), RONALDO.id);
+  assert.equal(c.useSlotOf(NEYMAR.id), 'switched');
+  assert.equal(c.localPlayer(), null);
+});
+
+test('switching accounts: if the browser will not keep A\'s data aside, nothing is moved', () => {
+  const st = benzemaDevice();
+  st.setItem(AL.OWNER_KEY, RONALDO.id);
+  const before = liveOf(st), set = st.setItem;
+  st.setItem = (k, v) => { if (k.startsWith(AL.SLOT_PREFIX)) throw new Error('quota'); set(k, v); };
+  const c = AL.create({ account: switchable(worker()), storage: st });
+  assert.equal(c.useSlotOf(NEYMAR.id), 'storage');
+  assert.equal(liveOf(st), before);
+});
+
+test('a running game is bound to its account: after a switch it sends nothing with the new session', async () => {
+  const w = worker({ linkedTo: 'Benzema' }), acct = switchable(w);
+  const c = AL.create({ account: acct, storage: benzemaDevice() });
+  c.bind();
+  acct.user = NEYMAR;
+  const before = w.calls.length;
+  assert.equal((await c.submitScore(999)).ok, false);
+  assert.equal((await c.syncNow()).ok, false);
+  assert.equal(w.calls.length, before, 'no request reached the Worker');
+});
+
+test('a new account plays at once; its player is made on the server with its first save, never before', async () => {
+  const w = worker(), st = emptyDevice();
+  const c = AL.create({ account: client(w), storage: st });
+  await c.fetchPlayer();
+  c.state.phase = 'linked';
+  assert.ok(!w.calls.some((x) => x.path.endsWith('/name')));
+  st.setItem('gridsnake-profile-v2', JSON.stringify({ coins: 3, savedAt: 50 }));
+  assert.equal((await c.syncNow()).ok, true);
+  assert.deepEqual(w.calls.filter((x) => x.path.endsWith('/name')).map((x) => x.body), [{ create: true }]);
+  assert.equal(w.save.data.data.coins, 3);
+});

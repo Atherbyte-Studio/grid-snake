@@ -4621,6 +4621,12 @@ var SnakeAccountLink = (function () {
   var BACKUP_KEY = 'gridsnake-backups-v1';
   var SYNC_KEY = 'gridsnake-account-sync-v1';     // { [account id]: { version, at, checked } }
   var LOCAL_ONLY_KEY = 'gridsnake-account-identity-v1';   // { secret }: the stand-in code of an account player (not a real code)
+  /* One device, several accounts: the game's data on this device (player, code, progress, bests, backups) belongs to
+     ONE account at a time, OWNER_KEY. Signing in as another account moves the current data, unchanged, into
+     SLOT_PREFIX + <owner id> and brings that account's own slot back (or starts it empty). Data that predates this
+     (no owner) is an old, unclaimed player: only its recovery code links it, never a sign-in alone. */
+  var OWNER_KEY = 'gridsnake-device-owner-v1';
+  var SLOT_PREFIX = 'gridsnake-slot-v1:';
   var BACKUPS_KEPT = 5;
   var API = '/v1/games/grid-snake/';
   var CODE_RE = /^[0-9a-f]{32}$/;
@@ -4646,11 +4652,53 @@ var SnakeAccountLink = (function () {
 
     function get(k) { try { return storage.getItem(k); } catch (e) { return null; } }
     function set(k, v) { try { storage.setItem(k, v); return true; } catch (e) { return false; } }
+    function remove(k) { try { storage.removeItem(k); } catch (e) {} }
     function keys() {
       var out = [];
       try { for (var i = 0; i < storage.length; i++) out.push(storage.key(i)); } catch (e) {}
       return out;
     }
+
+    /* ---------- one account's data at a time ---------- */
+    function slotted(k) { return !!k && k.indexOf('gridsnake-') === 0 && k !== SYNC_KEY && k !== OWNER_KEY && k.indexOf(SLOT_PREFIX) !== 0; }
+    function liveData() { var o = {}; keys().filter(slotted).forEach(function (k) { o[k] = get(k); }); return o; }
+    /* The account whose data is on the device. Before OWNER_KEY existed, the account this device's player was confirmed
+       for (its code checked, or a player made for the account) is the owner; otherwise nobody (an unclaimed player). */
+    function owner() {
+      var v = get(OWNER_KEY);
+      if (v) return v;
+      var all = parse(get(SYNC_KEY)) || {}, cur = parse(get(PLAYER_KEY)), stand = parse(get(LOCAL_ONLY_KEY));
+      if (!cur || typeof cur.secret !== 'string') return '';
+      var code = normalizeCode(cur.secret);
+      var ids = Object.keys(all).filter(function (id) {
+        var m = all[id] || {};
+        return (m.checked && m.checked === code) || (m.fresh && stand && stand.secret === cur.secret);
+      });
+      return ids.length === 1 ? ids[0] : '';
+    }
+    /* Puts the signed-in account's data on the device. Returns 'same', 'switched', 'unclaimed' (an old player without
+       an owner is on the device, left as it is) or 'storage' (nothing was moved: the browser would not keep it). */
+    function useSlotOf(id) {
+      if (!id) return 'storage';
+      var cur = owner();
+      if (cur === id) { set(OWNER_KEY, id); return 'same'; }
+      var live = liveData();
+      if (!cur && Object.keys(live).length) return 'unclaimed';
+      if (cur) {
+        // the other account's data goes aside exactly as it is; it is removed from the device only once kept
+        var text = JSON.stringify(live);
+        if (!set(SLOT_PREFIX + cur, text) || get(SLOT_PREFIX + cur) !== text) return 'storage';
+        Object.keys(live).forEach(remove);
+      }
+      var saved = parse(get(SLOT_PREFIX + id));
+      if (saved && typeof saved === 'object') {
+        Object.keys(saved).forEach(function (k) { if (slotted(k) && typeof saved[k] === 'string') set(k, saved[k]); });
+        remove(SLOT_PREFIX + id);
+      }
+      set(OWNER_KEY, id);
+      return 'switched';
+    }
+    function claimDevice() { var id = accountId(); if (id) set(OWNER_KEY, id); }
 
     /* This device's own player: a real recovery code (never the stand-in written for an account player). */
     function localPlayer() {
@@ -4722,7 +4770,13 @@ var SnakeAccountLink = (function () {
       return true;
     }
 
+    /* A running game belongs to the account it started for. If the browser's session changes under it (sign-out, or
+       another account signed in, in this tab or another), it sends nothing more: one account's progress can never be
+       saved or scored with another account's session. */
+    var boundTo = '';
+    function bind() { boundTo = accountId(); }
     function call(path, method, body) {
+      if (boundTo && accountId() !== boundTo) { state.phase = 'locked'; return Promise.resolve({ ok: false, status: 401, data: null, code: 'account_changed' }); }
       return account.authed(API + path, method === 'GET' ? undefined : { method: method, body: body });
     }
     function fail(message, code) { state.message = message; return { ok: false, message: message, code: code || '' }; }
@@ -4776,9 +4830,16 @@ var SnakeAccountLink = (function () {
     /* Progress written on this device after its last sync (the game stamps every profile save with savedAt). */
     function changedSince(mine) { return exportLocal().savedAt > (mine.at || 0); }
 
-    function upload(base) {
+    /* A new account plays at once; its player is made on the server the first time something is saved or scored. */
+    function ensurePlayer() {
+      return useAccountName(true).then(function (r) { if (r.ok) claimDevice(); return r; });
+    }
+    function notLinked(r) { return r.status === 409 && r.data && r.data.error === 'not_linked'; }
+
+    function upload(base, again) {
       var data = exportLocal();
       return call('save', 'POST', { data: data, base_version: base }).then(function (r) {
+        if (notLinked(r) && !again) return ensurePlayer().then(function (e) { return e.ok ? upload(null, true) : e; });
         if (r.ok) {
           setSync(r.data.version, data.savedAt);
           if (state.server) state.server.save = { version: r.data.version, data: data };
@@ -4869,12 +4930,14 @@ var SnakeAccountLink = (function () {
     function boardMe() {
       return call('player', 'GET').then(function (r) {
         if (r.ok && r.data.linked) return { ok: true, name: r.data.name, best: r.data.best == null ? null : Number(r.data.best), rank: r.data.rank == null ? null : Number(r.data.rank) };
+        if (r.ok) return { ok: true, name: account.username(), best: null, rank: null };   // a new account, no player yet
         if (r.status === 0) return { ok: false, reason: 'network' };
         return { ok: false, reason: 'rejected' };
       });
     }
-    function submitScore(score) {
+    function submitScore(score, again) {
       return call('score', 'POST', { score: score, walls: true, golden: true, difficulty: 'hard' }).then(function (r) {
+        if (notLinked(r) && !again) return ensurePlayer().then(function (e) { return e.ok ? submitScore(score, true) : { ok: false, reason: 'rejected' }; });
         if (r.ok) return { ok: true, improved: !!r.data.improved, best: Number(r.data.best) || 0, rank: r.data.rank == null ? null : Number(r.data.rank) };
         if (r.status === 0) return { ok: false, reason: r.code === 'timeout' ? 'timeout' : 'network' };
         if (r.status >= 500) return { ok: false, reason: 'server' };
@@ -4884,7 +4947,7 @@ var SnakeAccountLink = (function () {
     }
 
     return {
-      account: account, state: state, verifySession: verifySession, fetchPlayer: fetchPlayer, decideSync: decideSync, refresh: refresh,
+      account: account, bind: bind, state: state, verifySession: verifySession, owner: owner, useSlotOf: useSlotOf, claimDevice: claimDevice, ensurePlayer: ensurePlayer, fetchPlayer: fetchPlayer, decideSync: decideSync, refresh: refresh,
       link: link, linkWithCode: linkWithCode, localPlayerChecked: localPlayerChecked, useAccountName: useAccountName,
       writeIdentity: writeIdentity, useAccountSave: useAccountSave, useDeviceSave: useDeviceSave, syncNow: syncNow,
       boardMe: boardMe, submitScore: submitScore,
@@ -4913,7 +4976,8 @@ var SnakeAccountLink = (function () {
 
   /* ---------- the page ---------- */
   var SITE = 'https://atherbyte.online';
-  var NEXT = '/account/?next=' + encodeURIComponent('/grid-snake/');
+  var ACCOUNT_PAGE = '/account/?next=' + encodeURIComponent('/grid-snake/');
+  var CHECK_EVERY_MS = 60000;    // while playing, the session is checked with the server this often (and on return)
 
   function runGame(win) {
     var doc = win.document, src = doc.getElementById('gs-game');
@@ -4924,48 +4988,179 @@ var SnakeAccountLink = (function () {
     doc.body.appendChild(s);
   }
 
-  /* The sign-in screen. Every step's text and buttons are set by show(). */
-  function gateUi(doc) {
+  var CSS = '#acGate{position:fixed;inset:0;z-index:2147483000;display:flex;align-items:center;justify-content:center;padding:16px;' +
+    'background:rgba(8,8,22,.72);-webkit-backdrop-filter:blur(3px);backdrop-filter:blur(3px);color:#e8e6f5;overflow:auto;' +
+    'font:15px/1.45 -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}' +
+    '#acGate .ac-card{width:100%;max-width:420px;box-sizing:border-box;background:#141629;border:1px solid #2c2f52;border-radius:18px;' +
+    'padding:28px 26px 22px;box-shadow:0 24px 70px rgba(0,0,0,.55)}' +
+    '#acGate .ac-brand{display:flex;align-items:center;justify-content:center;gap:12px;margin-bottom:20px}' +
+    '#acGate .ac-brand img{width:46px;height:46px}#acGate .ac-brand b{display:block;font-size:24px;color:#fff}' +
+    '#acGate .ac-brand span{font-size:14px;color:#a9a6c7}' +
+    '#acGate .ac-tabs{display:flex;gap:6px;background:#1b1d36;border-radius:12px;padding:4px;margin-bottom:18px}' +
+    '#acGate .ac-tabs button{flex:1;border:0;border-radius:9px;padding:10px;background:transparent;color:#c8c5e6;font:inherit;cursor:pointer}' +
+    '#acGate .ac-tabs button[aria-selected=true]{background:#4a2fc2;color:#fff;font-weight:600}' +
+    '#acGate .ac-field{position:relative;margin-bottom:12px}' +
+    '#acGate .ac-field input{width:100%;box-sizing:border-box;padding:14px 44px 14px 14px;border-radius:12px;border:1px solid #33365c;' +
+    'background:#101225;color:#fff;font:inherit}#acGate .ac-field input:focus{outline:2px solid #7c5cff;outline-offset:1px}' +
+    '#acGate .ac-eye{position:absolute;right:8px;top:50%;transform:translateY(-50%);border:0;background:none;color:#a9a6c7;cursor:pointer;padding:6px;font:inherit}' +
+    '#acGate .ac-main{width:100%;border:0;border-radius:12px;padding:14px;background:#6d3df5;color:#fff;font:600 16px/1 inherit;cursor:pointer;margin-top:4px}' +
+    '#acGate .ac-main:disabled{opacity:.6;cursor:default}' +
+    '#acGate .ac-sub{display:inline-block;border:1px solid #33365c;border-radius:12px;padding:11px 14px;background:#1b1d36;color:#e8e6f5;font:inherit;cursor:pointer;text-decoration:none}' +
+    '#acGate .ac-row{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}' +
+    '#acGate .ac-link{display:block;text-align:center;margin-top:14px;color:#a98bff;font-size:14px}' +
+    '#acGate .ac-msg{min-height:1.2em;margin:4px 0 10px;color:#ff9ea8;font-size:14px}#acGate .ac-msg.ok{color:#9fe3b7}' +
+    '#acGate .ac-text{margin:0 0 6px}#acGate .ac-check{display:flex;gap:8px;align-items:flex-start;font-size:13px;color:#c8c5e6;margin:4px 0 10px}' +
+    '#acGate textarea{width:100%;box-sizing:border-box;min-height:70px;margin-top:10px;border-radius:10px;background:#101225;color:#c8c5e6;border:1px solid #33365c}' +
+    '#acGate .ac-captcha{margin:6px 0 8px;min-height:0}';
+
+  /* The overlay and its card. show() draws a message with buttons; signIn() draws the sign-in / create-account form. */
+  function gateUi(win) {
+    var doc = win.document;
+    if (!doc.getElementById('acGateCss')) {
+      var st = doc.createElement('style'); st.id = 'acGateCss'; st.textContent = CSS; doc.head.appendChild(st);
+    }
     var g = doc.createElement('div');
     g.id = 'acGate';
     g.setAttribute('role', 'dialog');
     g.setAttribute('aria-modal', 'true');
     g.setAttribute('aria-labelledby', 'acGateTitle');
-    g.style.cssText = 'position:fixed;inset:0;z-index:2147483000;display:flex;align-items:center;justify-content:center;padding:16px;' +
-      'background:var(--bg,#121413);color:var(--text,#eee);overflow:auto';
-    g.innerHTML = '<div style="max-width:420px;width:100%">' +
-      '<h2 id="acGateTitle" style="margin:0 0 8px">Grid Snake</h2><p id="acGateText" aria-live="polite"></p>' +
-      '<div id="acGateForm" hidden><label for="acGateCode">Recovery code</label>' +
-      '<input id="acGateCode" autocomplete="off" spellcheck="false" style="display:block;width:100%;margin:6px 0 10px;box-sizing:border-box"></div>' +
-      '<div id="acGateActions" style="display:flex;flex-wrap:wrap;gap:8px"></div>' +
-      '<textarea id="acGateBackup" readonly hidden aria-label="Backup code" style="width:100%;margin-top:12px;min-height:72px;box-sizing:border-box"></textarea></div>';
+    g.innerHTML = '<div class="ac-card"><div class="ac-brand"><img src="/assets/images/atherbyte-mark.webp" alt=""><div>' +
+      '<b id="acGateTitle">Atherbyte</b><span>Your games. Your account.</span></div></div><div id="acGateBody"></div></div>';
     doc.body.appendChild(g);
-    var text = g.querySelector('#acGateText'), actions = g.querySelector('#acGateActions');
-    var form = g.querySelector('#acGateForm'), code = g.querySelector('#acGateCode'), backupBox = g.querySelector('#acGateBackup');
+    var body = g.querySelector('#acGateBody');
+    function el(tag, cls, text) { var e = doc.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; }
+    function button(b) {
+      var e = el(b.href ? 'a' : 'button', b.primary ? 'ac-main' : 'ac-sub', b.label);
+      if (b.href) e.href = b.href; else { e.type = 'button'; e.addEventListener('click', function () { e.disabled = true; b.run(); }); }
+      return e;
+    }
     return {
-      el: g, code: code,
+      el: g,
+      code: null,
       show: function (message, buttons, opts) {
         opts = opts || {};
-        text.textContent = message;
-        form.hidden = !opts.code;
-        backupBox.hidden = !opts.backup; backupBox.value = opts.backup || '';
-        actions.textContent = '';
-        (buttons || []).forEach(function (b) {
-          var el = doc.createElement(b.href ? 'a' : 'button');
-          el.className = 'btn' + (b.primary ? ' btn-primary' : '');
-          el.textContent = b.label;
-          if (b.href) el.href = b.href; else { el.type = 'button'; el.addEventListener('click', function () { el.disabled = true; b.run(); }); }
-          actions.appendChild(el);
-        });
-        var first = actions.firstChild;
+        body.textContent = '';
+        var p = el('p', 'ac-text', message); p.id = 'acGateText'; p.setAttribute('aria-live', 'polite'); body.appendChild(p);
+        this.code = null;
+        if (opts.code) {
+          var f = el('div', 'ac-field'), i = el('input');
+          i.id = 'acGateCode'; i.placeholder = 'Recovery code (32 letters and digits)'; i.autocomplete = 'off'; i.spellcheck = false;
+          i.setAttribute('aria-label', 'Recovery code');
+          f.appendChild(i); body.appendChild(f); this.code = i;
+        }
+        var row = el('div', 'ac-row'); row.id = 'acGateActions';
+        (buttons || []).forEach(function (b) { row.appendChild(button(b)); });
+        body.appendChild(row);
+        if (opts.backup) { var t = el('textarea'); t.id = 'acGateBackup'; t.readOnly = true; t.value = opts.backup; t.setAttribute('aria-label', 'Backup code'); body.appendChild(t); }
+        var first = row.firstChild;
         if (first && first.focus) try { first.focus({ preventScroll: true }); } catch (e) {}
+      },
+      /* Sign in or create an Atherbyte account right here (the same account as the website). done() runs once signed in. */
+      signIn: function (Account, message, done) {
+        var cfg = (win.ATHERBYTE_CONFIG && win.ATHERBYTE_CONFIG.account) || {};
+        var siteKey = cfg.turnstileSiteKey || '';
+        var mode = 'login', widget = null, token = '';
+        body.textContent = '';
+        if (message) { var lead = el('p', 'ac-text', message); lead.id = 'acGateText'; body.appendChild(lead); }
+        var tabs = el('div', 'ac-tabs'); tabs.setAttribute('role', 'tablist');
+        var tIn = el('button', '', 'Sign In'), tUp = el('button', '', 'Create Account');
+        [tIn, tUp].forEach(function (t) { t.type = 'button'; t.setAttribute('role', 'tab'); tabs.appendChild(t); });
+        var form = el('form'); form.id = 'acSignIn'; form.noValidate = true;
+        function field(id, type, placeholder, auto) {
+          var f = el('div', 'ac-field'), i = el('input'); i.id = id; i.type = type; i.placeholder = placeholder; i.autocomplete = auto;
+          i.setAttribute('aria-label', placeholder); f.appendChild(i); form.appendChild(f); return { box: f, input: i };
+        }
+        var user = field('acUser', 'text', 'Username', 'username');
+        user.input.autocapitalize = 'none'; user.input.spellcheck = false;
+        var pass = field('acPass', 'password', 'Password', 'current-password');
+        var eye = el('button', 'ac-eye', 'Show'); eye.type = 'button'; eye.setAttribute('aria-label', 'Show password');
+        eye.addEventListener('click', function () { var on = pass.input.type === 'password'; pass.input.type = on ? 'text' : 'password'; eye.textContent = on ? 'Hide' : 'Show'; });
+        pass.box.appendChild(eye);
+        var ack = el('label', 'ac-check'); var box = el('input'); box.type = 'checkbox'; box.id = 'acAck';
+        ack.appendChild(box); ack.appendChild(doc.createTextNode('I understand: without a verified recovery email (added later in my account), a lost password cannot be recovered.'));
+        form.appendChild(ack);
+        var cap = el('div', 'ac-captcha'); form.appendChild(cap);
+        var msg = el('p', 'ac-msg'); msg.id = 'acSignInMsg'; msg.setAttribute('aria-live', 'polite'); form.appendChild(msg);
+        var go = el('button', 'ac-main', 'Sign In'); go.type = 'submit'; form.appendChild(go);
+        var forgot = el('a', 'ac-link', 'Forgot your password?'); forgot.href = ACCOUNT_PAGE;
+        body.appendChild(tabs); body.appendChild(form); body.appendChild(forgot);
+
+        function select(m) {
+          mode = m;
+          tIn.setAttribute('aria-selected', String(m === 'login')); tUp.setAttribute('aria-selected', String(m === 'register'));
+          ack.hidden = m !== 'register'; forgot.hidden = m !== 'login';
+          go.textContent = m === 'login' ? 'Sign In' : 'Create Account';
+          pass.input.autocomplete = m === 'login' ? 'current-password' : 'new-password';
+          pass.input.placeholder = m === 'login' ? 'Password' : 'Password (8 characters or more)';
+          msg.textContent = ''; msg.className = 'ac-msg';
+          resetCaptcha();
+        }
+        function resetCaptcha() { token = ''; if (widget !== null && win.turnstile) { try { win.turnstile.reset(widget); } catch (e) {} } }
+        function renderCaptcha() {
+          if (!siteKey || !win.turnstile || widget !== null) return;
+          widget = win.turnstile.render(cap, { sitekey: siteKey, theme: 'dark',
+            callback: function (t) { token = t; }, 'expired-callback': function () { token = ''; }, 'error-callback': function () { token = ''; } });
+        }
+        if (siteKey) {
+          if (win.turnstile) renderCaptcha();
+          else {
+            win.__gsTurnstileReady = renderCaptcha;
+            var s = doc.createElement('script');
+            s.src = 'https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit&onload=__gsTurnstileReady';
+            s.async = true; doc.head.appendChild(s);
+          }
+        }
+        tIn.addEventListener('click', function () { select('login'); });
+        tUp.addEventListener('click', function () { select('register'); });
+        form.addEventListener('submit', function (e) {
+          e.preventDefault();
+          msg.className = 'ac-msg'; msg.textContent = '';
+          if (mode === 'register' && !box.checked) { msg.textContent = 'Please tick the box to confirm you read the recovery note.'; box.focus(); return; }
+          if (siteKey && !token) { msg.textContent = Account.messageFor('captcha_missing'); return; }
+          go.disabled = true;
+          var call = mode === 'login' ? Account.login(user.input.value.trim(), pass.input.value, token) : Account.register(user.input.value.trim(), pass.input.value, token);
+          call.then(function (r) {
+            go.disabled = false;
+            resetCaptcha();
+            if (!r.ok) { msg.textContent = r.message; return; }
+            pass.input.value = '';
+            if (!r.signedIn) { select('login'); user.input.value = (r.user && r.user.username) || ''; msg.className = 'ac-msg ok'; msg.textContent = 'Account created. Please sign in.'; return; }
+            done();
+          }, function () { go.disabled = false; msg.textContent = Account.messageFor('network'); });
+        });
+        select('login');
+        try { user.input.focus({ preventScroll: true }); } catch (e) {}
       },
       close: function () { g.remove(); }
     };
   }
 
+  /* While playing: the moment the account signs out (here, on the website in another tab, or on the server), the game
+     is covered and its keys and clicks stop. The previous player's data is not shown again. A new sign-in restarts the
+     page so the next account starts from its own data. */
+  function watch(win, core, Account) {
+    var who = Account.username(), locked = false, doc = win.document;
+    function lock() {
+      if (locked) return;
+      locked = true;
+      ['keydown', 'keyup', 'keypress', 'pointerdown', 'touchstart', 'click', 'wheel'].forEach(function (t) {
+        win.addEventListener(t, function (e) { if (!e.target || !e.target.closest || !e.target.closest('#acGate')) { e.stopImmediatePropagation(); if (t !== 'pointerdown' && t !== 'touchstart') e.preventDefault(); } }, true);
+      });
+      Array.prototype.forEach.call(doc.querySelectorAll('dialog[open]'), function (d) { try { d.close(); } catch (e) {} });
+      gateUi(win).signIn(Account, 'You signed out of Atherbyte. Sign in to keep playing.', function () { win.location.reload(); });
+    }
+    Account.onChange(function () { if (Account.username() !== who) lock(); });
+    function check() { if (!locked) core.verifySession().then(function (s) { if (s === 'signed-out') lock(); }); }
+    win.setInterval(check, CHECK_EVERY_MS);
+    doc.addEventListener('visibilitychange', function () { if (doc.visibilityState === 'visible') check(); });
+    win.addEventListener('focus', check);
+    return { lock: lock };
+  }
+
   /* Signed in and the player settled: write the identity, make the board account-only, and start the game. */
-  function startGame(win, core, ui, name) {
+  function startGame(win, core, ui, name, Account) {
+    core.claimDevice();
+    core.bind();
     core.writeIdentity(name);
     var board;
     try {
@@ -4974,18 +5169,14 @@ var SnakeAccountLink = (function () {
     } catch (e) { /* defined already: patched below */ }
     ui.close();
     runGame(win);
-    // signed out (or another account) in another tab while playing: start over at the sign-in screen
-    var acct = core.account, who = acct.username();
-    acct.onChange(function () { if (acct.username() !== who) win.location.reload(); });
     if (win.SnakeLeaderboard) patchBoard(win.SnakeLeaderboard, core);
-    mountPanel(win, core, name);
+    var w = watch(win, core, Account);
+    mountPanel(win, core, name, Account, w);
   }
 
   function gate(win, Account) {
-    var doc = win.document;
-    var ui = gateUi(doc);
+    var ui = gateUi(win);
     var core = create({ account: Account, storage: win.localStorage });
-    var signIn = [{ label: 'Sign in', href: NEXT, primary: true }, { label: 'Create an account', href: NEXT }];
     var retry = function () { return [{ label: 'Try again', primary: true, run: step }]; };
 
     function lastBackup() { var b = core.backups()[0]; return b ? b.code : ''; }
@@ -4997,90 +5188,107 @@ var SnakeAccountLink = (function () {
         return core.decideSync().then(function () {
           if (core.state.phase === 'conflict') return conflict(name);
           if (core.state.phase === 'error') return ui.show(core.state.message, retry());
-          startGame(win, core, ui, name);
+          startGame(win, core, ui, name, Account);
         });
       });
     }
     function conflict(name) {
       ui.show('This device and your Atherbyte account have different Grid Snake progress. Choose which one to keep. ' +
         'The other is kept as a backup.', [
-        { label: 'Use my account\'s progress', primary: true, run: function () { core.useAccountSave().then(function () { startGame(win, core, ui, name); }); } },
-        { label: 'Keep this device\'s progress', run: function () { core.useDeviceSave().then(function (r) { if (r.ok) startGame(win, core, ui, name); else ui.show(r.message, retry()); }); } }
+        { label: 'Use my account\'s progress', primary: true, run: function () { core.useAccountSave().then(function () { startGame(win, core, ui, name, Account); }); } },
+        { label: 'Keep this device\'s progress', run: function () { core.useDeviceSave().then(function (r) { if (r.ok) startGame(win, core, ui, name, Account); else ui.show(r.message, retry()); }); } }
       ]);
     }
-    /* No player for the account yet, and no code on this device: never guess. */
+    /* An old player's progress is on this device without an owner and without a code that matches: never guess. */
     function choose(message) {
-      var hasProgress = !core.localIsEmpty();
-      if (hasProgress) core.backup('before-choice');
-      ui.show((message ? message + ' ' : '') + (hasProgress
-        ? 'This device has Grid Snake progress that is not linked to an account yet. It is safe (backup code below). ' +
-          'If you played before, enter your recovery code (Profile > Show recovery code on the device you played on). ' +
-          'Or start as ' + Account.username() + ' and keep this device\'s progress.'
-        : 'Welcome, ' + Account.username() + '. Played Grid Snake before? Enter your recovery code to bring back your player. ' +
-          'New here? Start playing as ' + Account.username() + '.'), [
+      core.backup('before-choice');
+      ui.show((message ? message + ' ' : '') +
+        'This device has Grid Snake progress that is not linked to any account. It is safe (backup code below). ' +
+        'If it is yours, enter its recovery code (Profile > Show recovery code on the device you played on). ' +
+        'Or start as ' + Account.username() + ' and keep this device\'s progress.', [
         { label: 'Link my recovery code', primary: true, run: function () {
-          core.linkWithCode(ui.code.value).then(function (r) { if (r.ok) core.fetchPlayer().then(finish); else choose(r.message); });
+          core.linkWithCode(ui.code ? ui.code.value : '').then(function (r) { if (r.ok) core.fetchPlayer().then(finish); else choose(r.message); });
         } },
-        { label: hasProgress ? 'Start as ' + Account.username() + ' with this progress' : 'Start as ' + Account.username(), run: function () {
+        { label: 'Start as ' + Account.username() + ' with this progress', run: function () {
           core.useAccountName(true).then(function (r) {
             if (!r.ok) return choose(r.message);
-            return core.fetchPlayer().then(function (ok) {
-              if (!ok) return ui.show(core.state.message, retry());
-              return (hasProgress ? core.useDeviceSave() : Promise.resolve()).then(finish);
-            });
+            return core.fetchPlayer().then(function (ok) { if (!ok) return ui.show(core.state.message, retry()); return core.useDeviceSave().then(finish); });
           });
         } }
-      ], { code: true, backup: hasProgress ? lastBackup() : '' });
+      ], { code: true, backup: lastBackup() });
     }
 
     function step() {
       ui.show('Checking your Atherbyte account…', []);
       core.verifySession().then(function (s) {
-        if (s === 'signed-out') return ui.show('Sign in to your Atherbyte account to play Grid Snake. Your player, coins, shop items ' +
-          'and achievements are kept with your account.', signIn);
+        if (s === 'signed-out') return ui.signIn(Account, 'Sign in to play Grid Snake. Your player, coins, skins and achievements stay with your account.', step);
         if (s !== 'ok') return ui.show('Could not reach your Atherbyte account. Check your connection and try again.', retry());
+        // this account's own data on the device: another account's data is put aside untouched, this one's comes back
+        var slot = core.useSlotOf(Account.getSession().user.id);
+        if (slot === 'storage') return ui.show('This browser will not keep game data, so Grid Snake cannot start safely here.', retry());
         return core.fetchPlayer().then(function (ok) {
           if (!ok) return ui.show(core.state.message, retry());
           var lp = core.localPlayer();
-          if (!lp || core.localPlayerChecked()) return core.state.linked ? finish() : choose('');
-          // this device has an old player: its code links it (or confirms it is already this account's player)
-          return core.linkWithCode(lp.secret).then(function (r) {
-            if (r.ok) return core.fetchPlayer().then(finish);
-            if (r.code === 'unknown_player') return core.state.linked ? finish() : choose('');
-            if (r.code === 'account_has_player' || r.code === 'player_linked_elsewhere') {
-              var other = lp.name || 'This device\'s player';
-              return ui.show(other + (r.code === 'account_has_player'
-                ? ' is not the Grid Snake player of your account.'
-                : ' belongs to another Atherbyte account. Sign in with that account to play as ' + other + '.') +
-                ' Its progress and recovery code stay on this device as a backup.', (r.code === 'player_linked_elsewhere' ? signIn.slice(0, 1) : []).concat(
-                core.state.linked ? [{ label: 'Play as ' + core.state.name, primary: true, run: function () { core.backup('other-player'); finish(); } }]
-                                  : [{ label: 'Start as ' + Account.username(), primary: true, run: function () { choose(''); } }]),
-                { backup: lastBackup() });
-            }
-            return ui.show(r.message, retry());
-          });
+          if (lp && !core.localPlayerChecked()) {
+            // a player on the device whose code was never confirmed for this account: its code decides, never the name
+            return core.linkWithCode(lp.secret).then(function (r) {
+              if (r.ok) return core.fetchPlayer().then(finish);
+              if (r.code === 'unknown_player') return core.state.linked ? finish() : (core.localIsEmpty() ? startGame(win, core, ui, Account.username(), Account) : choose(''));
+              if (r.code === 'account_has_player' || r.code === 'player_linked_elsewhere') return otherPlayer(lp, r.code);
+              return ui.show(r.message, retry());
+            });
+          }
+          if (core.state.linked) return finish();
+          if (slot === 'unclaimed' && !core.localIsEmpty()) return choose('');
+          // a new account: it plays at once; its player is made on the server with its first save or score
+          core.state.phase = 'linked';
+          startGame(win, core, ui, Account.username(), Account);
         });
       });
+    }
+    /* A genuine conflict: the code on this device belongs to a different player than this account's. */
+    function otherPlayer(lp, code) {
+      var other = lp.name || 'The player on this device';
+      ui.show(other + (code === 'account_has_player'
+        ? ' is a different Grid Snake player from the one linked to your account.'
+        : ' is linked to a different Atherbyte account. Sign in with that account to play as ' + other + '.') +
+        ' Its progress and recovery code stay on this device as a backup.',
+        (code === 'player_linked_elsewhere' ? [{ label: 'Sign in with another account', run: function () { Account.logout().then(step); } }] : []).concat(
+          core.state.linked ? [{ label: 'Play as ' + core.state.name, primary: true, run: function () { core.backup('other-player'); finish(); } }]
+                            : [{ label: 'Start as ' + Account.username(), primary: true, run: function () { core.backup('other-player'); choose(''); } }]),
+        { backup: lastBackup() });
     }
     step();
   }
 
-  /* Profile > Atherbyte account: who is signed in, and the latest backup code. */
-  function mountPanel(win, core, name) {
+  /* Profile > Atherbyte account: who is signed in, sign out, an old player's code (until this account has a player),
+     and the latest backup code. */
+  function mountPanel(win, core, name, Account, w) {
     var doc = win.document, dlg = doc.getElementById('profileDlg');
     if (!dlg) return;
     var box = doc.createElement('details');
     box.className = 'pf-backup';
     box.open = true;
     box.innerHTML = '<summary>Atherbyte account</summary><p class="pf-status" id="acStatus"></p><div class="pf-row" id="acActions"></div>' +
+      '<div class="pf-row" id="acLinkRow" hidden><input class="pf-code" id="acLinkCode" placeholder="Old player\'s recovery code" aria-label="Recovery code of an old player"></div>' +
       '<textarea class="pf-code" id="acBackup" readonly hidden aria-label="Backup code"></textarea>';
     var anchor = doc.getElementById('pfBackupSummary');
     (anchor && anchor.parentNode ? anchor.parentNode.parentNode : dlg).insertBefore(box, anchor && anchor.parentNode ? anchor.parentNode : null);
-    box.querySelector('#acStatus').textContent = 'Signed in as ' + name + '. Your progress is kept with your Atherbyte account.';
-    var b = doc.createElement('button');
-    b.className = 'btn'; b.type = 'button'; b.textContent = 'Show my last backup code';
-    b.addEventListener('click', function () { var l = core.backups()[0], t = box.querySelector('#acBackup'); t.hidden = !l; t.value = l ? l.code : ''; });
-    box.querySelector('#acActions').appendChild(b);
+    var status = box.querySelector('#acStatus'), actions = box.querySelector('#acActions');
+    status.textContent = 'Signed in as ' + name + '. Your progress is kept with your Atherbyte account.';
+    function add(label, fn) { var b = doc.createElement('button'); b.className = 'btn'; b.type = 'button'; b.textContent = label; b.addEventListener('click', fn); actions.appendChild(b); return b; }
+    add('Sign out', function () { Account.logout().then(function () { w.lock(); }); });
+    add('Show my last backup code', function () { var l = core.backups()[0], t = box.querySelector('#acBackup'); t.hidden = !l; t.value = l ? l.code : ''; });
+    if (!core.state.linked) {
+      var row = box.querySelector('#acLinkRow'); row.hidden = false;
+      var lb = add('Link an old player', function () {
+        core.linkWithCode(box.querySelector('#acLinkCode').value).then(function (r) {
+          if (r.ok) { status.textContent = 'Linked. Reloading with your player…'; win.location.reload(); }
+          else status.textContent = r.message;
+        });
+      });
+      lb.title = 'Played Grid Snake before signing up? Bring your old player here with its recovery code.';
+    }
     dlg.addEventListener('close', function () { core.syncNow(); });
     doc.addEventListener('visibilitychange', function () { if (doc.visibilityState === 'hidden') core.syncNow(); });
   }
@@ -5096,7 +5304,7 @@ var SnakeAccountLink = (function () {
       doc.body.appendChild(s);
     }
     function down() {
-      gateUi(doc).show('Could not load the Atherbyte sign-in. Check your connection and reload the page.',
+      gateUi(win).show('Could not load the Atherbyte sign-in. Check your connection and reload the page.',
         [{ label: 'Reload', primary: true, run: function () { win.location.reload(); } }]);
     }
     load('/js/site-config.js', function () {
@@ -5108,7 +5316,8 @@ var SnakeAccountLink = (function () {
     }, down);
   }
 
-  return { create: create, patchBoard: patchBoard, boot: boot, BACKUP_KEY: BACKUP_KEY, SYNC_KEY: SYNC_KEY, LOCAL_ONLY_KEY: LOCAL_ONLY_KEY };
+  return { create: create, patchBoard: patchBoard, boot: boot, BACKUP_KEY: BACKUP_KEY, SYNC_KEY: SYNC_KEY, LOCAL_ONLY_KEY: LOCAL_ONLY_KEY,
+           OWNER_KEY: OWNER_KEY, SLOT_PREFIX: SLOT_PREFIX };
 })();
 if (typeof module !== 'undefined' && module.exports) module.exports = SnakeAccountLink;
 else if (typeof window !== 'undefined') { try { SnakeAccountLink.boot(window); } catch (e) { /* see boot: on failure the game stays stopped on the studio site */ } }
