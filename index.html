@@ -4634,6 +4634,10 @@ var SnakeAccountLink = (function () {
   /* The engine's fingerprint: build.js replaces 'dev' with the SHA-256 of src/engine.js. The Worker replays with a copy of
      that engine (atherbyte-api/src/game/snake-engine.js) and refuses a round recorded by another version. */
   var ENGINE_SHA = '2798be12f2fc812f';
+  /* The record format this page writes when the Worker reads it (atherbyte-api src/game/replay.js), and one frame time in
+     a format: decimal in format 2, base 36 in format 1. */
+  var RECORD_FORMAT = 2;
+  function recordFrame(q, format) { return format === RECORD_FORMAT ? String(q) : q.toString(36); }
   /* The 32-bit generator for a seeded round; the same as the Worker's (atherbyte-api/src/game/replay.js, seededRng). */
   function seededRng(seed) {
     var a = seed >>> 0;
@@ -4974,7 +4978,9 @@ var SnakeAccountLink = (function () {
         if (r.status === 404 && r.data && r.data.error === 'not_found') return LEGACY;
         if (!r.ok || !r.data || typeof r.data.round_id !== 'string') return null;
         var seed = typeof r.data.seed === 'number' && r.data.seed >= 0 && r.data.seed <= 4294967295 ? r.data.seed : null;
-        return { id: r.data.round_id, seed: seed, engine: typeof r.data.engine === 'string' ? r.data.engine : null };
+        // the record format the Worker reads: 2 when it says so (or a later one, which still reads 2), otherwise 1
+        var format = typeof r.data.record_format === 'number' && r.data.record_format >= RECORD_FORMAT ? RECORD_FORMAT : 1;
+        return { id: r.data.round_id, seed: seed, engine: typeof r.data.engine === 'string' ? r.data.engine : null, format: format };
       }, function () { return null; });
     }
     /* Fetch the next run's round now, unless a fresh one is waiting or on its way. */
@@ -5001,7 +5007,8 @@ var SnakeAccountLink = (function () {
       runs.forEach(function (r) { if (r.state === 'ready') r.state = 'done'; });
       var seeded = v && v !== LEGACY && v.seed != null;
       var run = { round: v === LEGACY ? LEGACY : v ? v.id : null, seed: seeded ? v.seed : null, engine: v && v !== LEGACY ? v.engine : null,
-                  record: seeded ? [] : null, score: null, state: 'ready', tries: 0, createdAt: now() };
+                  record: seeded ? [] : null, format: seeded && v.format === RECORD_FORMAT ? RECORD_FORMAT : 1,
+                  score: null, state: 'ready', tries: 0, createdAt: now() };
       runs.push(run);
       prune();
       return run;
@@ -5038,7 +5045,7 @@ var SnakeAccountLink = (function () {
       run.tries++;
       var body = { score: run.score, walls: true, golden: true, difficulty: 'hard' };
       if (run.round !== LEGACY) body.round_id = run.round;
-      if (run.record) { body.record = run.record.join(','); body.engine = ENGINE_SHA; }
+      if (run.record) { body.record = (run.format === RECORD_FORMAT ? '@' + RECORD_FORMAT + ',' : '') + run.record.join(','); body.engine = ENGINE_SHA; }
       return call('score', 'POST', body).then(function (r) {
         var err = r.data && r.data.error;
         // a run that started under the previous Worker and ended after the new one went live cannot be ranked; the round
@@ -5077,10 +5084,13 @@ var SnakeAccountLink = (function () {
   /* The game's board client, made account-only: who-am-I and scores go through the Worker, and no local player can be
      created or restored by name or code from inside the game. Reading the top ten stays as it is. */
   /* The engine: a Time Attack run is built from the seed of a round fetched ahead, and records what the page feeds it:
-     s (start), p / r (pause / resume), ^ v < > (turns), and each frame's time as a whole number of milliseconds (base 36).
+     s (start), p / r (pause / resume), ^ v < > (turns), and each frame's time as a whole number of milliseconds.
      Frame times are passed to the engine as whole milliseconds too (the remainder carries to the next frame), so what
      is recorded is exactly what ran. The 'over' listener is added before the page's own, so the run is closed before
-     the game sends its score. */
+     the game sends its score.
+     Record format 2 (the Worker asks for it in its round): frame times in decimal, sent after an "@2" header. No control
+     token contains a digit, so a frame time is never read back as a control. Format 1 (a round from a Worker that does
+     not ask): base 36, as before. It is ambiguous: 25, 27, 28 and 31 ms are written p, r, s and v. */
   var TURN_TOKEN = { '0,-1': '^', '0,1': 'v', '-1,0': '<', '1,0': '>' };
   function patchEngine(engine, core) {
     if (!engine || engine.__account) return engine;
@@ -5105,7 +5115,7 @@ var SnakeAccountLink = (function () {
           carry += Math.min(Math.max(+dt || 0, 0), 100);
           var q = Math.floor(carry);
           carry -= q;
-          rec.push(q.toString(36));
+          rec.push(recordFrame(q, run.format));
           return update.call(g, q);
         };
       }
@@ -5509,7 +5519,8 @@ var SnakeAccountLink = (function () {
     }, down);
   }
 
-  return { create: create, patchBoard: patchBoard, patchEngine: patchEngine, seededRng: seededRng, ENGINE_SHA: ENGINE_SHA, boot: boot, BACKUP_KEY: BACKUP_KEY, SYNC_KEY: SYNC_KEY, LOCAL_ONLY_KEY: LOCAL_ONLY_KEY,
+  return { create: create, patchBoard: patchBoard, patchEngine: patchEngine, seededRng: seededRng, ENGINE_SHA: ENGINE_SHA,
+           RECORD_FORMAT: RECORD_FORMAT, recordFrame: recordFrame, boot: boot, BACKUP_KEY: BACKUP_KEY, SYNC_KEY: SYNC_KEY, LOCAL_ONLY_KEY: LOCAL_ONLY_KEY,
            OWNER_KEY: OWNER_KEY, SLOT_PREFIX: SLOT_PREFIX };
 })();
 if (typeof module !== 'undefined' && module.exports) module.exports = SnakeAccountLink;
