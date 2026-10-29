@@ -40,20 +40,10 @@ var SnakeShop = (function () {
     { id: 'skin:ottoman',   rarity: 'legendary', price: 5500, desc: 'Deep red and gold with a tasselled fez.' },
     { id: 'skin:saladin',   rarity: 'legendary', price: 6500, desc: 'A green and gold knight under a yellow and crimson turban.' },
 
-    /* Football stars: their face on the snake's head, their number on its body, a big picture on the shop card. */
+    /* Football stars: their face on the snake's head, their number on its body, a big picture on the shop card. More are added as their pictures arrive. */
     { id: 'skin:messi',       rarity: 'legendary', price: 9000,  desc: 'The Flea: an Albiceleste snake with LM10 on its body and his face on the head.' },
     { id: 'skin:ronaldo',     rarity: 'legendary', price: 9000,  desc: 'The Don: gold and purple with CR7 on its body and his face on the head.' },
-    { id: 'skin:karim',       rarity: 'legendary', price: 10000, desc: 'The golden Karim: a crowned dragon of gold and pearl with his face on the head.' },
-    { id: 'skin:mbappe',      rarity: 'legendary', price: 8000,  desc: 'Le Roi: a sky-blue snake with KM on its body and his face on the head.' },
-    { id: 'skin:haaland',     rarity: 'legendary', price: 7500,  desc: 'The Nordic Giant: a red snake with EH9 on its body and his face on the head.' },
-    { id: 'skin:neymar',      rarity: 'legendary', price: 7500,  desc: 'The Samba King: yellow and green with NJR10 on its body and his face on the head.' },
     { id: 'skin:benzema',     rarity: 'legendary', price: 7000,  desc: 'The Karim: a pearl-white snake with KB9 on its body and his face on the head.' },
-    { id: 'skin:salah',       rarity: 'legendary', price: 7000,  desc: 'The Egyptian King: a red snake with M10 on its body and his face on the head.' },
-    { id: 'skin:vinicius',    rarity: 'legendary', price: 6500,  desc: 'The Speed Demon: a cream snake with VJR on its body and his face on the head.' },
-    { id: 'skin:bellingham',  rarity: 'legendary', price: 6500,  desc: 'The Generation King: a cream snake with JB on its body and his face on the head.' },
-    { id: 'skin:lewandowski', rarity: 'legendary', price: 6000,  desc: 'The Goal Machine: white and red with RL9 on its body and his face on the head.' },
-    { id: 'skin:debruyne',    rarity: 'legendary', price: 6000,  desc: 'The Ginger Master: a sky-blue snake with KDB on its body and his face on the head.' },
-    { id: 'skin:griezmann',   rarity: 'legendary', price: 6000,  desc: 'Grizou: a sky-blue snake with AG7 on its body and his face on the head.' },
 
     /* Maps: each one has its own texture. */
     { id: 'board:chess',    rarity: 'epic',      price: 1600, desc: 'A grandmaster\'s checkered board in ivory and ebony.' },

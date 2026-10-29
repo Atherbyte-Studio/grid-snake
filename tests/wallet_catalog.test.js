@@ -23,6 +23,6 @@ test('every shop id is one the database accepts, and every price is a whole numb
 test('every picture the shop points to exists (assets/skins)', () => {
   const html = fs.readFileSync(path.join(__dirname, '..', 'src', 'index.template.html'), 'utf8');
   const refs = [...new Set(html.match(/assets\/skins\/[a-z0-9-]+\.webp/g) || [])];
-  assert.ok(refs.length >= 26, 'cards and faces for the football stars');
+  assert.ok(refs.length >= 6, 'cards and faces for the football stars');
   for (const r of refs) assert.ok(fs.existsSync(path.join(__dirname, '..', r)), r + ' is missing');
 });

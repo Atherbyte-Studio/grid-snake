@@ -1780,20 +1780,10 @@ var SnakeShop = (function () {
     { id: 'skin:ottoman',   rarity: 'legendary', price: 5500, desc: 'Deep red and gold with a tasselled fez.' },
     { id: 'skin:saladin',   rarity: 'legendary', price: 6500, desc: 'A green and gold knight under a yellow and crimson turban.' },
 
-    /* Football stars: their face on the snake's head, their number on its body, a big picture on the shop card. */
+    /* Football stars: their face on the snake's head, their number on its body, a big picture on the shop card. More are added as their pictures arrive. */
     { id: 'skin:messi',       rarity: 'legendary', price: 9000,  desc: 'The Flea: an Albiceleste snake with LM10 on its body and his face on the head.' },
     { id: 'skin:ronaldo',     rarity: 'legendary', price: 9000,  desc: 'The Don: gold and purple with CR7 on its body and his face on the head.' },
-    { id: 'skin:karim',       rarity: 'legendary', price: 10000, desc: 'The golden Karim: a crowned dragon of gold and pearl with his face on the head.' },
-    { id: 'skin:mbappe',      rarity: 'legendary', price: 8000,  desc: 'Le Roi: a sky-blue snake with KM on its body and his face on the head.' },
-    { id: 'skin:haaland',     rarity: 'legendary', price: 7500,  desc: 'The Nordic Giant: a red snake with EH9 on its body and his face on the head.' },
-    { id: 'skin:neymar',      rarity: 'legendary', price: 7500,  desc: 'The Samba King: yellow and green with NJR10 on its body and his face on the head.' },
     { id: 'skin:benzema',     rarity: 'legendary', price: 7000,  desc: 'The Karim: a pearl-white snake with KB9 on its body and his face on the head.' },
-    { id: 'skin:salah',       rarity: 'legendary', price: 7000,  desc: 'The Egyptian King: a red snake with M10 on its body and his face on the head.' },
-    { id: 'skin:vinicius',    rarity: 'legendary', price: 6500,  desc: 'The Speed Demon: a cream snake with VJR on its body and his face on the head.' },
-    { id: 'skin:bellingham',  rarity: 'legendary', price: 6500,  desc: 'The Generation King: a cream snake with JB on its body and his face on the head.' },
-    { id: 'skin:lewandowski', rarity: 'legendary', price: 6000,  desc: 'The Goal Machine: white and red with RL9 on its body and his face on the head.' },
-    { id: 'skin:debruyne',    rarity: 'legendary', price: 6000,  desc: 'The Ginger Master: a sky-blue snake with KDB on its body and his face on the head.' },
-    { id: 'skin:griezmann',   rarity: 'legendary', price: 6000,  desc: 'Grizou: a sky-blue snake with AG7 on its body and his face on the head.' },
 
     /* Maps: each one has its own texture. */
     { id: 'board:chess',    rarity: 'epic',      price: 1600, desc: 'A grandmaster\'s checkered board in ivory and ebony.' },
@@ -2639,19 +2629,9 @@ if (typeof module !== 'undefined' && module.exports) module.exports = SnakeChase
     ottoman:   { premium: true, deco: 'ottoman',   name: 'Ottoman Sultan',    snake: '#8E1B2A', head: '#B83246', accent: '#D4AF37', strong: '#F0CB62', body: { rails: '#D4AF37' }, gear: { type: 'fez', color: '#C0392B' } },
     saladin:   { premium: true, deco: 'saladin',   name: 'Ayyubid Knight',    snake: '#2F7A54', head: '#55A97F', accent: '#F2D24B', strong: '#FFE680', body: { rails: '#D4AF37' }, gear: { type: 'cloth', stripes: ['#F2D24B', '#B02A2A'], edge: '#6E1515' } },
     /* Football stars: the face is a small picture on the head (assets/skins/*-face.webp), the number is written on the body, and art is the shop card. */
-    messi: { premium: true, deco: 'messi', name: 'Messi · The Flea', snake: '#8EC5EC', head: '#BFE0F7', accent: '#75AADB', strong: '#B9D8F2', body: { bands: ['#FFFFFF'], label: 'LM10', labelColor: '#27507A' }, gear: { type: 'face', src: 'assets/skins/messi-face.webp', ring: '#75AADB' }, art: 'assets/skins/messi.webp' },
-    ronaldo: { premium: true, deco: 'ronaldo', name: 'Ronaldo · The Don', snake: '#D9B52B', head: '#F0D060', accent: '#D9B52B', strong: '#F7DC7A', body: { bands: ['#5B3FA8'], label: 'CR7', labelColor: '#3F2A7A' }, gear: { type: 'face', src: 'assets/skins/ronaldo-face.webp', ring: '#D9B52B' }, art: 'assets/skins/ronaldo.webp' },
-    karim: { premium: true, deco: 'karim', name: 'Benzema · Golden Karim', snake: '#D4AF37', head: '#F2D675', accent: '#D4AF37', strong: '#FFE08A', body: { rails: '#FFFFFF', label: 'KB9', labelColor: '#7A5A10' }, gear: { type: 'face', src: 'assets/skins/karim-face.webp', ring: '#D4AF37' }, art: 'assets/skins/karim.webp' },
-    mbappe: { premium: true, deco: 'mbappe', name: 'Mbappé · Le Roi', snake: '#8EC5EC', head: '#BFE0F7', accent: '#8EC5EC', strong: '#BFE0F7', body: { bands: ['#FFFFFF'], label: 'KM', labelColor: '#27507A' }, gear: { type: 'face', src: 'assets/skins/mbappe-face.webp', ring: '#8EC5EC' }, art: 'assets/skins/mbappe.webp' },
-    haaland: { premium: true, deco: 'haaland', name: 'Haaland · Nordic Giant', snake: '#C0282E', head: '#E2555D', accent: '#C0282E', strong: '#F0727A', body: { bands: ['#8E1F28'], label: 'EH9', labelColor: '#F2C65A' }, gear: { type: 'face', src: 'assets/skins/haaland-face.webp', ring: '#C0282E' }, art: 'assets/skins/haaland.webp' },
-    neymar: { premium: true, deco: 'neymar', name: 'Neymar · Samba King', snake: '#F2D43A', head: '#FFE680', accent: '#F2D43A', strong: '#FFE680', body: { rails: '#1E7A3A', label: 'NJR10', labelColor: '#1E7A3A' }, gear: { type: 'face', src: 'assets/skins/neymar-face.webp', ring: '#F2D43A' }, art: 'assets/skins/neymar.webp' },
-    benzema: { premium: true, deco: 'benzema', name: 'Benzema · The Karim', snake: '#EFE6CF', head: '#FAF3E0', accent: '#D4AF37', strong: '#F2D675', body: { rails: '#D4AF37', label: 'KB9', labelColor: '#6B5A38' }, gear: { type: 'face', src: 'assets/skins/benzema-face.webp', ring: '#D4AF37' }, art: 'assets/skins/benzema.webp' },
-    salah: { premium: true, deco: 'salah', name: 'Salah · Egyptian King', snake: '#C0282E', head: '#E2555D', accent: '#C0282E', strong: '#F0727A', body: { rails: '#1B1B1B', label: 'M10', labelColor: '#F4F4EF' }, gear: { type: 'face', src: 'assets/skins/salah-face.webp', ring: '#C0282E' }, art: 'assets/skins/salah.webp' },
-    vinicius: { premium: true, deco: 'vinicius', name: 'Vinicius Jr. · Speed Demon', snake: '#EFE6CF', head: '#FAF3E0', accent: '#9A8A5A', strong: '#D9C58A', body: { rails: '#9A8A5A', label: 'VJR', labelColor: '#6B5A38' }, gear: { type: 'face', src: 'assets/skins/vinicius-face.webp', ring: '#9A8A5A' }, art: 'assets/skins/vinicius.webp' },
-    bellingham: { premium: true, deco: 'bellingham', name: 'Bellingham · Generation King', snake: '#EFE6CF', head: '#FAF3E0', accent: '#9A8A5A', strong: '#D9C58A', body: { rails: '#9A8A5A', label: 'JB', labelColor: '#6B5A38' }, gear: { type: 'face', src: 'assets/skins/bellingham-face.webp', ring: '#9A8A5A' }, art: 'assets/skins/bellingham.webp' },
-    lewandowski: { premium: true, deco: 'lewandowski', name: 'Lewandowski · Goal Machine', snake: '#F4F4F2', head: '#FFFFFF', accent: '#B8323A', strong: '#E2555D', body: { rails: '#B8323A', label: 'RL9', labelColor: '#B8323A' }, gear: { type: 'face', src: 'assets/skins/lewandowski-face.webp', ring: '#B8323A' }, art: 'assets/skins/lewandowski.webp' },
-    debruyne: { premium: true, deco: 'debruyne', name: 'De Bruyne · Ginger Master', snake: '#8EC5EC', head: '#BFE0F7', accent: '#6FA8D6', strong: '#BFE0F7', body: { bands: ['#FFFFFF'], label: 'KDB', labelColor: '#27507A' }, gear: { type: 'face', src: 'assets/skins/debruyne-face.webp', ring: '#6FA8D6' }, art: 'assets/skins/debruyne.webp' },
-    griezmann: { premium: true, deco: 'griezmann', name: 'Griezmann · Grizou', snake: '#8EC5EC', head: '#BFE0F7', accent: '#6FA8D6', strong: '#BFE0F7', body: { rails: '#FFFFFF', label: 'AG7', labelColor: '#27507A' }, gear: { type: 'face', src: 'assets/skins/griezmann-face.webp', ring: '#6FA8D6' }, art: 'assets/skins/griezmann.webp' }
+    messi: { premium: true, deco: 'messi', name: 'Messi · The Flea', snake: '#8EC5EC', head: '#BFE0F7', accent: '#75AADB', strong: '#B9D8F2', body: { bands: ['#FFFFFF'], label: 'LM10', labelColor: '#27507A' }, gear: { type: 'face', src: 'assets/skins/messi-face.webp', cut: true, ring: '#75AADB' }, art: 'assets/skins/messi.webp' },
+    ronaldo: { premium: true, deco: 'ronaldo', name: 'Ronaldo · The Don', snake: '#D9B52B', head: '#F0D060', accent: '#D9B52B', strong: '#F7DC7A', body: { bands: ['#5B3FA8'], label: 'CR7', labelColor: '#3F2A7A' }, gear: { type: 'face', src: 'assets/skins/ronaldo-face.webp', cut: true, ring: '#D9B52B' }, art: 'assets/skins/ronaldo.webp' },
+    benzema: { premium: true, deco: 'benzema', name: 'Benzema · The Karim', snake: '#EFE6CF', head: '#FAF3E0', accent: '#D4AF37', strong: '#F2D675', body: { rails: '#D4AF37', label: 'KB9', labelColor: '#6B5A38' }, gear: { type: 'face', src: 'assets/skins/benzema-face.webp', cut: true, ring: '#D4AF37' }, art: 'assets/skins/benzema.webp' },
   };
   var STYLES = { realistic: { name: 'Realistic' } };   // the only snake body style
   var BOARDS = {
@@ -4241,11 +4221,19 @@ if (typeof module !== 'undefined' && module.exports) module.exports = SnakeChase
   }
   function drawGear(g, c, ang) {
     var i;
-    if (g.type === 'face') {                           // a round picture on the head, kept upright whichever way the snake goes
+    if (g.type === 'face') {                           // a picture on the head, turned along the body (the chin leads, the top of the head is towards the tail)
       var img = faceImage(g.src);
       if (!img) return;
+      if (g.cut) {                                     // a cut-out head: no circle, a soft dark edge so it stands out on any map
+        var H = c * 1.7, W = H * img.naturalWidth / img.naturalHeight;
+        ctx.save(); ctx.translate(c * 0.12, 0); ctx.rotate(-Math.PI / 2);
+        ctx.shadowColor = 'rgba(0,0,0,.9)'; ctx.shadowBlur = Math.max(2, c * 0.12);
+        ctx.drawImage(img, -W / 2, -H / 2, W, H);
+        ctx.restore();
+        return;
+      }
       var r = c * 0.74;
-      ctx.save(); ctx.translate(c * 0.12, 0); ctx.rotate(-(ang || 0));
+      ctx.save(); ctx.translate(c * 0.12, 0); ctx.rotate(-Math.PI / 2);
       ctx.fillStyle = '#1A1A22'; ctx.beginPath(); ctx.arc(0, 0, r, 0, Math.PI * 2); ctx.fill();   // behind a picture with see-through corners
       ctx.drawImage(img, -r, -r, r * 2, r * 2);
       ctx.strokeStyle = '#0B0B0F'; ctx.lineWidth = Math.max(2, c * 0.1);       // the sticker outline, then a thin ring in the team colour
