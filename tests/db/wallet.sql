@@ -26,6 +26,11 @@ create table public.time_attack_scores (
 insert into auth.users values ('33333333-3333-4333-8333-333333333333'), ('44444444-4444-4444-8444-444444444444');
 \set C '33333333-3333-4333-8333-333333333333'
 \set D '44444444-4444-4444-8444-444444444444'
+insert into auth.users values ('55555555-5555-4555-8555-555555555555');
+\set E '55555555-5555-4555-8555-555555555555'
+select register_player('PlayerE', 'eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee');
+select gs_link_player(:'E', 'eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee');
+select gs_save(:'E', '{"v":2,"data":{"coins":10,"owned":{}}}'::jsonb, null);
 select register_player('PlayerA', 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa'), register_player('PlayerB', 'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb'), register_player('PlayerC', 'cccccccccccccccccccccccccccccccc');
 select gs_link_player(:'A', 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa'), gs_link_player(:'B', 'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb'), gs_link_player(:'C', 'cccccccccccccccccccccccccccccccc');
 -- players that existed before the wallet: A saved real progress, C saved forged progress, B has no save yet
@@ -74,6 +79,9 @@ select pg_temp.check('B: the device copy is used when there is no saved copy',
   (select x->>'status' = 'ok' and (x->>'coins')::int = 40 from (select gs_wallet_open(:'B', '{"coins":40,"owned":{}}'::jsonb) x) q));
 select pg_temp.check('D: a player made after launch starts empty and a device copy is ignored',
   (select x->>'status' = 'ok' and (x->>'coins')::int = 0 and x->'owned' = '{}'::jsonb from (select gs_wallet_open(:'D', '{"coins":99999,"owned":{"skin:royal":true}}'::jsonb) x) q));
+
+select pg_temp.check('E: the newest device copy that arrives with a save is used instead of an older saved copy',
+  (select (x->>'coins')::int = 77 from (select gs_wallet_open(:'E', '{"coins":77,"owned":{}}'::jsonb) x) q));
 
 -- ---------- buying ----------
 select pg_temp.check('buy: not enough coins is refused and nothing moves',
@@ -161,6 +169,6 @@ select pg_temp.check('prices: the catalogue file restores the shop prices', (sel
 -- ---------- rollback keeps every balance ----------
 \i ../../supabase/rollback_wallet.sql
 select pg_temp.check('rollback: the functions are gone', to_regprocedure('public.gs_wallet_buy(uuid, text)') is null);
-select pg_temp.check('rollback: balances and the ledger stay', (select count(*) >= 4 from player_wallets) and (select count(*) > 0 from wallet_ledger));
+select pg_temp.check('rollback: balances and the ledger stay', (select count(*) >= 5 from player_wallets) and (select count(*) > 0 from wallet_ledger));
 \i ../../supabase/wallet.sql
 select pg_temp.check('reapply: the same balance comes back', (select (pg_temp.w(:'A')->>'coins')::int >= 0));

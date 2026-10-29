@@ -15,8 +15,8 @@
 --   really earned (the game keeps those on the device). It limits how much can be taken, it does not make it zero.
 -- How coins are spent: gs_wallet_buy reads the price from wallet_catalog, checks the balance and ownership and writes
 --   both in one locked step. An item cannot be bought twice or without the coins.
--- Existing players: a wallet is created ONCE from the progress the server already holds for them (their saved copy; the
---   device's own copy only when none was saved yet), counted as at most import_budget coins in total (items at their
+-- Existing players: a wallet is created ONCE from the newest progress the server has for them (the device's copy that arrives
+--   with a save, otherwise the saved copy), counted as at most import_budget coins in total (items at their
 --   price plus coins). Players made after wallet_settings.launch_at start with nothing to import.
 -- Undo with rollback_wallet.sql (it keeps the tables and every balance).
 begin;
@@ -96,7 +96,7 @@ $$;
 
 -- ---------------------------------------------------------------- functions for the Worker
 -- The player's wallet, made the first time it is asked for. p_hint is the device's profile ({coins, owned}); it is used
--- only when this is an existing player with no saved copy on the server.
+-- only when this is an existing player: a save brings the device's latest copy, which is then used instead of the older saved one.
 create or replace function public.gs_wallet_open(p_account uuid, p_hint jsonb)
 returns jsonb language plpgsql security definer set search_path = public, pg_temp as $$
 declare
@@ -122,8 +122,9 @@ begin
     insert into public.player_wallets (player_id) values (v_pid) on conflict do nothing;
     return jsonb_build_object('status', 'ok') || public.wallet_json(v_pid);
   end if;
-  select s.data -> 'data' into v_src from public.player_saves s where s.player_id = v_pid;
-  if v_src is null then v_src := p_hint; end if;
+  -- the newest progress the server has: the device's copy that arrives with a save (p_hint), else the saved copy
+  if p_hint is not null and jsonb_typeof(p_hint) = 'object' then v_src := p_hint;
+  else select s.data -> 'data' into v_src from public.player_saves s where s.player_id = v_pid; end if;
   if v_src is null or jsonb_typeof(v_src) <> 'object' then
     return jsonb_build_object('status', 'pending');   -- an existing player whose progress has not reached the server yet
   end if;
