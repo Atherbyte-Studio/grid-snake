@@ -18,15 +18,39 @@ var SnakeShop = (function () {
   var ITEMS = [
     { id: 'skin:palestine', rarity: 'basic', price: 150,  desc: 'A black and white keffiyeh wrapped around the head.' },
     { id: 'skin:jordan',    rarity: 'basic', price: 200,  desc: 'A red and white keffiyeh wrapped around the head.' },
-    { id: 'board:desert',   rarity: 'basic', price: 200,  desc: 'A warm sandy board for late-night runs.' },
+    { id: 'board:desert',   rarity: 'rare',  price: 1000,  desc: 'A warm sandy board for late-night runs.' },
     { id: 'skin:cyber',     rarity: 'rare',  price: 500,  desc: 'Neon circuit lines on the body and a glowing visor.' },
-    { id: 'board:neon',     rarity: 'rare',  price: 500,  desc: 'A dark board with a glowing purple grid.' },
+    { id: 'board:neon',     rarity: 'epic',  price: 1800,  desc: 'A dark board with a glowing purple grid.' },
     { id: 'skin:galaxy',    rarity: 'rare',  price: 800,  desc: 'A twinkling night-sky body with a star halo.' },
     { id: 'skin:dragon',    rarity: 'epic',  price: 1500, desc: 'Gold scales, spines and a pair of horns.' },
-    { id: 'board:meadow',   rarity: 'basic', price: 250,  desc: 'Grass-green tiles with tufts, for an easy-going board.' },
+    { id: 'board:meadow',   rarity: 'epic',  price: 1500,  desc: 'Grass-green tiles with tufts, for an easy-going board.' },
     { id: 'skin:shemagh',   rarity: 'rare',  price: 750,  desc: 'A red and white check wrapped around the head, with a checked body band.' },
-    { id: 'board:autumn',   rarity: 'rare',  price: 750,  desc: 'Warm brown tiles with fallen leaves scattered across the board.' },
-    { id: 'skin:royal',     rarity: 'legendary', price: 5000, desc: 'A violet body with gold rails, jewels and a crown.' }
+    { id: 'board:autumn',   rarity: 'epic',  price: 2000,  desc: 'Warm brown tiles with fallen leaves scattered across the board.' },
+    { id: 'skin:royal',     rarity: 'legendary', price: 5000, desc: 'A violet body with gold rails, jewels and a crown.' },
+
+    /* Football, history and legends (skins). Colours and shapes only: no club badges or real logos. */
+    { id: 'skin:madrid',    rarity: 'epic',      price: 2500, desc: 'White kit with gold trim and a royal purple dot, for the capital\'s champions.' },
+    { id: 'skin:barca',     rarity: 'epic',      price: 2500, desc: 'Blue and garnet stripes from nose to tail, with a golden captain\'s band.' },
+    { id: 'skin:argentina', rarity: 'epic',      price: 2000, desc: 'Sky-blue and white stripes with a golden sun band.' },
+    { id: 'skin:brazil',    rarity: 'epic',      price: 2000, desc: 'Samba green and yellow with a deep blue rail.' },
+    { id: 'skin:pharaoh',   rarity: 'epic',      price: 3000, desc: 'Gold and lapis stripes under a pharaoh\'s royal headcloth.' },
+    { id: 'skin:roman',     rarity: 'epic',      price: 2600, desc: 'A legionary in crimson with a golden helmet and a crest.' },
+    { id: 'skin:viking',    rarity: 'epic',      price: 2800, desc: 'Iron-grey and leather with a horned helmet.' },
+    { id: 'skin:samurai',   rarity: 'epic',      price: 3000, desc: 'Black lacquer armour, red lacing and a golden crescent helmet.' },
+    { id: 'skin:ottoman',   rarity: 'legendary', price: 5500, desc: 'Deep red and gold with a tasselled fez.' },
+    { id: 'skin:saladin',   rarity: 'legendary', price: 6500, desc: 'A green and gold knight under a yellow and crimson turban.' },
+
+    /* Maps: each one has its own texture. */
+    { id: 'board:chess',    rarity: 'epic',      price: 1600, desc: 'A grandmaster\'s checkered board in ivory and ebony.' },
+    { id: 'board:snow',     rarity: 'epic',      price: 1800, desc: 'A frozen field with drifts of fresh snow.' },
+    { id: 'board:dunes',    rarity: 'epic',      price: 2000, desc: 'Wind-carved golden sand dunes.' },
+    { id: 'board:matrix',   rarity: 'epic',      price: 2200, desc: 'Falling green code on a black screen.' },
+    { id: 'board:stars',    rarity: 'epic',      price: 2800, desc: 'Deep space with a purple nebula and a thousand stars.' },
+    { id: 'board:pitch',    rarity: 'epic',      price: 3000, desc: 'A mown football pitch with the halfway line, centre circle and penalty boxes.' },
+    { id: 'board:mosaic',   rarity: 'legendary', price: 5500, desc: 'Turquoise tiles with golden eight-point stars, in the Islamic art style.' },
+    { id: 'board:roman',    rarity: 'legendary', price: 6000, desc: 'Veined marble flagstones from an ancient Roman forum.' },
+    { id: 'board:alhambra', rarity: 'legendary', price: 7000, desc: 'Blue and ochre zellige tiles inspired by Andalusian palaces.' },
+    { id: 'board:lava',     rarity: 'legendary', price: 8000, desc: 'Black volcanic rock split by glowing lava cracks.' }
   ];
 
   /* A price outside its rarity band is a mistake in the catalogue, not a player problem. */

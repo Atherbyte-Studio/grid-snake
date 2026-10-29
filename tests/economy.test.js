@@ -95,3 +95,24 @@ test('owned items in a save are kept only when they are real shop items', () => 
   assert.equal(p.owns('skin:cyber'), true);
   assert.equal(p.owns('skin:fake'), false);
 });
+
+test('the catalogue has many skins and maps, and every map is priced high', () => {
+  const skins = Shop.ITEMS.filter(i => i.id.startsWith('skin:')), maps = Shop.ITEMS.filter(i => i.id.startsWith('board:'));
+  assert.ok(skins.length >= 17 && maps.length >= 14, `${skins.length} skins, ${maps.length} maps`);
+  for (const m of maps) assert.ok(m.price >= 1000, `${m.id} costs ${m.price}`);
+  for (const id of ['skin:madrid', 'skin:barca']) assert.ok(skins.some(i => i.id === id), id + ' is sold');
+});
+
+test('ids that players may already own are never removed or renamed', () => {
+  const kept = ['skin:palestine', 'skin:jordan', 'board:desert', 'skin:cyber', 'board:neon', 'skin:galaxy', 'skin:dragon', 'board:meadow', 'skin:shemagh', 'board:autumn', 'skin:royal'];
+  const ids = new Set(Shop.ITEMS.map(i => i.id));
+  for (const id of kept) assert.ok(ids.has(id), id + ' is still in the shop');
+});
+
+test('an old save keeps its coins and items when the catalogue grows', () => {
+  const st = fakeStorage({ 'gridsnake-profile-v2': JSON.stringify({ coins: 777, owned: { 'skin:jordan': true, 'board:neon': true }, prefs: { skin: 'jordan', board: 'neon' } }) });
+  const p = make(st, { skins: ['emerald', 'jordan', 'madrid'], boards: ['midnight', 'neon', 'pitch'] });
+  assert.equal(p.getCoins(), 777);
+  assert.ok(p.owns('skin:jordan') && p.owns('board:neon'));
+  assert.ok(!p.owns('skin:madrid') && !p.owns('board:pitch'));
+});

@@ -963,7 +963,8 @@ test('E2E shop: coins from a run, locked items, buying, equipping, and saved aft
   const { ctx, page, errors } = await open({ storage: seed({ prefs: { mode: 'classic', edge: 'walls' }, coins: 180 }) });
   assert.equal(await text(page, '#homeCoins'), '180');
   await page.click('#homeShopBtn');
-  assert.equal(await page.locator('.shop-item').count(), require('../src/shop.js').ITEMS.length);
+  const items = require('../src/shop.js').ITEMS;
+  assert.equal(await page.locator('.shop-item').count(), items.filter(i => i.id.startsWith('skin:')).length, 'the Skins tab is open first');
   assert.equal(await text(page, '[data-id="skin:jordan"] button'), 'Buy for 200');
   assert.equal(await page.evaluate(() => document.querySelector('[data-id="skin:jordan"] button').disabled), true, 'not enough coins');
   await page.click('#shopClose');
@@ -987,6 +988,40 @@ test('E2E shop: coins from a run, locked items, buying, equipping, and saved aft
   await play(page);
   await page.evaluate(() => new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r))));
   await shot(page, '33-jordan-in-game');
+  await finish(ctx, errors);
+});
+
+test('E2E shop: tabs split skins from maps, every map has a texture preview, and tab choice is remembered', { timeout: 90000 }, async () => {
+  const { ctx, page, errors } = await open({ storage: seed({ prefs: { mode: 'classic', edge: 'walls' }, coins: 20000 }) });
+  const items = require('../src/shop.js').ITEMS, maps = items.filter(i => i.id.startsWith('board:')), skins = items.filter(i => i.id.startsWith('skin:'));
+  await page.click('#homeShopBtn');
+  assert.equal(await page.locator('.shop-item').count(), skins.length);
+  assert.equal(await page.locator('[data-id^="board:"]').count(), 0, 'no maps on the Skins tab');
+  await page.click('#shopTabBoard');
+  assert.equal(await page.locator('.shop-item').count(), maps.length);
+  assert.equal(await page.locator('[data-id^="skin:"]').count(), 0, 'no skins on the Maps tab');
+  assert.equal(await page.locator('.shop-item canvas.map').count(), maps.length, 'maps get a large preview');
+  // every map preview is a real picture: not one flat colour
+  const flat = await page.evaluate(() => [...document.querySelectorAll('.shop-item canvas')].filter(cv => {
+    const d = cv.getContext('2d').getImageData(0, 0, cv.width, cv.height).data, seen = new Set();
+    for (let i = 0; i < d.length; i += 4 * 37) seen.add(d[i] + ',' + d[i + 1] + ',' + d[i + 2]);
+    return seen.size < 12;
+  }).length);
+  assert.equal(flat, 0, 'no map preview is a flat colour');
+  await page.click('[data-id="board:pitch"] button');
+  assert.equal(await text(page, '[data-id="board:pitch"] button'), 'Equipped');
+  assert.equal(await page.evaluate(() => __t.profile.getPrefs().board), 'pitch');
+  await page.click('#shopClose');
+  await page.reload();
+  await page.click('#homeShopBtn');
+  assert.equal(await page.locator('.shop-item[data-id^="board:"]').count(), maps.length, 'the Maps tab is remembered');
+  await page.click('#shopTabSkin');
+  await page.click('[data-id="skin:madrid"] button');
+  assert.equal(await page.evaluate(() => __t.profile.owns('skin:madrid')), true);
+  await page.click('#shopClose');
+  await play(page);
+  await page.evaluate(() => new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r))));
+  await shot(page, '34-pitch-madrid-in-game');
   await finish(ctx, errors);
 });
 

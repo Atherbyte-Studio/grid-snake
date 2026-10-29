@@ -449,7 +449,13 @@ html[data-motion="off"] *, html[data-motion="off"] *::before, html[data-motion="
 .shop-coins b { color: var(--accent-strong, #5CD6A0); font-variant-numeric: tabular-nums; }
 .shop-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 12px; margin-top: 16px; }
 .shop-item { border: 1px solid var(--line); border-radius: 14px; padding: 10px; background: var(--surface-2); display: flex; flex-direction: column; gap: 6px; }
-.shop-item canvas { width: 100%; height: 64px; border-radius: 10px; display: block; }
+.shop-item canvas { width: 100%; height: auto; aspect-ratio: 200 / 84; border-radius: 10px; display: block; }
+.shop-item canvas.map { aspect-ratio: 5 / 3; }
+.shop-tabs { display: flex; gap: 8px; margin: 14px 0 0; }
+.shop-tab { flex: 1; min-height: 44px; padding: 8px 12px; border-radius: 12px; border: 1px solid var(--line); background: var(--surface-2); color: var(--text); font: inherit; font-weight: 600; cursor: pointer; }
+.shop-tab[aria-selected="true"] { border-color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent); }
+.shop-tab:focus-visible { outline: 2px solid var(--focus); outline-offset: 3px; }
+.shop-tab small { color: var(--muted); font-weight: 500; }
 .shop-item h4 { margin: 4px 0 0; font-size: 15px; font-weight: 600; }
 .rarity { align-self: flex-start; font-size: 11px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; padding: 2px 8px; border-radius: 999px; border: 1px solid currentColor; font-variant-numeric: tabular-nums; }
 .rarity--basic { color: #9AA5A0; }
@@ -801,8 +807,12 @@ html[data-motion="off"] *, html[data-motion="off"] *::before, html[data-motion="
     <button class="btn" id="shopClose" type="button">Close</button>
   </div>
   <p class="shop-coins">Your coins: <b id="shopCoins">0</b></p>
-  <p class="dlg-note">Every point you score earns one coin when a run ends, and every achievement tier you finish pays more. Spend them on looks. Looks never change the rules.</p>
-  <div class="shop-grid" id="shopBody"></div>
+  <p class="dlg-note">Every point you score earns one coin when a run ends, and every achievement tier you finish pays more. Spend them on skins and maps. Looks never change the rules.</p>
+  <div class="shop-tabs" role="tablist" aria-label="Shop sections">
+    <button class="shop-tab" id="shopTabSkin" type="button" role="tab" data-kind="skin" aria-selected="true">Skins <small id="shopCountSkin"></small></button>
+    <button class="shop-tab" id="shopTabBoard" type="button" role="tab" data-kind="board" aria-selected="false">Maps <small id="shopCountBoard"></small></button>
+  </div>
+  <div class="shop-grid" id="shopBody" role="tabpanel"></div>
 </dialog>
 
 <dialog id="welcomeDlg" aria-labelledby="welcomeTitle">
@@ -1732,15 +1742,39 @@ var SnakeShop = (function () {
   var ITEMS = [
     { id: 'skin:palestine', rarity: 'basic', price: 150,  desc: 'A black and white keffiyeh wrapped around the head.' },
     { id: 'skin:jordan',    rarity: 'basic', price: 200,  desc: 'A red and white keffiyeh wrapped around the head.' },
-    { id: 'board:desert',   rarity: 'basic', price: 200,  desc: 'A warm sandy board for late-night runs.' },
+    { id: 'board:desert',   rarity: 'rare',  price: 1000,  desc: 'A warm sandy board for late-night runs.' },
     { id: 'skin:cyber',     rarity: 'rare',  price: 500,  desc: 'Neon circuit lines on the body and a glowing visor.' },
-    { id: 'board:neon',     rarity: 'rare',  price: 500,  desc: 'A dark board with a glowing purple grid.' },
+    { id: 'board:neon',     rarity: 'epic',  price: 1800,  desc: 'A dark board with a glowing purple grid.' },
     { id: 'skin:galaxy',    rarity: 'rare',  price: 800,  desc: 'A twinkling night-sky body with a star halo.' },
     { id: 'skin:dragon',    rarity: 'epic',  price: 1500, desc: 'Gold scales, spines and a pair of horns.' },
-    { id: 'board:meadow',   rarity: 'basic', price: 250,  desc: 'Grass-green tiles with tufts, for an easy-going board.' },
+    { id: 'board:meadow',   rarity: 'epic',  price: 1500,  desc: 'Grass-green tiles with tufts, for an easy-going board.' },
     { id: 'skin:shemagh',   rarity: 'rare',  price: 750,  desc: 'A red and white check wrapped around the head, with a checked body band.' },
-    { id: 'board:autumn',   rarity: 'rare',  price: 750,  desc: 'Warm brown tiles with fallen leaves scattered across the board.' },
-    { id: 'skin:royal',     rarity: 'legendary', price: 5000, desc: 'A violet body with gold rails, jewels and a crown.' }
+    { id: 'board:autumn',   rarity: 'epic',  price: 2000,  desc: 'Warm brown tiles with fallen leaves scattered across the board.' },
+    { id: 'skin:royal',     rarity: 'legendary', price: 5000, desc: 'A violet body with gold rails, jewels and a crown.' },
+
+    /* Football, history and legends (skins). Colours and shapes only: no club badges or real logos. */
+    { id: 'skin:madrid',    rarity: 'epic',      price: 2500, desc: 'White kit with gold trim and a royal purple dot, for the capital\'s champions.' },
+    { id: 'skin:barca',     rarity: 'epic',      price: 2500, desc: 'Blue and garnet stripes from nose to tail, with a golden captain\'s band.' },
+    { id: 'skin:argentina', rarity: 'epic',      price: 2000, desc: 'Sky-blue and white stripes with a golden sun band.' },
+    { id: 'skin:brazil',    rarity: 'epic',      price: 2000, desc: 'Samba green and yellow with a deep blue rail.' },
+    { id: 'skin:pharaoh',   rarity: 'epic',      price: 3000, desc: 'Gold and lapis stripes under a pharaoh\'s royal headcloth.' },
+    { id: 'skin:roman',     rarity: 'epic',      price: 2600, desc: 'A legionary in crimson with a golden helmet and a crest.' },
+    { id: 'skin:viking',    rarity: 'epic',      price: 2800, desc: 'Iron-grey and leather with a horned helmet.' },
+    { id: 'skin:samurai',   rarity: 'epic',      price: 3000, desc: 'Black lacquer armour, red lacing and a golden crescent helmet.' },
+    { id: 'skin:ottoman',   rarity: 'legendary', price: 5500, desc: 'Deep red and gold with a tasselled fez.' },
+    { id: 'skin:saladin',   rarity: 'legendary', price: 6500, desc: 'A green and gold knight under a yellow and crimson turban.' },
+
+    /* Maps: each one has its own texture. */
+    { id: 'board:chess',    rarity: 'epic',      price: 1600, desc: 'A grandmaster\'s checkered board in ivory and ebony.' },
+    { id: 'board:snow',     rarity: 'epic',      price: 1800, desc: 'A frozen field with drifts of fresh snow.' },
+    { id: 'board:dunes',    rarity: 'epic',      price: 2000, desc: 'Wind-carved golden sand dunes.' },
+    { id: 'board:matrix',   rarity: 'epic',      price: 2200, desc: 'Falling green code on a black screen.' },
+    { id: 'board:stars',    rarity: 'epic',      price: 2800, desc: 'Deep space with a purple nebula and a thousand stars.' },
+    { id: 'board:pitch',    rarity: 'epic',      price: 3000, desc: 'A mown football pitch with the halfway line, centre circle and penalty boxes.' },
+    { id: 'board:mosaic',   rarity: 'legendary', price: 5500, desc: 'Turquoise tiles with golden eight-point stars, in the Islamic art style.' },
+    { id: 'board:roman',    rarity: 'legendary', price: 6000, desc: 'Veined marble flagstones from an ancient Roman forum.' },
+    { id: 'board:alhambra', rarity: 'legendary', price: 7000, desc: 'Blue and ochre zellige tiles inspired by Andalusian palaces.' },
+    { id: 'board:lava',     rarity: 'legendary', price: 8000, desc: 'Black volcanic rock split by glowing lava cracks.' }
   ];
 
   /* A price outside its rarity band is a mistake in the catalogue, not a player problem. */
@@ -2561,7 +2595,18 @@ if (typeof module !== 'undefined' && module.exports) module.exports = SnakeChase
     galaxy:    { premium: true, deco: 'galaxy',    name: 'Galaxy',               snake: '#4A3C9C', head: '#8C78E8', accent: '#8C78E8', strong: '#C7B8FF' },
     dragon:    { premium: true, deco: 'dragon',    name: 'Golden Dragon',        snake: '#D49A1E', head: '#F2C65A', accent: '#E0A82E', strong: '#FFD76E' },
     shemagh:   { premium: true, deco: 'shemagh',   name: 'Red Shemagh',          snake: '#B8323A', head: '#E2555D', accent: '#F4F4EF', strong: '#FFFFFF' },
-    royal:     { premium: true, deco: 'royal',     name: 'Royal Snake',          snake: '#5B3FA8', head: '#8F6FE0', accent: '#F2C65A', strong: '#FFE08A' }
+    royal:     { premium: true, deco: 'royal',     name: 'Royal Snake',          snake: '#5B3FA8', head: '#8F6FE0', accent: '#F2C65A', strong: '#FFE08A' },
+    /* History and football skins. body: cross bands and/or side rails; gear: what the head wears (see skinBody / skinHead). */
+    madrid:    { premium: true, deco: 'madrid',    name: 'Madrid Whites',     snake: '#EDEDEA', head: '#FFFFFF', accent: '#D4AF37', strong: '#F2D675', body: { rails: '#D4AF37', dots: '#5B2C8F' }, gear: { type: 'band', color: '#D4AF37' } },
+    barca:     { premium: true, deco: 'barca',     name: 'Catalan Stripes',   snake: '#1B4F9C', head: '#3C78CC', accent: '#A50044', strong: '#E0457F', body: { bands: ['#A50044'] }, gear: { type: 'band', color: '#EDBB00' } },
+    argentina: { premium: true, deco: 'argentina', name: 'Albiceleste',       snake: '#75AADB', head: '#A5CBEA', accent: '#75AADB', strong: '#B9D8F2', body: { bands: ['#FFFFFF'] }, gear: { type: 'band', color: '#F6B40E' } },
+    brazil:    { premium: true, deco: 'brazil',    name: 'Samba Gold',        snake: '#1FA64A', head: '#4BCB73', accent: '#FFDF00', strong: '#FFE95A', body: { bands: ['#FFDF00'], rails: '#002776' }, gear: { type: 'band', color: '#FFDF00' } },
+    pharaoh:   { premium: true, deco: 'pharaoh',   name: 'Pharaoh',           snake: '#C9A227', head: '#E3C35A', accent: '#E5B93C', strong: '#F5D676', body: { bands: ['#1E4FA8'] }, gear: { type: 'cloth', stripes: ['#E5B93C', '#1E4FA8'], edge: '#7A5A10' } },
+    roman:     { premium: true, deco: 'roman',     name: 'Roman Legion',      snake: '#9E2B25', head: '#C84B43', accent: '#D4AF37', strong: '#F0CB62', body: { rails: '#D4AF37' }, gear: { type: 'crest', helm: '#C9A227', crest: '#C0392B' } },
+    viking:    { premium: true, deco: 'viking',    name: 'Viking Raider',     snake: '#5C6B73', head: '#8A9BA3', accent: '#B07C45', strong: '#D9A569', body: { bands: ['#8B5A2B'] }, gear: { type: 'horns', helm: '#9AA5AB', horn: '#F1E6C8' } },
+    samurai:   { premium: true, deco: 'samurai',   name: 'Samurai',           snake: '#2B2B35', head: '#4A4A5A', accent: '#D6453A', strong: '#F0766C', body: { rails: '#C0392B' }, gear: { type: 'kabuto', helm: '#1E1E26', crescent: '#D4AF37', trim: '#C0392B' } },
+    ottoman:   { premium: true, deco: 'ottoman',   name: 'Ottoman Sultan',    snake: '#8E1B2A', head: '#B83246', accent: '#D4AF37', strong: '#F0CB62', body: { rails: '#D4AF37' }, gear: { type: 'fez', color: '#C0392B' } },
+    saladin:   { premium: true, deco: 'saladin',   name: 'Ayyubid Knight',    snake: '#2F7A54', head: '#55A97F', accent: '#F2D24B', strong: '#FFE680', body: { rails: '#D4AF37' }, gear: { type: 'cloth', stripes: ['#F2D24B', '#B02A2A'], edge: '#6E1515' } }
   };
   var STYLES = { realistic: { name: 'Realistic' } };   // the only snake body style
   var BOARDS = {
@@ -2572,7 +2617,17 @@ if (typeof module !== 'undefined' && module.exports) module.exports = SnakeChase
     desert:   { premium: true, name: 'Desert night', bg: '#17110B', board: '#241A11', grid: '#33261A', tile: '#40301F' },
     neon:     { premium: true, name: 'Neon Arena',   bg: '#0A0716', board: '#0F0A24', grid: '#2B1B66', tile: '#2A1A5C' },
     meadow:   { premium: true, name: 'Green Meadow', bg: '#0F1A12', board: '#1F3A24', grid: '#2D5536', tile: '#264A2D', texture: 'grass' },
-    autumn:   { premium: true, name: 'Autumn Forest', bg: '#1A110A', board: '#241910', grid: '#3D2B1C', tile: '#2F2014', texture: 'leaves' }
+    autumn:   { premium: true, name: 'Autumn Forest', bg: '#1A110A', board: '#241910', grid: '#3D2B1C', tile: '#2F2014', texture: 'leaves' },
+    chess:    { premium: true, name: 'Grandmaster Chess', bg: '#111112', board: '#1B1B1D', grid: '#2A2A2D', tile: '#262628', texture: 'checker' },
+    snow:     { premium: true, name: 'Snowfield',       bg: '#0F1620', board: '#26384A', grid: '#3A5068', tile: '#2E4357', texture: 'snow' },
+    dunes:    { premium: true, name: 'Golden Dunes',    bg: '#1A130A', board: '#4A3A20', grid: '#6A5430', tile: '#58452A', texture: 'dunes' },
+    matrix:   { premium: true, name: 'Digital Rain',    bg: '#020805', board: '#031109', grid: '#0B2A18', tile: '#06180E', texture: 'matrix' },
+    stars:    { premium: true, name: 'Deep Space',      bg: '#04050D', board: '#070816', grid: '#171A3A', tile: '#0D1030', texture: 'stars' },
+    pitch:    { premium: true, name: 'Football Pitch',  bg: '#0B1A0E', board: '#1C4D27', grid: '#2A6636', tile: '#235A2E', texture: 'pitch' },
+    mosaic:   { premium: true, name: 'Islamic Mosaic',  bg: '#071A20', board: '#0F2A33', grid: '#1D5A66', tile: '#14404B', texture: 'mosaic' },
+    roman:    { premium: true, name: 'Roman Forum',     bg: '#161513', board: '#2B2A28', grid: '#44413C', tile: '#35332F', texture: 'marble' },
+    alhambra: { premium: true, name: 'Alhambra Tiles',  bg: '#08131F', board: '#12304E', grid: '#2B5F94', tile: '#1A4268', texture: 'zellige' },
+    lava:     { premium: true, name: 'Volcano',         bg: '#120706', board: '#1A0C0A', grid: '#3A1710', tile: '#26100C', texture: 'lava' }
   };
   var RARITY = SnakeShop.RARITY, SHOP = SnakeShop.ITEMS;   // the catalogue lives in src/shop.js
   var FOODS = { dot: { name: 'Dot', color: '#F2B84B' }, apple: { name: 'Apple', color: '#E5594F' }, berry: { name: 'Berry', color: '#B06CF0' } };
@@ -3404,42 +3459,64 @@ if (typeof module !== 'undefined' && module.exports) module.exports = SnakeChase
 
   /* ---------- shop ---------- */
   function shopMeta(item) { var p = item.id.split(':'); return { kind: p[0], key: p[1], T: LOOK_TABLES[p[0]] }; }
-  function drawPreview(cv, item) {                         // a tiny still picture of the item, drawn with the real drawing code
-    var m = shopMeta(item), dpr = Math.min(2, window.devicePixelRatio || 1), W = 200, H = 64;
+  function drawPreview(cv, item) {                         // a still picture of the item, drawn with the real drawing code
+    var m = shopMeta(item), dpr = Math.min(2, window.devicePixelRatio || 1), isMap = m.kind === 'board';
+    var c = isMap ? 20 : 28, W = 200, H = isMap ? 120 : 84, cols = Math.ceil(W / c), rows = Math.ceil(H / c);
     cv.width = W * dpr; cv.height = H * dpr;
-    var saved = { ctx: ctx, cell: cell, skin: look.skin, snake: PAL.snake, head: PAL.head, board: PAL.board, grid: PAL.grid };
+    var saved = { ctx: ctx, cell: cell, skin: look.skin, snake: PAL.snake, head: PAL.head, board: PAL.board, grid: PAL.grid, food: PAL.food };
     try {
       ctx = cv.getContext('2d'); ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-      var bd = m.kind === 'board' ? m.T[m.key] : BOARDS[look.board] || BOARDS.midnight;
+      var bd = isMap ? m.T[m.key] : BOARDS[look.board] || BOARDS.midnight;
       ctx.fillStyle = bd.board; ctx.fillRect(0, 0, W, H);
+      if (bd.texture) drawBoardTexture(bd.texture, c, cols, rows);
       ctx.strokeStyle = bd.grid; ctx.lineWidth = 1; ctx.beginPath();
-      for (var gx = 0; gx <= W; gx += 20) { ctx.moveTo(gx + 0.5, 0); ctx.lineTo(gx + 0.5, H); }
-      for (var gy = 0; gy <= H; gy += 20) { ctx.moveTo(0, gy + 0.5); ctx.lineTo(W, gy + 0.5); }
+      for (var gx = 0; gx <= W; gx += c) { ctx.moveTo(gx + 0.5, 0); ctx.lineTo(gx + 0.5, H); }
+      for (var gy = 0; gy <= H; gy += c) { ctx.moveTo(0, gy + 0.5); ctx.lineTo(W, gy + 0.5); }
       ctx.stroke();
       PAL.board = bd.board;
       var sk = m.kind === 'skin' ? SKINS[m.key] : SKINS[look.skin] && !SKINS[look.skin].premium ? SKINS[look.skin] : SKINS.emerald;
       look.skin = m.kind === 'skin' ? m.key : 'emerald';
       PAL.snake = sk.snake; PAL.head = sk.head;
-      cell = 22; var c = 22, pts = [], i;
-      for (i = 0; i < 9; i++) pts.push({ x: 8.1 - i * 0.9, y: 1.4 + Math.sin(i * 0.8) * 0.12 });
+      cell = c; var pts = [], i;
+      if (isMap) {                                           // a short snake with a turn, and an apple to chase
+        pts = [[7, 3], [6, 3], [5, 3], [4, 3], [4, 4], [3, 4], [2, 4], [1, 4]].map(function (q) { return { x: q[0], y: q[1] }; });
+        PAL.food = '#E5594F';
+        drawFood(9.5 * c, 1.5 * c, c);
+      } else {
+        for (i = 0; i < 8; i++) pts.push({ x: 5.4 - i * 0.74, y: 1.0 + Math.sin(i * 0.8) * 0.1 });
+      }
       drawRealisticBody(pts, { food: null }, c, sk.snake, false);
       drawRealisticHead((pts[0].x + 0.5) * c, (pts[0].y + 0.5) * c, { x: 1, y: 0 }, c, sk.snake, sk.head, { food: null }, pts[0], null);
     } finally {
-      ctx = saved.ctx; cell = saved.cell; look.skin = saved.skin; PAL.snake = saved.snake; PAL.head = saved.head; PAL.board = saved.board; PAL.grid = saved.grid;
+      ctx = saved.ctx; cell = saved.cell; look.skin = saved.skin; PAL.snake = saved.snake; PAL.head = saved.head; PAL.board = saved.board; PAL.grid = saved.grid; PAL.food = saved.food;
     }
   }
   function equipItem(item) {
     var m = shopMeta(item), o = { mode: mode, edge: edge };
     applyLook(m.kind, m.key); o[m.kind] = m.key; profile.setPrefs(o);
   }
+  var shopTab = 'skin';
+  try { if (window.localStorage.getItem('gridsnake-shop-tab') === 'board') shopTab = 'board'; } catch (e) {}
+  function setShopTab(k) {
+    shopTab = k === 'board' ? 'board' : 'skin';
+    try { window.localStorage.setItem('gridsnake-shop-tab', shopTab); } catch (e) {}
+    renderShop();
+  }
+  ['shopTabSkin', 'shopTabBoard'].forEach(function (id) { $(id).addEventListener('click', function () { setShopTab(this.getAttribute('data-kind')); }); });
   function renderShop() {
     var box = $('shopBody'), coins = profile.getCoins();
     setText($('shopCoins'), coins);
     box.textContent = '';
-    SHOP.forEach(function (item) {
+    ['skin', 'board'].forEach(function (k) {
+      var list = SHOP.filter(function (i) { return i.id.split(':')[0] === k; });
+      var tab = $(k === 'skin' ? 'shopTabSkin' : 'shopTabBoard');
+      tab.setAttribute('aria-selected', k === shopTab ? 'true' : 'false');
+      setText($(k === 'skin' ? 'shopCountSkin' : 'shopCountBoard'), list.filter(function (i) { return profile.owns(i.id); }).length + '/' + list.length);
+    });
+    SHOP.filter(function (i) { return i.id.split(':')[0] === shopTab; }).forEach(function (item) {
       var m = shopMeta(item), meta = m.T[m.key], owned = profile.owns(item.id), on = owned && look[m.kind] === m.key;
       var card = document.createElement('div'); card.className = 'shop-item'; card.setAttribute('data-id', item.id);
-      var cv = document.createElement('canvas'); cv.setAttribute('aria-hidden', 'true'); card.appendChild(cv);
+      var cv = document.createElement('canvas'); cv.setAttribute('aria-hidden', 'true'); if (m.kind === 'board') cv.className = 'map'; card.appendChild(cv);
       var rar = RARITY[item.rarity] || RARITY.basic;
       var tag = document.createElement('span'); tag.className = 'rarity rarity--' + (item.rarity || 'basic');
       tag.textContent = rar.name + ' · ' + item.price + ' coins'; card.appendChild(tag);
@@ -3680,9 +3757,27 @@ if (typeof module !== 'undefined' && module.exports) module.exports = SnakeChase
   /* ---------- drawing ---------- */
   /* Board textures are per cell and fixed (a hash of the cell), so they never shimmer and cost nothing in the rules. */
   function cellHash(x, y) { var h = (x * 73856093) ^ (y * 19349663); h = (h ^ (h >>> 13)) * 1274126177; return (h ^ (h >>> 16)) >>> 0; }
-  function drawBoardTexture(kind, c) {
-    var x, y, h, i, lx, ly;
-    for (x = 0; x < COLS; x++) for (y = 0; y < COLS; y++) {
+  function drawBoardTexture(kind, c, cols, rows) {
+    var x, y, h, i, lx, ly, W, H;
+    cols = cols || COLS; rows = rows || COLS; W = cols * c; H = rows * c;
+    if (kind === 'stars') {                                   // a nebula under the stars
+      [[0.25, 0.3, 0.45, '#5B2C8F'], [0.75, 0.7, 0.4, '#1E4FA8']].forEach(function (n) {
+        var g = ctx.createRadialGradient(n[0] * W, n[1] * H, 0, n[0] * W, n[1] * H, n[2] * W);
+        g.addColorStop(0, n[3]); g.addColorStop(1, 'rgba(0,0,0,0)');
+        ctx.globalAlpha = 0.35; ctx.fillStyle = g; ctx.fillRect(0, 0, W, H); ctx.globalAlpha = 1;
+      });
+    } else if (kind === 'pitch') {                            // mown stripes, then the white lines
+      for (x = 0; x < cols; x += 2) { ctx.fillStyle = '#FFFFFF'; ctx.globalAlpha = 0.045; ctx.fillRect(x * c, 0, c, H); }
+      ctx.globalAlpha = 0.4; ctx.strokeStyle = '#FFFFFF'; ctx.lineWidth = Math.max(1.5, c * 0.07);
+      ctx.strokeRect(c * 0.4, c * 0.4, W - c * 0.8, H - c * 0.8);
+      ctx.beginPath(); ctx.moveTo(W / 2, c * 0.4); ctx.lineTo(W / 2, H - c * 0.4); ctx.stroke();
+      ctx.beginPath(); ctx.arc(W / 2, H / 2, Math.min(W, H) * 0.13, 0, Math.PI * 2); ctx.stroke();
+      var bw = c * Math.max(2, cols * 0.14), bh = H * 0.5;
+      ctx.strokeRect(c * 0.4, (H - bh) / 2, bw, bh); ctx.strokeRect(W - c * 0.4 - bw, (H - bh) / 2, bw, bh);
+      ctx.globalAlpha = 1;
+      return;
+    }
+    for (x = 0; x < cols; x++) for (y = 0; y < rows; y++) {
       h = cellHash(x, y);
       if (kind === 'grass') {
         ctx.fillStyle = h % 3 === 0 ? '#2C5A36' : '#214629';   // mown and wild patches
@@ -3695,11 +3790,79 @@ if (typeof module !== 'undefined' && module.exports) module.exports = SnakeChase
         }
       } else if (kind === 'leaves') {
         if (h % 5 === 0) {                                     // a fallen leaf, a little turned
-          var cols = ['#D9782B', '#E8A33A', '#B4501E'];
+          var cols2 = ['#D9782B', '#E8A33A', '#B4501E'];
           ctx.save(); ctx.translate((x + 0.5 + ((h >> 4) % 3 - 1) * 0.12) * c, (y + 0.5 + ((h >> 6) % 3 - 1) * 0.12) * c);
-          ctx.rotate((h % 628) / 100); ctx.fillStyle = cols[h % 3]; ctx.globalAlpha = 0.75;
+          ctx.rotate((h % 628) / 100); ctx.fillStyle = cols2[h % 3]; ctx.globalAlpha = 0.75;
           ctx.beginPath(); ctx.ellipse(0, 0, c * 0.18, c * 0.09, 0, 0, Math.PI * 2); ctx.fill();
           ctx.restore(); ctx.globalAlpha = 1;
+        }
+      } else if (kind === 'checker') {                         // ivory squares on alternate cells
+        if ((x + y) % 2 === 0) { ctx.fillStyle = '#EDE3D0'; ctx.globalAlpha = 0.1; ctx.fillRect(x * c, y * c, c, c); ctx.globalAlpha = 1; }
+      } else if (kind === 'snow') {
+        if (h % 3 === 0) {                                     // a soft drift
+          ctx.fillStyle = '#FFFFFF'; ctx.globalAlpha = 0.1;
+          ctx.beginPath(); ctx.ellipse((x + 0.5) * c, (y + 0.65) * c, c * 0.42, c * 0.2, 0, 0, Math.PI * 2); ctx.fill(); ctx.globalAlpha = 1;
+        }
+        if (h % 4 === 1) {                                     // a flake
+          ctx.fillStyle = '#FFFFFF'; ctx.globalAlpha = 0.5;
+          ctx.beginPath(); ctx.arc((x + ((h >> 3) % 7) / 8 + 0.1) * c, (y + ((h >> 6) % 7) / 8 + 0.1) * c, Math.max(0.8, c * 0.04), 0, Math.PI * 2); ctx.fill(); ctx.globalAlpha = 1;
+        }
+      } else if (kind === 'dunes') {
+        ctx.strokeStyle = h % 2 ? '#8A6B3A' : '#2E2312'; ctx.globalAlpha = 0.35; ctx.lineWidth = Math.max(1, c * 0.05); ctx.lineCap = 'round';
+        ctx.beginPath(); ctx.moveTo(x * c, (y + 0.6) * c);        // a ripple that joins its neighbours
+        ctx.quadraticCurveTo((x + 0.5) * c, (y + (y % 2 ? 0.25 : 0.95)) * c, (x + 1) * c, (y + 0.6) * c); ctx.stroke(); ctx.globalAlpha = 1;
+      } else if (kind === 'matrix') {
+        if (h % 3 === 0) {                                     // a falling code glyph
+          ctx.fillStyle = '#2BE06A'; ctx.globalAlpha = 0.1 + (h % 5) * 0.06;
+          ctx.fillRect((x + 0.3) * c, (y + 0.15) * c, c * 0.1, c * 0.5); ctx.fillRect((x + 0.3) * c, (y + 0.15) * c, c * 0.38, c * 0.1);
+          if (h % 2) ctx.fillRect((x + 0.3) * c, (y + 0.55) * c, c * 0.34, c * 0.1);
+          ctx.globalAlpha = 1;
+        }
+      } else if (kind === 'stars') {
+        if (h % 3 === 0) {
+          ctx.fillStyle = h % 7 === 0 ? '#FFD9A8' : '#FFFFFF'; ctx.globalAlpha = 0.25 + (h % 5) * 0.12;
+          var sx = (x + ((h >> 3) % 8) / 8 + 0.06) * c, sy = (y + ((h >> 6) % 8) / 8 + 0.06) * c;
+          ctx.beginPath(); ctx.arc(sx, sy, Math.max(0.7, c * (h % 11 === 0 ? 0.06 : 0.03)), 0, Math.PI * 2); ctx.fill();
+          if (h % 11 === 0) { ctx.fillRect(sx - c * 0.1, sy - 0.5, c * 0.2, 1); ctx.fillRect(sx - 0.5, sy - c * 0.1, 1, c * 0.2); }
+          ctx.globalAlpha = 1;
+        }
+      } else if (kind === 'mosaic') {                          // an eight-point star in every tile
+        var mx = (x + 0.5) * c, my = (y + 0.5) * c, mr = c * 0.34;
+        if ((x + y) % 2 === 0) { ctx.fillStyle = '#2FB7A4'; ctx.globalAlpha = 0.1; ctx.fillRect(x * c, y * c, c, c); }
+        ctx.strokeStyle = '#E5B93C'; ctx.globalAlpha = 0.4; ctx.lineWidth = Math.max(1, c * 0.035);
+        ctx.beginPath();
+        for (i = 0; i < 2; i++) {
+          ctx.save(); ctx.translate(mx, my); ctx.rotate(i * Math.PI / 4);
+          ctx.rect(-mr, -mr, mr * 2, mr * 2); ctx.restore();
+        }
+        ctx.stroke(); ctx.globalAlpha = 1;
+      } else if (kind === 'marble') {
+        ctx.fillStyle = '#FFFFFF'; ctx.globalAlpha = (x + y) % 2 ? 0.03 : 0.07; ctx.fillRect(x * c, y * c, c, c);
+        if (h % 3 === 0) {                                     // a vein across the slab
+          ctx.strokeStyle = '#D8D2C6'; ctx.globalAlpha = 0.22; ctx.lineWidth = Math.max(0.8, c * 0.03);
+          ctx.beginPath(); ctx.moveTo(x * c + c * ((h >> 3) % 5) / 5, y * c);
+          ctx.quadraticCurveTo((x + 0.5) * c, (y + 0.5) * c, x * c + c * ((h >> 6) % 5) / 5, (y + 1) * c); ctx.stroke();
+        }
+        ctx.globalAlpha = 1;
+      } else if (kind === 'zellige') {                         // diamonds with a gold centre
+        var zx = (x + 0.5) * c, zy = (y + 0.5) * c, zr = c * 0.36;
+        ctx.fillStyle = (x + y) % 2 ? '#E8EEF5' : '#E5B93C'; ctx.globalAlpha = 0.1;
+        ctx.beginPath(); ctx.moveTo(zx, zy - zr); ctx.lineTo(zx + zr, zy); ctx.lineTo(zx, zy + zr); ctx.lineTo(zx - zr, zy); ctx.closePath(); ctx.fill();
+        ctx.strokeStyle = '#7FB2E5'; ctx.globalAlpha = 0.4; ctx.lineWidth = Math.max(1, c * 0.035); ctx.stroke();
+        ctx.fillStyle = '#E5B93C'; ctx.globalAlpha = 0.7;
+        ctx.beginPath(); ctx.arc(zx, zy, Math.max(1, c * 0.05), 0, Math.PI * 2); ctx.fill(); ctx.globalAlpha = 1;
+      } else if (kind === 'lava') {
+        if (h % 4 === 0) {                                     // a glowing crack
+          var ox = x * c + c * 0.15, oy = y * c + c * ((h >> 3) % 5) / 6 + c * 0.1;
+          ctx.strokeStyle = '#FF6A1A'; ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+          ctx.globalAlpha = 0.25; ctx.lineWidth = Math.max(3, c * 0.16);
+          ctx.beginPath(); ctx.moveTo(ox, oy); ctx.lineTo(ox + c * 0.3, oy + c * 0.3); ctx.lineTo(ox + c * 0.55, oy + c * 0.1); ctx.lineTo(ox + c * 0.7, oy + c * 0.4); ctx.stroke();
+          ctx.globalAlpha = 0.9; ctx.strokeStyle = '#FFB347'; ctx.lineWidth = Math.max(1, c * 0.05);
+          ctx.beginPath(); ctx.moveTo(ox, oy); ctx.lineTo(ox + c * 0.3, oy + c * 0.3); ctx.lineTo(ox + c * 0.55, oy + c * 0.1); ctx.lineTo(ox + c * 0.7, oy + c * 0.4); ctx.stroke();
+          ctx.globalAlpha = 1;
+        } else if (h % 5 === 1) {
+          ctx.fillStyle = '#000000'; ctx.globalAlpha = 0.3;
+          ctx.beginPath(); ctx.ellipse((x + 0.5) * c, (y + 0.5) * c, c * 0.32, c * 0.2, (h % 6) / 3, 0, Math.PI * 2); ctx.fill(); ctx.globalAlpha = 1;
         }
       }
     }
@@ -3966,9 +4129,75 @@ if (typeof module !== 'undefined' && module.exports) module.exports = SnakeChase
         }
         ctx.restore();
       });
+    } else if (SKINS[look.skin] && SKINS[look.skin].body) {
+      styledBody(samples, c, SKINS[look.skin].body);
     }
   }
-  function clothPattern(kind, x0, y0, x1, y1, c) {          // fills the current clip with keffiyeh or shemagh cloth
+  /* Cross bands and/or side rails with dots, from a skin's body settings. */
+  function styledBody(samples, c, b) {
+    var next = 0.3 * c, n = 0, dotNext = 0.5 * c;
+    if (b.bands) samples.forEach(function (q) {
+      if (q.s < next || q.t < 0.07 || q.t > 0.93) return;
+      next = q.s + c * 0.46; n++;
+      ctx.save(); ctx.translate(q.x, q.y); ctx.rotate(q.a);
+      ctx.fillStyle = b.bands[n % b.bands.length]; ctx.globalAlpha = 0.9;
+      ctx.fillRect(-c * 0.1, -q.w * 0.42, c * 0.2, q.w * 0.84);
+      ctx.restore();
+    });
+    if (b.rails) {
+      polyline(samples, -1, 0.36, Math.max(1.5, c * 0.05), b.rails, 0.9);
+      polyline(samples, 1, 0.36, Math.max(1.5, c * 0.05), b.rails, 0.9);
+    }
+    if (b.dots) samples.forEach(function (q) {
+      if (q.s < dotNext || q.t < 0.08 || q.t > 0.92) return;
+      dotNext = q.s + c * 0.62;
+      ctx.fillStyle = b.dots; ctx.beginPath(); ctx.arc(q.x, q.y, Math.max(1.2, c * 0.07), 0, Math.PI * 2); ctx.fill();
+    });
+    ctx.globalAlpha = 1;
+  }
+  /* Head gear for skins that carry a settings object (x forward, y to the side; kept behind the eyes). */
+  function drawGear(g, c) {
+    var i;
+    ctx.lineWidth = Math.max(1, c * 0.03);
+    if (g.type === 'band') {
+      ctx.fillStyle = g.color; ctx.strokeStyle = 'rgba(0,0,0,.35)';
+      ctx.fillRect(-c * 0.14, -c * 0.38, c * 0.13, c * 0.76); ctx.strokeRect(-c * 0.14, -c * 0.38, c * 0.13, c * 0.76);
+    } else if (g.type === 'crest' || g.type === 'horns' || g.type === 'kabuto' || g.type === 'fez') {
+      var dome = g.type === 'fez' ? g.color : g.helm;
+      if (g.type === 'horns') {
+        ctx.fillStyle = g.horn; ctx.strokeStyle = '#7A6A45';
+        [-1, 1].forEach(function (sd) {
+          ctx.beginPath(); ctx.moveTo(-c * 0.12, sd * c * 0.2); ctx.quadraticCurveTo(-c * 0.1, sd * c * 0.55, c * 0.2, sd * c * 0.62);
+          ctx.quadraticCurveTo(-c * 0.02, sd * c * 0.44, c * 0.02, sd * c * 0.2); ctx.closePath(); ctx.fill(); ctx.stroke();
+        });
+      }
+      if (g.type === 'kabuto') {
+        ctx.strokeStyle = g.crescent; ctx.lineWidth = Math.max(1.5, c * 0.06); ctx.lineCap = 'round';
+        ctx.beginPath(); ctx.arc(-c * 0.12, 0, c * 0.5, -0.85, 0.85); ctx.stroke();
+      }
+      ctx.fillStyle = dome; ctx.strokeStyle = 'rgba(0,0,0,.45)'; ctx.lineWidth = Math.max(1, c * 0.03);
+      ctx.beginPath(); ctx.arc(-c * 0.14, 0, g.type === 'fez' ? c * 0.22 : c * 0.26, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+      if (g.type === 'crest') {                            // a centurion's crest across the helmet
+        ctx.fillStyle = g.crest; ctx.fillRect(-c * 0.2, -c * 0.38, c * 0.12, c * 0.76); ctx.strokeRect(-c * 0.2, -c * 0.38, c * 0.12, c * 0.76);
+        ctx.strokeStyle = 'rgba(0,0,0,.3)';
+        for (i = -3; i <= 3; i++) { ctx.beginPath(); ctx.moveTo(-c * 0.2, i * c * 0.1); ctx.lineTo(-c * 0.08, i * c * 0.1); ctx.stroke(); }
+      } else if (g.type === 'kabuto') {
+        ctx.strokeStyle = g.trim; ctx.lineWidth = Math.max(1, c * 0.04);
+        ctx.beginPath(); ctx.arc(-c * 0.14, 0, c * 0.17, 0, Math.PI * 2); ctx.stroke();
+      } else if (g.type === 'fez') {
+        ctx.strokeStyle = '#111'; ctx.fillStyle = '#111'; ctx.lineWidth = Math.max(1, c * 0.035);
+        ctx.beginPath(); ctx.moveTo(-c * 0.14, 0); ctx.lineTo(-c * 0.4, c * 0.2); ctx.stroke();
+        ctx.beginPath(); ctx.arc(-c * 0.4, c * 0.2, Math.max(1.2, c * 0.05), 0, Math.PI * 2); ctx.fill();
+      }
+    }
+  }
+  function clothPattern(kind, x0, y0, x1, y1, c) {
+    if (typeof kind === 'object') {                         // vertical stripes in the skin's own colours
+      var st = c * 0.12, n = 0, sx;
+      ctx.fillStyle = kind.stripes[0]; ctx.fillRect(x0, y0, x1 - x0, y1 - y0);
+      for (sx = x0; sx < x1; sx += st, n++) { if (n % 2) { ctx.fillStyle = kind.stripes[1]; ctx.fillRect(sx, y0, st, y1 - y0); } }
+      return;
+    }          // fills the current clip with keffiyeh or shemagh cloth
     if (kind === 'shemagh') {                               // a red and white check
       var sq = c * 0.16, row = 0, cx, cy;
       ctx.fillStyle = '#B8323A'; ctx.fillRect(x0, y0, x1 - x0, y1 - y0);
@@ -3993,12 +4222,15 @@ if (typeof module !== 'undefined' && module.exports) module.exports = SnakeChase
     var deco = skinDeco(), k = FX.clock, i;
     if (!deco) return;
     ctx.save(); ctx.scale(1.15, 1.15);                      // gear is drawn a little larger than the head so it reads at small sizes
-    if (deco === 'jordan' || deco === 'palestine' || deco === 'shemagh') {
-      var sw = motionOk() ? Math.sin(k / 260) * c * 0.05 : 0, edge = deco === 'jordan' ? '#8E1F28' : deco === 'shemagh' ? '#6E151B' : '#2A2A2A';
+    var gear = SKINS[look.skin] && SKINS[look.skin].gear;
+    if (gear && gear.type !== 'cloth') { drawGear(gear, c); ctx.restore(); return; }
+    if (gear || deco === 'jordan' || deco === 'palestine' || deco === 'shemagh') {
+      var cloth = gear || deco;
+      var sw = motionOk() ? Math.sin(k / 260) * c * 0.05 : 0, edge = gear ? gear.edge : deco === 'jordan' ? '#8E1F28' : deco === 'shemagh' ? '#6E151B' : '#2A2A2A';
       ctx.save();
       ctx.beginPath();                                      // the loose end trailing behind the head
       ctx.moveTo(-c * 0.1, -c * 0.34); ctx.lineTo(-c * 0.78, -c * 0.12 + sw); ctx.lineTo(-c * 0.7, c * 0.3 + sw); ctx.lineTo(-c * 0.1, c * 0.34); ctx.closePath();
-      ctx.clip(); clothPattern(deco, -c * 0.9, -c * 0.5, c * 0.2, c * 0.5, c);
+      ctx.clip(); clothPattern(cloth, -c * 0.9, -c * 0.5, c * 0.2, c * 0.5, c);
       ctx.restore();
       ctx.strokeStyle = edge; ctx.lineWidth = Math.max(1, c * 0.03);
       ctx.beginPath(); ctx.moveTo(-c * 0.1, -c * 0.34); ctx.lineTo(-c * 0.78, -c * 0.12 + sw); ctx.lineTo(-c * 0.7, c * 0.3 + sw); ctx.lineTo(-c * 0.1, c * 0.34); ctx.stroke();
@@ -4008,7 +4240,7 @@ if (typeof module !== 'undefined' && module.exports) module.exports = SnakeChase
       }
       ctx.save();                                           // the wrap over the head
       ctx.beginPath(); ctx.ellipse(-c * 0.1, 0, c * 0.3, c * 0.43, 0, 0, Math.PI * 2); ctx.clip();
-      clothPattern(deco, -c * 0.5, -c * 0.5, c * 0.3, c * 0.5, c);
+      clothPattern(cloth, -c * 0.5, -c * 0.5, c * 0.3, c * 0.5, c);
       ctx.restore();
       ctx.strokeStyle = edge; ctx.lineWidth = Math.max(1.2, c * 0.035);
       ctx.beginPath(); ctx.ellipse(-c * 0.1, 0, c * 0.3, c * 0.43, 0, 0, Math.PI * 2); ctx.stroke();
