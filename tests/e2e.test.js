@@ -1025,6 +1025,49 @@ test('E2E shop: tabs split skins from maps, every map has a texture preview, and
   await finish(ctx, errors);
 });
 
+test('E2E wallet: with the server\'s wallet the shop buys through it, shows its coins, and a tampered device earns nothing', { timeout: 90000 }, async () => {
+  // SnakeWallet is what src/web/account-link.js gives the page: isOn, buy, attach (the fake below plays the server)
+  const init = () => {
+    const server = { coins: 3200, owned: {}, buys: [] };
+    let sink = null;
+    window.__server = server;
+    window.SnakeWallet = {
+      isOn: () => true,
+      attach: (fn) => { sink = fn; fn({ coins: server.coins, owned: server.owned }); },
+      buy: (id) => {
+        server.buys.push(id);
+        const price = { 'board:pitch': 3000, 'skin:madrid': 2500 }[id];
+        if (!price || server.coins < price) { sink({ coins: server.coins, owned: server.owned }); return Promise.resolve({ ok: false, message: 'Not enough coins.' }); }
+        server.coins -= price; server.owned[id] = true; sink({ coins: server.coins, owned: server.owned });
+        return Promise.resolve({ ok: true });
+      },
+      push: () => sink({ coins: server.coins, owned: server.owned })
+    };
+  };
+  // the device claims a million coins and every item: the wallet's answer replaces both
+  const { ctx, page, errors } = await open({ init, storage: seed({ prefs: { mode: 'classic', edge: 'walls', board: 'neon', skin: 'dragon' }, coins: 1000000, owned: { 'board:neon': true, 'skin:dragon': true, 'board:lava': true } }) });
+  assert.equal(await text(page, '#homeCoins'), '3200', 'the server\'s coins, not the device\'s');
+  assert.equal(await page.evaluate(() => __t.profile.owns('board:lava')), false, 'items the server does not hold are gone');
+  assert.equal(await page.evaluate(() => __t.profile.getPrefs().board), 'midnight', 'and so is a look that needs them');
+  await page.click('#homeShopBtn');
+  await page.click('#shopTabBoard');
+  await page.click('[data-id="board:pitch"] button');
+  await page.waitForFunction(() => document.querySelector('[data-id="board:pitch"] button').textContent === 'Equipped');
+  assert.deepEqual(await page.evaluate(() => window.__server.buys), ['board:pitch']);
+  assert.equal(await text(page, '#shopCoins'), '200');
+  assert.equal(await page.evaluate(() => __t.profile.getCoins()), 200);
+  // a purchase the server refuses shows why and changes nothing
+  await page.click('#shopTabSkin');
+  await page.evaluate(() => { document.querySelector('[data-id="skin:madrid"] button').disabled = false; });
+  await page.click('[data-id="skin:madrid"] button');
+  await page.waitForFunction(() => document.getElementById('shopMsg').textContent === 'Not enough coins.');
+  assert.equal(await page.evaluate(() => __t.profile.owns('skin:madrid')), false);
+  // editing the device afterwards does not survive the next answer of the server
+  await page.evaluate(() => { __t.profile.addCoins(500000); window.SnakeWallet.push(); });
+  assert.equal(await page.evaluate(() => __t.profile.getCoins()), 200);
+  await finish(ctx, errors);
+});
+
 test('E2E shop: an unowned skin saved in storage is not used', { timeout: 60000 }, async () => {
   const { ctx, page, errors } = await open({ storage: seed({ prefs: { mode: 'classic', edge: 'walls', skin: 'dragon', board: 'neon' } }) });
   assert.equal(await page.evaluate(() => __t.profile.getPrefs().skin), 'emerald');

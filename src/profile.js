@@ -170,6 +170,19 @@ var SnakeProfile = (function () {
         } catch (e) { return false; }
       },
       getCoins: function () { return data.coins; },
+      /* The server's wallet replaces the coins and the owned items on this device (web page, signed in). It is not progress:
+         it does not touch savedAt and does not wake the listeners, so it never looks like a change to sync. An equipped look
+         the wallet does not hold goes back to the default. */
+      setWallet: function (w) {
+        if (!w || typeof w !== 'object') return false;
+        var o = {};
+        premium.forEach(function (id) { if (w.owned && w.owned[id] === true) o[id] = true; });
+        data.coins = count(w.coins);
+        data.owned = o;
+        LOOK_KEYS.forEach(function (k) { if (!allowed(k, data.prefs[k], data.owned)) data.prefs[k] = LOOKS[k][0]; });
+        write(KEY, JSON.stringify(data));
+        return true;
+      },
       addCoins: function (n) { n = count(n); if (n) { data.coins += n; save(); } return data.coins; },
       /* A shop item is owned once bought. A free look (skin:emerald, board:midnight) is always owned. Anything else is not:
          an unknown id used to count as owned, which was wrong. */

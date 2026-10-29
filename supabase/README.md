@@ -291,3 +291,27 @@ If `src/engine.js` changes, re-run `scripts/sync-engine.mjs` in atherbyte-api an
 on another engine version gets "The game was updated. Reload the page to play ranked rounds."
 What replay does not stop: a program that plays (it knows the seed once the round opens), or a slowed-down game
 (frame times are the page's word; only a game running faster than real time is refused).
+
+## Wallet: coins and shop items kept by the server (`wallet.sql`, `wallet_catalog.sql`)
+
+Needs the account link, ranked rounds and replay parts to be applied first. Additive: it adds five tables and six functions
+for the Worker (service role only) and changes nothing that exists. Run `wallet.sql`, then `wallet_catalog.sql`. Both are safe to
+run again. `wallet_catalog.sql` is generated from `src/shop.js` (`node scripts/gen-wallet-catalog.js`); run it again whenever a
+price or an item changes (a price change affects new purchases only). Undo: `rollback_wallet.sql` (keeps every balance).
+
+**Deploy order:** database files, then the Worker (atherbyte-api), then the game page. Each step is tolerated by the one before
+it: a Worker without the wallet leaves the game on its own coins, and a database without it makes the Worker keep saves as they are.
+
+| What | Rule |
+| --- | --- |
+| Existing players | A wallet is made once from what the server already holds for them (their saved copy; the device's copy only when none was saved yet), at most `wallet_settings.import_budget` (50 000) in coins and items together. Players made after `launch_at` start with nothing. |
+| Buying | The price is read from `wallet_catalog`; balance and ownership are checked and written in one locked step. No double purchase, no purchase without the coins. |
+| Ranked Time Attack | A counted round pays exactly the score the Worker replayed, once per round, at most 12 000 coins a day. |
+| Any other run | Opened with the server when it starts; the claim pays at most 3 coins a second since it opened, never more than the score, once, within 3 hours, at most 6 000 a day. |
+| Achievements | Each (chain, tier) pays once, from the Worker's own reward table, at most 3 000 a day. Tiers finished before the wallet existed are marked paid. |
+| Saves | A saved copy no longer carries coins or items; nothing a save or a request says can set a balance. |
+
+What this does not stop: it cannot prove that a human played (a program can play a ranked round, and is limited by the daily
+caps), or that an achievement was truly earned (the game keeps those on the device; the cap and the one-payment-per-tier rule
+bound what a forged claim can take). It also cannot stop someone changing what their own screen draws. What it does stop:
+giving yourself coins or items that persist, spending coins you do not have, and getting any of it twice.

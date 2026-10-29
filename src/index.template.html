@@ -808,6 +808,7 @@ html[data-motion="off"] *, html[data-motion="off"] *::before, html[data-motion="
   </div>
   <p class="shop-coins">Your coins: <b id="shopCoins">0</b></p>
   <p class="dlg-note">Every point you score earns one coin when a run ends, and every achievement tier you finish pays more. Spend them on skins and maps. Looks never change the rules.</p>
+  <p class="dlg-note" id="shopMsg" role="status" aria-live="polite"></p>
   <div class="shop-tabs" role="tablist" aria-label="Shop sections">
     <button class="shop-tab" id="shopTabSkin" type="button" role="tab" data-kind="skin" aria-selected="true">Skins <small id="shopCountSkin"></small></button>
     <button class="shop-tab" id="shopTabBoard" type="button" role="tab" data-kind="board" aria-selected="false">Maps <small id="shopCountBoard"></small></button>
@@ -1017,6 +1018,7 @@ html[data-motion="off"] *, html[data-motion="off"] *::before, html[data-motion="
     skins: Object.keys(SKINS), styles: Object.keys(STYLES), boards: Object.keys(BOARDS), foods: Object.keys(FOODS),
     achievementIds: Ach.CHAINS.map(function (a) { return a.id; })
   });
+  var WALLET = (typeof SnakeWallet !== 'undefined' && SnakeWallet) ? SnakeWallet : null;   // set by the web page only
   var prefs = profile.getPrefs();
   var mode = prefs.mode, edge = prefs.edge, look = { skin: prefs.skin, style: prefs.style, board: prefs.board, food: prefs.food }, golden = prefs.golden, soundOn = prefs.sound, diffPref = prefs.difficulty, ctrlPref = prefs.controls;
   var sfx = SnakeSound.create({ enabled: soundOn, volume: prefs.volume });
@@ -1907,6 +1909,16 @@ html[data-motion="off"] *, html[data-motion="off"] *::before, html[data-motion="
       else if (on) { b.textContent = 'Equipped'; b.disabled = true; }
       else b.textContent = 'Equip';
       b.addEventListener('click', function () {
+        if (!profile.owns(item.id) && WALLET && WALLET.isOn()) {      // the server prices it, checks the coins and records it
+          b.disabled = true;
+          WALLET.buy(item.id).then(function (r) {
+            if (r.ok) { sfx.play('achievement'); announce(meta.name + ' bought'); if (profile.owns(item.id)) equipItem(item); }
+            else announce(r.message);
+            renderShop(); updateHome();
+            setText($('shopMsg'), r.ok ? '' : r.message);
+          });
+          return;
+        }
         if (!profile.owns(item.id)) {
           if (!profile.buy(item.id, item.price)) return;
           sfx.play('achievement'); announce(meta.name + ' bought');
@@ -3162,6 +3174,15 @@ html[data-motion="off"] *, html[data-motion="off"] *::before, html[data-motion="
   newGame();
   setView('home');
   startLoop();
+  /* On the web page the server keeps the coins and items (SnakeWallet, from src/web/account-link.js). Whenever it answers,
+     its wallet replaces what this device shows, and the looks and screens are redrawn to match. */
+  if (WALLET) WALLET.attach(function (w) {
+    profile.setWallet(w);
+    var pf = profile.getPrefs();
+    applyLook('skin', pf.skin); applyLook('board', pf.board); applyLook('food', pf.food);
+    updateHome();
+    if (shopDlg.open) renderShop();
+  });
   /*TEST_HOOK*/
 })();
 </script>

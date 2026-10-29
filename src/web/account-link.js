@@ -18,6 +18,11 @@
  *  - Before ANY import, and before linking, the device's progress is kept as a backup code (GS2., the same format as
  *    Profile > Backup and restore), the last five of them.
  *  - Ranked Time Attack scores go through the Worker (the browser cannot write to the board).
+ *  - Coins and shop items belong to the server (supabase/wallet.sql). A signed-in page shows the server's wallet and buys
+ *    through the Worker, which prices the item and takes the coins. A ranked round pays the score the Worker replayed, any
+ *    other run pays what its time allows (opened with the server when it starts, claimed when it ends), and achievement
+ *    tiers are claimed once each. The device's own coin count is only what the screen shows until the server answers;
+ *    editing it earns nothing. A Worker without the wallet leaves the game on its own coins, as before.
  *
  * The core (create, patchBoard) has no DOM and is tested in tests/account_link.test.js; boot() is tested in a browser
  * by tests/account_link_ui.test.js.
@@ -261,7 +266,7 @@ var SnakeAccountLink = (function () {
 
     /* A new account plays at once; its player is made on the server the first time something is saved or scored. */
     function ensurePlayer() {
-      return useAccountName(true).then(function (r) { if (r.ok) claimDevice(); return r; });
+      return useAccountName(true).then(function (r) { if (r.ok) { claimDevice(); loadWallet(); } return r; });
     }
     function notLinked(r) { return r.status === 409 && r.data && r.data.error === 'not_linked'; }
 
@@ -440,8 +445,13 @@ var SnakeAccountLink = (function () {
       }
       return null;
     }
+    var UNRANKABLE = ['no-round', 'switched', 'outdated', 'expired'];   // not the player's doing: the run still pays by its time
     function done(run, why, extra) {
       run.state = 'done'; prune();
+      if (run.casual && run.casual.deferred) {
+        run.casual.deferred = false;
+        if (UNRANKABLE.indexOf(why) >= 0) casualClaim(run.casual);       // refused for another reason (a replay that does not match): no coins
+      }
       var out = { ok: false, reason: 'invalid', why: why };      // 'invalid' is a reason the game drops from its queue
       if (extra) Object.keys(extra).forEach(function (k) { out[k] = extra[k]; });
       return out;
@@ -464,6 +474,9 @@ var SnakeAccountLink = (function () {
         if (r.status === 400 && (err === 'round_required' || err === 'replay_required')) { next = null; prefetch(); return done(run, 'switched'); }
         if (r.ok) {
           run.state = 'done'; prune();
+          if (run.casual) { run.casual.byRank = r.data && r.data.wallet === true; run.casual.deferred = false; }
+          if (r.data && r.data.wallet === true) walletApply(r.data);
+          claimSoon();
           return { ok: true, improved: !!r.data.improved, best: Number(r.data.best) || 0, rank: r.data.rank == null ? null : Number(r.data.rank) };
         }
         if (r.code === 'account_changed' || r.status === 401) { run.state = 'retry'; return { ok: false, reason: 'rejected', why: 'signed-out' }; }
@@ -480,6 +493,90 @@ var SnakeAccountLink = (function () {
           : err === 'replay_mismatch' ? 'mismatch' : err === 'engine_mismatch' ? 'outdated' : 'refused');
       });
     }
+    /* ---------- the wallet (supabase/wallet.sql) ---------- */
+    var wallet = { on: false, pending: false, coins: 0, owned: {}, sink: null };
+    var claimedTier = {};     // achievement tiers already sent this session: id -> highest tier
+    function walletApply(d) {
+      if (!d || d.wallet !== true) return;
+      wallet.on = true; wallet.pending = false;
+      wallet.coins = Math.max(0, Math.floor(Number(d.coins) || 0));
+      wallet.owned = d.owned && typeof d.owned === 'object' && !Array.isArray(d.owned) ? d.owned : {};
+      if (wallet.sink) wallet.sink({ coins: wallet.coins, owned: wallet.owned });
+    }
+    /* Ask for the server's wallet. False when this Worker has none (the game keeps its own coins) or the player's progress
+       is not on the server yet. */
+    function loadWallet() {
+      return call('wallet', 'GET').then(function (r) {
+        if (!r.ok || !r.data || r.data.wallet !== true) return false;
+        if (r.data.pending) { wallet.pending = true; return false; }
+        walletApply(r.data);
+        claimSoon();
+        return true;
+      }, function () { return false; });
+    }
+    function walletBuy(id) {
+      if (!wallet.on) return Promise.resolve({ ok: false, message: 'The shop needs a connection to your account.' });
+      return call('wallet/buy', 'POST', { item: id }).then(function (r) {
+        if (r.data && r.data.wallet === true) walletApply(r.data);       // the answer of a refused purchase carries the true balance
+        if (r.ok || (r.status === 409 && r.data && r.data.error === 'already_owned')) return { ok: true };
+        if (r.status === 402) return { ok: false, message: 'Not enough coins.' };
+        return { ok: false, message: 'The purchase did not go through. Check your connection and try again.' };
+      });
+    }
+    /* Every achievement tier the game shows as finished, once each; the server pays what it has not paid and no more. */
+    function claimAchievements() {
+      if (!wallet.on) return Promise.resolve();
+      var a = exportLocal().data.ach, list = [];
+      if (a && typeof a === 'object') Object.keys(a).forEach(function (id) {
+        var t = a[id] && typeof a[id].tier === 'number' ? Math.floor(a[id].tier) : 0;
+        for (var i = (claimedTier[id] || 0) + 1; i <= Math.min(t, 20); i++) list.push({ c: id, t: i });
+      });
+      if (!list.length) return Promise.resolve();
+      list = list.slice(0, 80);
+      return call('wallet/claims', 'POST', { claims: list }).then(function (r) {
+        if (r.ok && r.data && r.data.wallet === true) {
+          list.forEach(function (c) { claimedTier[c.c] = Math.max(claimedTier[c.c] || 0, c.t); });
+          walletApply(r.data);
+        }
+      });
+    }
+    var claimTimer = null;
+    function claimSoon() {
+      if (!wallet.on || claimTimer) return;
+      claimTimer = setTimeout(function () { claimTimer = null; claimAchievements(); }, 1500);
+    }
+    /* A run that is not paid by a ranked round: opened with the server when it starts, claimed when it ends. */
+    function casualStart(mode) {
+      if (!wallet.on) return null;
+      var h = { id: null, score: 0, ended: false, byRank: false, claimed: false, deferred: false, opened: null };
+      h.opened = call('run', 'POST', { mode: mode }).then(function (r) {
+        if (r.ok && r.data && typeof r.data.run_id === 'string') h.id = r.data.run_id;
+        return h;
+      }, function () { return h; });
+      return h;
+    }
+    function casualClaim(h) {
+      if (!h || h.claimed || h.byRank || !h.ended || h.score <= 0) { claimSoon(); return Promise.resolve(); }
+      h.claimed = true;
+      return h.opened.then(function () {
+        if (!h.id) return null;
+        return call('run/claim', 'POST', { run_id: h.id, score: h.score }).then(function (r) { if (r.ok) walletApply(r.data); });
+      }).then(function () { claimSoon(); });
+    }
+    /* The run is over. A ranked run waits for the board's answer first (it pays by replay, or, if it cannot be ranked, by time). */
+    function casualEnd(h, score) {
+      if (!h) return;
+      h.ended = true; h.score = Math.max(0, Math.floor(score) || 0);
+      if (!h.deferred) casualClaim(h);
+    }
+    function walletApi() {
+      return {
+        isOn: function () { return wallet.on; },
+        buy: walletBuy,
+        attach: function (sink) { wallet.sink = sink; if (wallet.on) sink({ coins: wallet.coins, owned: wallet.owned }); }
+      };
+    }
+
     function pendingRuns() { return runs.map(function (r) { return { round: r.round, seed: r.seed, score: r.score, state: r.state, tries: r.tries }; }); }
 
     return {
@@ -488,6 +585,8 @@ var SnakeAccountLink = (function () {
       writeIdentity: writeIdentity, useAccountSave: useAccountSave, useDeviceSave: useDeviceSave, syncNow: syncNow,
       boardMe: boardMe, prefetch: prefetch, takeRound: takeRound, runCreated: runCreated, runStarted: runStarted,
       runFinished: runFinished, submitScore: submitScore, pendingRuns: pendingRuns,
+      loadWallet: loadWallet, walletApi: walletApi, casualStart: casualStart, casualEnd: casualEnd, claimAchievements: claimAchievements,
+      walletOn: function () { return wallet.on; },
       exportLocal: exportLocal, backup: backup, backups: backups, localPlayer: localPlayer, localIsEmpty: localIsEmpty
     };
   }
@@ -503,15 +602,46 @@ var SnakeAccountLink = (function () {
      token contains a digit, so a frame time is never read back as a control. Format 1 (a round from a Worker that does
      not ask): base 36, as before. It is ambiguous: 25, 27, 28 and 31 ms are written p, r, s and v. */
   var TURN_TOKEN = { '0,-1': '^', '0,1': 'v', '-1,0': '<', '1,0': '>' };
+  /* The coins of a run that is not paid by a ranked round: the server opens the run when it starts and the claim goes out when
+     it ends (see the wallet in create()). deferred: a ranked run waits for the board's answer first. onOpen gets the handle. */
+  function casualHook(g, core, mode, deferred, onOpen) {
+    var h = null, start = g.start;
+    g.start = function () {
+      var was = g.state && g.state.phase, out = start.apply(g, arguments);
+      if (was === 'ready' && g.state.phase !== 'ready' && !h) {
+        h = core.casualStart(mode);
+        if (h) { h.deferred = !!deferred; if (onOpen) onOpen(h); }
+      }
+      return out;
+    };
+    if (typeof g.on === 'function') g.on(function (e, S) { if (e && e.type === 'over' && h) core.casualEnd(h, S.score); });
+  }
+  function patchChase(chase, core) {
+    if (!chase || chase.__account) return chase;
+    var create = chase.create;
+    chase.create = function () {
+      var g = create.apply(chase, arguments);
+      casualHook(g, core, 'chase', false);
+      return g;
+    };
+    chase.__account = true;
+    return chase;
+  }
   function patchEngine(engine, core) {
     if (!engine || engine.__account) return engine;
     var create = engine.create;
     engine.create = function (opts) {
-      if (!opts || opts.mode !== 'timeattack') return create.apply(engine, arguments);
+      if (!opts || opts.mode !== 'timeattack') {
+        var g0 = create.apply(engine, arguments);
+        casualHook(g0, core, opts && typeof opts.mode === 'string' ? opts.mode : 'classic', false);
+        return g0;
+      }
+      var rankedRun = opts.tuning === engine.DIFFICULTY.hard;     // only the hard Time Attack run is a ranked round
       var v = core.takeRound();
       var seeded = v && typeof v === 'object' && v.seed != null;
       var g = create.call(engine, seeded ? Object.assign({}, opts, { rng: seededRng(v.seed) }) : opts);
       var run = core.runCreated(v), rec = run.record, carry = 0;
+      casualHook(g, core, 'timeattack', rankedRun, function (h) { run.casual = h; });
       var start = g.start, pause = g.pause, resume = g.resume, turn = g.turn, update = g.update;
       g.start = function () {
         if (g.state.phase === 'ready') { if (rec) rec.push('s'); core.runStarted(run); }
@@ -768,6 +898,11 @@ var SnakeAccountLink = (function () {
       }, 0);
     }
     try {
+      var chase;
+      Object.defineProperty(win, 'SnakeChase', { configurable: true, get: function () { return chase; },
+        set: function (v) { chase = patchChase(v, core); } });
+    } catch (e) { /* defined already: patched below */ }
+    try {
       Object.defineProperty(win, 'SnakeLeaderboard', { configurable: true, get: function () { return board; },
         set: function (v) { board = patchBoard(v, core, explain); } });
       Object.defineProperty(win, 'SnakeEngine', { configurable: true, get: function () { return engine; },
@@ -777,12 +912,18 @@ var SnakeAccountLink = (function () {
     // round is fetched BEFORE the game runs. A slow answer delays the start by 4 s at most; a new account (no player
     // yet) gets its player, and its first round, with its first Time Attack run.
     var ready = core.state.linked ? Promise.race([core.prefetch(), new Promise(function (r) { win.setTimeout(r, 4000); })]) : Promise.resolve();
+    // The server's wallet is read before the game runs, so the game starts with the true coins and items. A Worker without a
+    // wallet (or no answer in 4 s) leaves the game on its own coins; SnakeWallet.isOn() then stays false. When the wallet
+    // answers later (a new player is made, or the answer was slow) the game takes it as soon as it arrives.
+    win.SnakeWallet = core.walletApi();
+    if (core.state.linked) ready = Promise.all([ready, Promise.race([core.loadWallet(), new Promise(function (r) { win.setTimeout(r, 4000); })])]);
     ui.show('Starting Grid Snake…', []);
     return ready.then(function () {
       ui.close();
       runGame(win);
       if (win.SnakeLeaderboard) patchBoard(win.SnakeLeaderboard, core, explain);
       if (win.SnakeEngine) patchEngine(win.SnakeEngine, core);
+      if (win.SnakeChase) patchChase(win.SnakeChase, core);
       var w = watch(win, core, Account);
       mountPanel(win, core, name, Account, w);
     });
@@ -930,7 +1071,7 @@ var SnakeAccountLink = (function () {
     }, down);
   }
 
-  return { create: create, patchBoard: patchBoard, patchEngine: patchEngine, seededRng: seededRng, ENGINE_SHA: ENGINE_SHA,
+  return { create: create, patchBoard: patchBoard, patchEngine: patchEngine, patchChase: patchChase, seededRng: seededRng, ENGINE_SHA: ENGINE_SHA,
            RECORD_FORMAT: RECORD_FORMAT, recordFrame: recordFrame, boot: boot, BACKUP_KEY: BACKUP_KEY, SYNC_KEY: SYNC_KEY, LOCAL_ONLY_KEY: LOCAL_ONLY_KEY,
            OWNER_KEY: OWNER_KEY, SLOT_PREFIX: SLOT_PREFIX };
 })();

@@ -132,4 +132,41 @@ for note in 'ok: before: anon can call submit_best' 'ok: before replay: the lock
 done
 echo "ok: submit_best is closed to browser keys, the board still works, and the rollback reopens it"
 
+# ---- wallet (wallet.sql, wallet_catalog.sql, rollback_wallet.sql)
+db="gs_wallet_$$"; new_db "$db"
+"${P[@]}" -d "$db" -f wallet.sql >"$LOG" 2>&1 || { echo "FAILED: wallet"; grep -E 'FAILED|ERROR' "$LOG" | head -5; exit 1; }
+grep -c 'NOTICE:  ok:' "$LOG" | sed 's/^/wallet checks passed: /'
+D=44444444-4444-4444-8444-444444444444
+"${P[@]}" -d "$db" -c "update player_wallets set coins = 10000, owned = '{}' where player_id = (select id from players where account_id = '$D')" >/dev/null
+for i in $(seq 1 10); do "${P[@]}" -d "$db" -tA -c "select gs_wallet_buy('$D', 'board:pitch')->>'status'" >>"$OUT" & done
+wait
+bought=$(grep -c '^ok$' "$OUT" || true); owned=$(grep -c '^owned$' "$OUT" || true); : > "$OUT"
+left=$("${P[@]}" -d "$db" -tA -c "select coins from player_wallets where player_id = (select id from players where account_id = '$D')")
+price=$("${P[@]}" -d "$db" -tA -c "select price from wallet_catalog where id = 'board:pitch'")
+[ "$bought" = "1" ] && [ "$owned" = "9" ] && [ "$left" = "$((10000 - price))" ] && echo "ok: one item bought 10 times at once is charged once" || { echo "FAILED: bought $bought, owned $owned, coins left $left"; exit 1; }
+rid=$("${P[@]}" -d "$db" -tA -c "select gs_start_round('$D')->>'round'")
+"${P[@]}" -d "$db" -c "update player_rounds set started_at = now() - interval '61 seconds' where id = '$rid'" >/dev/null
+"${P[@]}" -d "$db" -c "select gs_submit_replay('$D', '$rid', 100, 60000)" >/dev/null
+before=$("${P[@]}" -d "$db" -tA -c "select coins from player_wallets where player_id = (select id from players where account_id = '$D')")
+for i in $(seq 1 10); do "${P[@]}" -d "$db" -tA -c "select gs_wallet_credit_ranked('$D', '$rid')->>'status'" >>"$OUT" & done
+wait
+paid=$(grep -c '^ok$' "$OUT" || true); : > "$OUT"
+after=$("${P[@]}" -d "$db" -tA -c "select coins from player_wallets where player_id = (select id from players where account_id = '$D')")
+[ "$paid" = "1" ] && [ "$after" = "$((before + 100))" ] && echo "ok: a ranked round credited 10 times at once pays once" || { echo "FAILED: paid $paid times, $before -> $after"; exit 1; }
+B=22222222-2222-4222-8222-222222222222
+run=$("${P[@]}" -d "$db" -tA -c "select gs_run_open('$B', 'classic')->>'run'")
+"${P[@]}" -d "$db" -c "update player_runs set opened_at = now() - interval '100 seconds' where id = '$run'" >/dev/null
+before=$("${P[@]}" -d "$db" -tA -c "select coins from player_wallets where player_id = (select id from players where account_id = '$B')")
+for i in $(seq 1 10); do "${P[@]}" -d "$db" -tA -c "select gs_run_claim('$B', '$run', 90)->>'status'" >>"$OUT" & done
+wait
+paid=$(grep -c '^ok$' "$OUT" || true); : > "$OUT"
+after=$("${P[@]}" -d "$db" -tA -c "select coins from player_wallets where player_id = (select id from players where account_id = '$B')")
+[ "$paid" = "1" ] && [ "$after" = "$((before + 90))" ] && echo "ok: a run claimed 10 times at once pays once" || { echo "FAILED: paid $paid times, $before -> $after"; exit 1; }
+for i in $(seq 1 10); do "${P[@]}" -d "$db" -tA -c "select gs_wallet_claim_achievements('$B', '[{\"c\":\"apples\",\"t\":1,\"r\":20}]'::jsonb)->>'gained'" >>"$OUT" & done
+wait
+paid=$(grep -c '^20$' "$OUT" || true); : > "$OUT"
+[ "$paid" = "1" ] && echo "ok: an achievement tier claimed 10 times at once pays once" || { echo "FAILED: tier paid $paid times"; exit 1; }
+bad=$("${P[@]}" -d "$db" -tA -c "select count(*) from player_wallets w where w.coins <> coalesce((select sum(delta) from wallet_ledger l where l.player_id = w.player_id), 0) and w.player_id = (select id from players where account_id = '$B')")
+[ "$bad" = "0" ] && echo "ok: after all of that the balance still equals its ledger" || { echo "FAILED: ledger and balance differ"; exit 1; }
+
 echo "all database checks passed"
