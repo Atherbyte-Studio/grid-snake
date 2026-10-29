@@ -32,6 +32,7 @@ const emptyDevice = () => storage();
 /* The Worker, in memory: the same answers as the routes in atherbyte-api/src/routes/gridsnake.js. */
 function worker(opts = {}) {
   const w = { linkedTo: opts.linkedTo || null, save: opts.save || null, calls: [], best: 300, rounds: {}, roundSeq: 0, failScore: [], failRound: false, counted: [], records: {}, noSeed: !!opts.noSeed, engine: opts.engine, old: !!opts.old };
+  w.recordFormat = opts.recordFormat;                  // undefined: the live Worker, whose rounds do not name a record format
   w.authed = (p, init) => {
     const method = (init && init.method) || 'GET', body = init && init.body;
     w.calls.push({ path: p, method, body });
@@ -59,7 +60,9 @@ function worker(opts = {}) {
       const id = 'r-' + (++w.roundSeq);
       w.rounds[id] = 'open';
       if (w.noSeed) return ok({ round_id: id, started_at: 't', expires_at: 't' });            // the Worker before replay
-      return ok({ round_id: id, seed: 1000 + w.roundSeq, engine: w.engine || AL.ENGINE_SHA, started_at: 't', expires_at: 't' });
+      const round = { round_id: id, seed: 1000 + w.roundSeq, engine: w.engine || AL.ENGINE_SHA, started_at: 't', expires_at: 't' };
+      if (w.recordFormat !== undefined) round.record_format = w.recordFormat;                   // the Worker with record format 2
+      return ok(round);
     }
     if (p.endsWith('/score')) {
       const f = w.failScore.shift();                      // 'network' | 'timeout-after' | 'server' | 'implausible' | 'expired'
@@ -634,15 +637,21 @@ test('rollout: only the old router\'s 404 "not_found" means "old Worker"', async
 /* ---------- replay (Option C): the record is what the server replays ---------- */
 const E = require('../src/engine.js');
 /* The server's replay, written again here from its description (atherbyte-api src/game/replay.js), to check that what
-   this page records replays to the score it reached. */
+   this page records replays to the score it reached. Format 2 ("@2" first): decimal frame times 0 to 100, one spelling
+   each. Format 1 (no header): base 36. Anything else throws. */
 function replayHere(seed, record) {
   const g = E.create({ mode: 'timeattack', edge: 'walls', golden: true, tuning: E.DIFFICULTY.hard, rng: AL.seededRng(seed) });
   const T = { '^': [0, -1], v: [0, 1], '<': [-1, 0], '>': [1, 0] };
-  for (const e of record.split(',')) {
+  const events = record.split(',');
+  const format = events[0] === '@2' ? (events.shift(), 2) : 1;
+  for (const e of events) {
     if (e === 's') g.start(); else if (e === 'p') g.pause(); else if (e === 'r') g.resume();
-    else if (T[e]) g.turn(T[e][0], T[e][1]); else g.update(parseInt(e, 36));
+    else if (T[e]) g.turn(T[e][0], T[e][1]);
+    else if (format === 2 && /^(?:0|[1-9][0-9]?|100)$/.test(e)) g.update(Number(e));
+    else if (format === 1 && /^[0-9a-z]{1,2}$/.test(e)) g.update(parseInt(e, 36));
+    else throw new Error('bad record token ' + JSON.stringify(e));
   }
-  return { phase: g.state.phase, score: g.state.score };
+  return { phase: g.state.phase, score: g.state.score, format, state: JSON.parse(JSON.stringify(g.state)) };
 }
 /* A real run through the patched engine: fractional frame times (as a browser gives), turns toward the food, a pause. */
 function playReal(engine) {
@@ -712,4 +721,139 @@ test('replay: a refused replay leaves the queue with its reason; another engine 
   await c2.q.endRun(41);
   assert.equal(c2.q.shown.at(-1).why, 'outdated');
   assert.equal(c2.w.calls.filter((x) => x.path.endsWith('/score')).length, before, 'nothing was sent');
+});
+
+/* ---------- record format 2: frame times that can never be read back as a control ----------
+   Format 1 wrote frame times in base 36, so 25, 27, 28 and 31 ms were written p, r, s and v (pause, resume, start, turn
+   down) and the server replayed another game: "The board could not verify this round from its replay", most often on
+   phones at ~30 fps. A Worker that sends record_format 2 with its round gets decimal frame times after an "@2" header. */
+
+/* A run through the patched engine, steered toward the food. frame(n) is the n-th frame's time as the browser gives it;
+   at(n, g) may pause, turn or do anything else to the game before that frame. */
+function playFrames(engine, frame, at) {
+  const g = engine.create({ mode: 'timeattack', edge: 'walls', golden: true, tuning: E.DIFFICULTY.hard });
+  const D = [[1, 0], [0, 1], [-1, 0], [0, -1]];
+  const safe = (d) => { const h = g.state.snake[0], x = h.x + d[0], y = h.y + d[1];
+    return x >= 0 && y >= 0 && x < 20 && y < 20 && !g.state.snake.slice(0, -1).some((q) => q.x === x && q.y === y); };
+  g.start();
+  let n = 0;
+  while (g.state.phase !== 'over' && n++ < 20000) {
+    if (at) at(n, g);
+    const h = g.state.snake[0], f = g.state.gold || g.state.pickup || g.state.food;
+    const want = D.filter(safe).sort((a, b) => (Math.abs(h.x + a[0] - f.x) + Math.abs(h.y + a[1] - f.y)) - (Math.abs(h.x + b[0] - f.x) + Math.abs(h.y + b[1] - f.y)))[0];
+    if (want && !g.state.queue.length) g.turn(want[0], want[1]);
+    g.update(frame(n));
+  }
+  return g;
+}
+/* Ends the run, sends it, and checks the record the Worker received replays to the page's WHOLE engine state. */
+async function sentAndReplayed(w, q, g, label) {
+  assert.equal(g.state.phase, 'over', label + ': the run ended');
+  assert.ok(g.state.score > 0, label + ': a score to send');
+  const before = Object.keys(w.records).length;
+  await q.endRun(Math.floor(g.state.score));
+  const id = Object.keys(w.records).at(-1);
+  assert.equal(Object.keys(w.records).length, before + 1, label + ': sent with its record');
+  const rec = w.records[id];
+  const again = replayHere(1000 + Number(id.slice(2)), rec);
+  assert.deepEqual(again.state, JSON.parse(JSON.stringify(g.state)), label + ': the replay ends in the same engine state');
+  assert.equal(again.score, g.state.score, label + ': same score');
+  await tick();
+  return { rec, format: again.format };
+}
+
+test('record format: frame times are decimal in format 2 (never a control token) and base 36 in format 1', () => {
+  assert.equal(AL.RECORD_FORMAT, 2);
+  const controls = ['s', 'p', 'r', '^', 'v', '<', '>'];
+  const collide = [];
+  for (let q = 0; q <= 100; q++) {
+    assert.equal(AL.recordFrame(q, 2), String(q));
+    assert.match(AL.recordFrame(q, 2), /^(?:0|[1-9][0-9]?|100)$/);
+    assert.ok(!controls.includes(AL.recordFrame(q, 2)));
+    assert.equal(AL.recordFrame(q, 1), q.toString(36));
+    if (controls.includes(AL.recordFrame(q, 1))) collide.push(q);
+  }
+  assert.deepEqual(collide, [25, 27, 28, 31], 'why format 2 exists');
+});
+
+test('record format 2: every frame time from 0 to 100 ms, recorded by this page, replays to the same game', async () => {
+  const { w, engine, q } = await setupRounds({ recordFormat: 2 });
+  for (let ms = 0; ms <= 100; ms++) {
+    const g = playFrames(engine, (n) => (n % 5 === 0 ? ms : 20));
+    await tick();
+    const { rec, format } = await sentAndReplayed(w, q, g, `frame ${ms} ms`);
+    assert.equal(format, 2);
+    assert.match(rec, /^@2,s,/);
+    assert.ok(rec.split(',').includes(String(ms)), `frame ${ms} ms is in the record as "${ms}"`);
+  }
+});
+
+test('record format 2: phone frame rates (25 to 31 ms at ~30 fps), late, zero and fractional frames replay to the same game', async () => {
+  const { w, engine, q } = await setupRounds({ recordFormat: 2 });
+  const profiles = {
+    'only 25, 27, 28 and 31 ms': (n) => [25, 27, 28, 31][n % 4],
+    '30 fps with jitter': (n) => 33.33 + Math.sin(n) * 2.6,
+    '60 Hz with dropped frames': (n) => (n % 9 === 0 ? 33.4 : 16.67) + Math.cos(n * 3) * 0.8,
+    '120 Hz': (n) => 8.33 + Math.sin(n * 5) * 0.4,
+    'late frames (background tab)': (n) => (n % 50 === 0 ? 900 : n % 13 === 0 ? 101.5 : 17.1),
+    'zero, negative and tiny frames': (n) => [0, -5, 0.4, 31.2][n % 4]
+  };
+  for (const [name, frame] of Object.entries(profiles)) {
+    const g = playFrames(engine, frame);
+    await tick();
+    const { rec } = await sentAndReplayed(w, q, g, name);
+    assert.ok(rec.split(',').slice(1).every((e) => !/^\d+$/.test(e) || Number(e) <= 100), name + ': frames recorded as 0 to 100');
+  }
+});
+
+test('record format 2: pause and resume (with frames and turns while paused) and turn bursts replay to the same game', async () => {
+  const { w, engine, q } = await setupRounds({ recordFormat: 2 });
+  const g = playFrames(engine, (n) => (n % 2 ? 25 : 28), (n, game) => {
+    if (n % 97 === 0) {
+      game.pause();
+      game.update(31); game.update(27);              // frames while paused: not recorded, ignored by the engine
+      game.turn(n % 2 ? -1 : 1, 0);                  // a turn while paused is recorded and queued
+      game.pause();                                  // a second pause: nothing
+      game.resume();
+    }
+    if (n % 41 === 0) { game.turn(0, -1); game.turn(0, 1); game.turn(-1, 0); game.turn(1, 0); }   // reversals, a full queue
+  });
+  await tick();
+  const { rec } = await sentAndReplayed(w, q, g, 'pause and turns');
+  assert.match(rec, /,p,.*,r,/s);
+  assert.equal(rec.split(',').filter((e) => e === 's').length, 1, 'one start');
+});
+
+test('record format 2: a round that ends on the wall replays to the same ending, and nothing after the end is recorded', async () => {
+  const { w, engine, q } = await setupRounds({ recordFormat: 2 });
+  // it scores first, then heads straight up into the wall
+  const g = playFrames(engine, () => 31, (k, game) => { if (game.state.score >= 3) { game.state.queue.length = 0; game.turn(0, -1); } });
+  assert.equal(g.state.reason, 'wall');
+  g.turn(1, 0); g.update(31); g.pause(); g.resume(); g.start();   // after the end: none of this is recorded or changes the game
+  await tick();
+  const { rec } = await sentAndReplayed(w, q, g, 'wall');
+  assert.match(rec, /,31$/, 'the record ends with the frame of the crash');
+});
+
+test('record format: a Worker that does not ask for format 2 (or asks for 1) gets format 1, as before; a later format gets 2', async () => {
+  for (const [recordFormat, expected] of [[undefined, 1], [1, 1], [0, 1], ['2', 1], [2, 2], [3, 2]]) {
+    const { w, engine, q } = await setupRounds({ recordFormat });
+    const g = playFrames(engine, (n) => 16.6 + (n % 5) / 4);
+    await tick();
+    const { rec, format } = await sentAndReplayed(w, q, g, `record_format ${JSON.stringify(recordFormat)}`);
+    assert.equal(format, expected, `record_format ${JSON.stringify(recordFormat)} -> format ${expected}`);
+    assert.equal(/^@2,/.test(rec), expected === 2);
+    if (expected === 1) assert.match(rec, /^s,/);
+  }
+});
+
+test('record format: the rollout. A round fetched before the Worker asked for format 2 is recorded in format 1; the next in format 2', async () => {
+  const { w, engine, q } = await setupRounds();        // the live Worker: no record_format; r-1 is fetched ahead
+  w.recordFormat = 2;                                   // the new Worker goes live while r-1 waits
+  const g1 = playFrames(engine, () => 33);
+  await tick();
+  assert.equal((await sentAndReplayed(w, q, g1, 'round from the old Worker')).format, 1);
+  const g2 = playFrames(engine, () => 31);
+  await tick();
+  assert.equal((await sentAndReplayed(w, q, g2, 'round from the new Worker')).format, 2);
 });
