@@ -31,7 +31,7 @@ const emptyDevice = () => storage();
 
 /* The Worker, in memory: the same answers as the routes in atherbyte-api/src/routes/gridsnake.js. */
 function worker(opts = {}) {
-  const w = { linkedTo: opts.linkedTo || null, save: opts.save || null, calls: [], best: 300, rounds: {}, roundSeq: 0, failScore: [], failRound: false, counted: [] };
+  const w = { linkedTo: opts.linkedTo || null, save: opts.save || null, calls: [], best: 300, rounds: {}, roundSeq: 0, failScore: [], failRound: false, counted: [], records: {}, noSeed: !!opts.noSeed, engine: opts.engine, old: !!opts.old };
   w.authed = (p, init) => {
     const method = (init && init.method) || 'GET', body = init && init.body;
     w.calls.push({ path: p, method, body });
@@ -58,7 +58,8 @@ function worker(opts = {}) {
       if (!w.linkedTo) return err(409, 'not_linked');
       const id = 'r-' + (++w.roundSeq);
       w.rounds[id] = 'open';
-      return ok({ round_id: id, started_at: 't', expires_at: 't' });
+      if (w.noSeed) return ok({ round_id: id, started_at: 't', expires_at: 't' });            // the Worker before replay
+      return ok({ round_id: id, seed: 1000 + w.roundSeq, engine: w.engine || AL.ENGINE_SHA, started_at: 't', expires_at: 't' });
     }
     if (p.endsWith('/score')) {
       const f = w.failScore.shift();                      // 'network' | 'timeout-after' | 'server' | 'implausible' | 'expired'
@@ -70,7 +71,10 @@ function worker(opts = {}) {
         return ok({ improved: w.best === body.score, best: w.best, rank: 1 });
       }
       if (!body.round_id) return err(400, 'round_required');
+      if (!w.noSeed && !body.record) return err(400, 'replay_required');
+      if (body.record) w.records[body.round_id] = body.record;
       if (!(body.round_id in w.rounds)) return err(404, 'round_not_found');
+      if (f === 'mismatch') { w.rounds[body.round_id] = 'rejected'; return err(422, 'replay_mismatch'); }
       if (w.rounds[body.round_id] !== 'open') return err(409, 'round_closed');
       if (f === 'implausible') { w.rounds[body.round_id] = 'rejected'; return err(422, 'score_not_plausible'); }
       if (f === 'expired') { w.rounds[body.round_id] = 'expired'; return err(410, 'round_expired'); }
@@ -261,9 +265,11 @@ test('scores go through the Worker with the ranked rules; the board cannot creat
   const c = make(benzemaDevice(), w);
   await c.refresh(); await c.link();
   const board = AL.patchBoard(Object.assign({}, require('../src/leaderboard.js')), c);
-  const run = c.runStarted(); await run.ready; c.runFinished(run, 450);
+  await c.prefetch(); const run = c.runCreated(c.takeRound()); c.runStarted(run); run.record.push('s'); c.runFinished(run, 450);
   assert.deepEqual(await board.submitBest({ secret: 'x', score: 450, settings: { walls: true, golden: true, difficulty: 'hard' } }), { ok: true, improved: true, best: 450, rank: 1 });
-  assert.deepEqual(w.calls.find((x) => x.path.endsWith('/score')).body, { round_id: 'r-1', score: 450, walls: true, golden: true, difficulty: 'hard' });
+  const sent = w.calls.find((x) => x.path.endsWith('/score')).body;
+  assert.deepEqual({ round_id: sent.round_id, score: sent.score, walls: sent.walls, golden: sent.golden, difficulty: sent.difficulty, engine: sent.engine },
+    { round_id: 'r-1', score: 450, walls: true, golden: true, difficulty: 'hard', engine: AL.ENGINE_SHA });
   assert.equal((await board.submitBest({ score: 450, settings: { walls: false, golden: true, difficulty: 'hard' } })).reason, 'not-ranked');
   const before = w.calls.length;
   assert.equal((await board.enrollPlayer({ name: 'Someone' })).ok, false);
@@ -460,7 +466,7 @@ function playRun(engine, score) {
   g.update(100); g.state.timeLeft = 0; g.update(1);
   return g;
 }
-function setupRounds(opts) {
+async function setupRounds(opts) {
   const w = worker(Object.assign({ linkedTo: 'Benzema' }, opts));
   const st = benzemaDevice();
   const acct = switchable(w);
@@ -468,21 +474,26 @@ function setupRounds(opts) {
   c.bind();
   const board = AL.patchBoard(Object.assign({}, require('../src/leaderboard.js')), c);
   const engine = AL.patchEngine(Object.assign({}, require('../src/engine.js')), c);
+  await c.prefetch();
   return { w, c, acct, board, engine, q: gameQueue(board) };
 }
 const tick = () => new Promise((r) => setTimeout(r, 0));
 
-test('rounds: each run opens its own round when it starts; Classic opens none; a run opens one round only', async () => {
-  const { w, engine } = setupRounds();
+test('rounds: a Time Attack run uses the round fetched ahead and fetches the next; Classic uses none', async () => {
+  const { w, engine } = await setupRounds();
+  assert.deepEqual(Object.keys(w.rounds), ['r-1'], 'one round fetched ahead');
   engine.create({ mode: 'classic', edge: 'walls' }).start();
   const g = engine.create({ mode: 'timeattack', edge: 'walls', golden: true });
   g.start(); g.start();
   await tick();
-  assert.deepEqual(Object.keys(w.rounds), ['r-1']);
+  assert.deepEqual(Object.keys(w.rounds), ['r-1', 'r-2'], 'the run took r-1, and r-2 is fetched for the next run');
+  const E = require('../src/engine.js');
+  const same = E.create({ mode: 'timeattack', edge: 'walls', golden: true, rng: AL.seededRng(1001) });
+  assert.deepEqual(g.state.food, same.state.food, 'the run is built from r-1\'s seed (1001): same food as the server will see');
 });
 
 test('queue: a counted score is sent with its own run\'s round, once', async () => {
-  const { w, engine, q } = setupRounds();
+  const { w, engine, q } = await setupRounds();
   playRun(engine, 40); await tick();
   await q.endRun(40);
   assert.deepEqual(w.counted, [{ round: 'r-1', score: 40 }]);
@@ -490,7 +501,7 @@ test('queue: a counted score is sent with its own run\'s round, once', async () 
 });
 
 test('queue: a definitive refusal leaves the queue with its reason, and the next run is counted with its own round', async () => {
-  const { w, engine, q } = setupRounds();
+  const { w, engine, q } = await setupRounds();
   w.failScore.push('implausible');
   playRun(engine, 40); await tick();
   await q.endRun(40);
@@ -502,7 +513,7 @@ test('queue: a definitive refusal leaves the queue with its reason, and the next
 });
 
 test('queue: no connection, then Try again: the same score with the SAME round; it is counted once', async () => {
-  const { w, engine, q } = setupRounds();
+  const { w, engine, q } = await setupRounds();
   w.failScore.push('network');
   playRun(engine, 40); await tick();
   await q.endRun(40);
@@ -514,7 +525,7 @@ test('queue: no connection, then Try again: the same score with the SAME round; 
 });
 
 test('queue: a 5xx answer is retried the same way', async () => {
-  const { w, engine, q } = setupRounds();
+  const { w, engine, q } = await setupRounds();
   w.failScore.push('server');
   playRun(engine, 40); await tick();
   await q.endRun(40);
@@ -524,7 +535,7 @@ test('queue: a 5xx answer is retried the same way', async () => {
 });
 
 test('queue: a timeout after the server counted it: the retry is told "already counted", nothing counts twice', async () => {
-  const { w, engine, q } = setupRounds();
+  const { w, engine, q } = await setupRounds();
   w.failScore.push('timeout-after');
   playRun(engine, 400); await tick();
   await q.endRun(400);
@@ -536,7 +547,7 @@ test('queue: a timeout after the server counted it: the retry is told "already c
 });
 
 test('queue: a failed run waiting for retry, then a new run: each score goes with its own round, none with another', async () => {
-  const { w, engine, q } = setupRounds();
+  const { w, engine, q } = await setupRounds();
   w.failScore.push('network');
   playRun(engine, 40); await tick();
   await q.endRun(40);                  // run 1: lost answer, waits
@@ -547,31 +558,33 @@ test('queue: a failed run waiting for retry, then a new run: each score goes wit
 });
 
 test('queue: an expired round, and a run whose round never opened, are dropped with their reason; the next run counts', async () => {
-  const { w, engine, q } = setupRounds();
+  const { w, c, engine, q } = await setupRounds();
   w.failScore.push('expired');
   playRun(engine, 40); await tick();
   await q.endRun(40);
   assert.equal(q.shown.at(-1).why, 'expired');
   w.failRound = true;
-  playRun(engine, 41); await tick();
+  c.takeRound(); await tick();              // the round waiting ahead is used up, and fetching the next one fails
+  playRun(engine, 41); await tick();        // so this run is created with no round
   await q.endRun(41);
   assert.equal(q.shown.at(-1).why, 'no-round');
   assert.equal(q.items.length, 0);
   w.failRound = false;
+  await c.prefetch();                       // the connection is back: the next run's round is fetched
   playRun(engine, 42); await tick();
   await q.endRun(42);
-  assert.deepEqual(w.counted, [{ round: 'r-2', score: 42 }]);
+  assert.deepEqual(w.counted.map((x) => x.score), [42]);
 });
 
 test('queue: a score of 0 is not sent and leaves no run behind', async () => {
-  const { w, c, engine } = setupRounds();
+  const { w, c, engine } = await setupRounds();
   playRun(engine, 0); await tick();
   assert.deepEqual(c.pendingRuns(), []);
   assert.equal(w.calls.filter((x) => x.path.endsWith('/score')).length, 0);
 });
 
 test('queue: after the account changes, a waiting score is never sent with the other account\'s session', async () => {
-  const { w, acct, engine, q } = setupRounds();
+  const { w, acct, engine, q } = await setupRounds();
   w.failScore.push('network');
   playRun(engine, 40); await tick();
   await q.endRun(40);
@@ -584,8 +597,7 @@ test('queue: after the account changes, a waiting score is never sent with the o
 
 /* ---------- rollout: the new page first, the Worker it talks to may still be the old one ---------- */
 test('rollout: the new page with today\'s Worker scores exactly as today (no round), and recovers from a lost answer', async () => {
-  const { w, engine, q } = setupRounds();
-  w.old = true;
+  const { w, engine, q } = await setupRounds({ old: true });
   playRun(engine, 40); await tick();
   await q.endRun(40);
   assert.deepEqual(w.counted, [{ round: null, score: 40 }]);
@@ -599,8 +611,7 @@ test('rollout: the new page with today\'s Worker scores exactly as today (no rou
 });
 
 test('rollout: a run started before the Worker switch and ended after it is dropped with its reason; the next one counts with a round', async () => {
-  const { w, engine, q } = setupRounds();
-  w.old = true;
+  const { w, engine, q } = await setupRounds({ old: true });
   playRun(engine, 40); await tick();     // started under today's Worker: no round
   w.old = false;                          // the new Worker goes live during the run
   await q.endRun(40);
@@ -611,11 +622,94 @@ test('rollout: a run started before the Worker switch and ended after it is drop
   assert.deepEqual(w.counted, [{ round: 'r-1', score: 42 }]);
 });
 
-test('rollout: only the old router\'s 404 "not_found" means "old Worker"; a new Worker that is not ready gives no round', async () => {
-  const { w, c } = setupRounds();
-  const run = c.runStarted();
-  w.failScore.push();                                      // nothing special for the score
-  assert.equal(await run.ready, 'r-1', 'the new Worker answers /round');
+test('rollout: only the old router\'s 404 "not_found" means "old Worker"', async () => {
+  const { w, c } = await setupRounds();
+  assert.equal(c.takeRound().id, 'r-1', 'the new Worker answers /round');
+  await tick();
   w.old = true;
-  assert.equal(await c.runStarted().ready, 'legacy-worker');
+  c.takeRound(); await tick();
+  assert.equal(c.takeRound(), 'legacy-worker');
+});
+
+/* ---------- replay (Option C): the record is what the server replays ---------- */
+const E = require('../src/engine.js');
+/* The server's replay, written again here from its description (atherbyte-api src/game/replay.js), to check that what
+   this page records replays to the score it reached. */
+function replayHere(seed, record) {
+  const g = E.create({ mode: 'timeattack', edge: 'walls', golden: true, tuning: E.DIFFICULTY.hard, rng: AL.seededRng(seed) });
+  const T = { '^': [0, -1], v: [0, 1], '<': [-1, 0], '>': [1, 0] };
+  for (const e of record.split(',')) {
+    if (e === 's') g.start(); else if (e === 'p') g.pause(); else if (e === 'r') g.resume();
+    else if (T[e]) g.turn(T[e][0], T[e][1]); else g.update(parseInt(e, 36));
+  }
+  return { phase: g.state.phase, score: g.state.score };
+}
+/* A real run through the patched engine: fractional frame times (as a browser gives), turns toward the food, a pause. */
+function playReal(engine) {
+  const g = engine.create({ mode: 'timeattack', edge: 'walls', golden: true, tuning: E.DIFFICULTY.hard });
+  const D = [[1, 0], [0, 1], [-1, 0], [0, -1]];
+  const safe = (d) => { const h = g.state.snake[0], x = h.x + d[0], y = h.y + d[1];
+    return x >= 0 && y >= 0 && x < 20 && y < 20 && !g.state.snake.slice(0, -1).some((q) => q.x === x && q.y === y); };
+  g.start();
+  let n = 0;
+  while (g.state.phase !== 'over' && n++ < 20000) {
+    if (n === 300) { g.pause(); g.update(16.7); g.update(16.7); g.resume(); }
+    const h = g.state.snake[0], f = g.state.gold || g.state.pickup || g.state.food;
+    const want = D.filter(safe).sort((a, b) => (Math.abs(h.x + a[0] - f.x) + Math.abs(h.y + a[1] - f.y)) - (Math.abs(h.x + b[0] - f.x) + Math.abs(h.y + b[1] - f.y)))[0];
+    if (want) g.turn(want[0], want[1]);
+    g.update(16.6 + ((n * 13) % 17) / 10);
+  }
+  return g;
+}
+
+test('replay: the record this page keeps replays, with the round\'s seed, to exactly the score the player reached', async () => {
+  const { w, engine, q } = await setupRounds();
+  const g = playReal(engine);
+  assert.equal(g.state.phase, 'over');
+  await tick();
+  await q.endRun(Math.floor(g.state.score));
+  assert.equal(w.counted.length, 1);
+  const rec = w.records['r-1'];
+  assert.match(rec, /^s,/);
+  assert.match(rec, /,p,r,/, 'pause and resume are recorded');
+  const again = replayHere(1001, rec);
+  assert.equal(again.phase, 'over', 'the record runs to the end of the round');
+  assert.equal(again.score, g.state.score, 'and to the same score');
+});
+
+test('replay: a round with no seed (the Worker before replay) is sent without a record, as before', async () => {
+  const { w, engine, q } = await setupRounds({ noSeed: true });
+  playRun(engine, 40); await tick();
+  await q.endRun(40);
+  assert.deepEqual(w.counted, [{ round: 'r-1', score: 40 }]);
+  assert.equal(w.records['r-1'], undefined);
+});
+
+test('replay: a run recorded before the Worker switched to replay is dropped with its reason; the next one counts', async () => {
+  const { w, engine, q } = await setupRounds({ noSeed: true });
+  playRun(engine, 40); await tick();       // its round has no seed: no record
+  w.noSeed = false;                         // the replaying Worker goes live
+  await q.endRun(40);
+  assert.equal(q.shown.at(-1).why, 'switched');
+  await tick();                             // the round fetched from the old Worker was dropped; a new one is fetched
+  const g = playReal(engine); await tick();
+  await q.endRun(Math.floor(g.state.score));
+  assert.ok(w.records[Object.keys(w.records).at(-1)], 'the next run is sent with its record');
+});
+
+test('replay: a refused replay leaves the queue with its reason; another engine version is not sent at all', async () => {
+  const { w, engine, q } = await setupRounds();
+  w.failScore.push('mismatch');
+  playRun(engine, 40); await tick();
+  await q.endRun(40);
+  assert.equal(q.shown.at(-1).why, 'mismatch');
+  assert.equal(q.items.length, 0);
+  w.engine = 'other-engine';
+  await tick();
+  const c2 = await setupRounds({ engine: 'other-engine' });
+  playRun(c2.engine, 41); await tick();
+  const before = c2.w.calls.filter((x) => x.path.endsWith('/score')).length;
+  await c2.q.endRun(41);
+  assert.equal(c2.q.shown.at(-1).why, 'outdated');
+  assert.equal(c2.w.calls.filter((x) => x.path.endsWith('/score')).length, before, 'nothing was sent');
 });

@@ -33,7 +33,7 @@ function inline(file, vars, seen = new Set()) {
 }
 
 const files = process.argv.slice(2).length ? process.argv.slice(2)
-  : ['leaderboard_v2.sql', 'account_link.sql', 'score_rounds.sql', 'rollback_order.stop.sql'];
+  : ['leaderboard_v2.sql', 'account_link.sql', 'score_rounds.sql', 'rollback_order.stop.sql', 'score_replay.sql', 'replay_rollback_order.stop.sql'];
 let failed = 0;
 for (const f of files) {
   const file = path.resolve(here, f);

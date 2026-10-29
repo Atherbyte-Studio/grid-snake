@@ -18,6 +18,9 @@ begin
   if to_regprocedure('public.gs_submit_best(uuid, integer, boolean, boolean, text)') is null then
     raise exception 'STOP: gs_submit_best not found (account_link.sql is not applied as expected). Nothing was changed.';
   end if;
+  if to_regprocedure('public.gs_submit_replay(uuid, uuid, integer, integer)') is not null then
+    raise exception 'STOP: replayed scores are applied. Run rollback_score_replay.sql first. Nothing was changed.';
+  end if;
 end $$;
 
 grant execute on function public.gs_submit_best(uuid, integer, boolean, boolean, text) to service_role;

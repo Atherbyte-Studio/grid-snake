@@ -278,11 +278,12 @@ test('real queue: no answer -> Try again with the same round; a refusal -> dropp
   // run 1: the answer is lost; the score waits for Try again, with its own round
   w.failScore.push('abort');
   let r = await playShortRound(page, 12);
+  const final1 = await page.evaluate(() => Math.floor(__t.game().state.score));
   assert.equal(r.retry, true, 'Try again is offered');
   assert.deepEqual(w.counted, []);
   await page.evaluate(() => document.getElementById('ovRetry').click());
   await page.waitForFunction(() => /best/i.test(document.getElementById('ovRankMsg').textContent));
-  assert.deepEqual(w.counted, [{ round: 'round-1', score: 12 }], 'counted once, with run 1\'s round');
+  assert.deepEqual(w.counted, [{ round: 'round-1', score: final1 }], 'counted once, with run 1\'s round');
 
   // run 2: refused for good; the queue lets it go and says why
   w.failScore.push('implausible');
@@ -293,7 +294,8 @@ test('real queue: no answer -> Try again with the same round; a refusal -> dropp
   // run 3: counted with its own round; nothing from run 2 is attached to it
   r = await playShortRound(page, 14);
   assert.match(r.msg, /best/i);
-  assert.deepEqual(w.counted, [{ round: 'round-1', score: 12 }, { round: 'round-3', score: 14 }]);
+  const final3 = await page.evaluate(() => Math.floor(__t.game().state.score));    // the snake may eat during the run
+  assert.deepEqual(w.counted, [{ round: 'round-1', score: final1 }, { round: 'round-3', score: final3 }], 'run 3 with its own round and its own final score');
   assert.deepEqual(errors, []);
   await ctx.close();
 });

@@ -64,6 +64,12 @@ web = web.replace(meta[0], () => meta[0] + CREDIT);
    other host, and on atherbyte.online only after an Atherbyte sign-in. grid-snake.html and the Android app never get this. */
 if (web.split('<script>').length !== 2) throw new Error('build.js: expected exactly one <script> (the game) in the page');
 web = web.replace('<script>', '<script type="text/plain" id="gs-game">');
-const ACCOUNT = '\n<script>\n' + read('src/web/account-link.js') + '</script>';
+/* Ranked rounds are replayed by the Worker with a copy of src/engine.js; the page states which engine it runs, so a round
+   recorded by another version is refused instead of being replayed wrong (atherbyte-api scripts/sync-engine.mjs). */
+const ENGINE_SHA = require('crypto').createHash('sha256').update(read('src/engine.js')).digest('hex').slice(0, 16);
+let accountJs = read('src/web/account-link.js');
+if (!accountJs.includes("var ENGINE_SHA = 'dev';")) throw new Error('build.js: ENGINE_SHA placeholder not found in account-link.js');
+accountJs = accountJs.replace("var ENGINE_SHA = 'dev';", "var ENGINE_SHA = '" + ENGINE_SHA + "';");
+const ACCOUNT = '\n<script>\n' + accountJs + '</script>';
 fs.writeFileSync(path.join(root, 'index.html'), FRAME_HEAD + WEB_HEAD + web + ACCOUNT + '\n</body></html>');
 console.log('built index.html (web page)');

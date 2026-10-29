@@ -111,4 +111,17 @@ wait
 counted=$(grep -cE '^(improved|kept)$' "$OUT" || true); : > "$OUT"
 [ "$counted" = "1" ] && echo "ok: a round submitted 10 times at once counts once" || { echo "FAILED: a round counted $counted times"; exit 1; }
 
+# ---- replayed scores (score_replay.sql)
+db="gs_score_replay_$$"; new_db "$db"
+"${P[@]}" -d "$db" -f score_replay.sql >"$LOG" 2>&1 || { echo "FAILED: score replay"; grep -E 'FAILED|ERROR' "$LOG" | head -5; exit 1; }
+grep -c 'NOTICE:  ok:' "$LOG" | sed 's/^/score replay checks passed: /'
+# Concurrency: one replayed round submitted 10 times at once counts once; a reject racing the submits never counts twice.
+rid=$("${P[@]}" -d "$db" -tA -c "select gs_start_round('11111111-1111-4111-8111-111111111111')->>'round'")
+"${P[@]}" -d "$db" -c "update player_rounds set started_at = now() - interval '61 seconds' where id = '$rid'" >/dev/null
+for i in $(seq 1 10); do "${P[@]}" -d "$db" -tA -c "select gs_submit_replay('11111111-1111-4111-8111-111111111111', '$rid', $((100 + i)), 60000)->>'status'" >>"$OUT" & done
+"${P[@]}" -d "$db" -tA -c "select gs_reject_round('11111111-1111-4111-8111-111111111111', '$rid')->>'status'" >>"$OUT" &
+wait
+counted=$(grep -cE '^(improved|kept)$' "$OUT" || true); closed=$(grep -c '^closed$' "$OUT" || true); : > "$OUT"
+[ $((counted + closed)) = "1" ] && echo "ok: a replayed round sent 10 times at once (and rejected once) ends exactly once" || { echo "FAILED: counted $counted, closed $closed"; exit 1; }
+
 echo "all database checks passed"

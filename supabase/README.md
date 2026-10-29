@@ -273,3 +273,21 @@ table with every row to `gs_rolledback`; players, scores, codes and links are no
 What can and cannot be undone: parts A and B and the rollback change no player, score or link. The scores counted while
 rounds were live stay counted (a best only goes up). The ranked-round time limit (`score_rounds.sql` header) is a
 plausibility filter, not anti-cheat.
+
+### Replayed ranked scores (Option C): `score_replay.sql`, then `score_replay_finalize.sql`
+
+Each round gets a seed; the game builds the run from it and records what it fed its engine; the Worker replays that
+record with a copy of `src/engine.js` (atherbyte-api `src/game/snake-engine.js`, made by `scripts/sync-engine.mjs`) and
+counts only the score the replay reaches. Release order, after a backup:
+1. **Part A2 (`score_replay.sql`)**: additive (a seed and game time per round, three Worker-only functions, the seed in
+   `gs_start_round`'s answer, 5 open rounds per player). The live Worker keeps working.
+2. **Publish the game's `index.html`** (it works with both Workers: without a seed it sends rounds as before). Wait 15 minutes.
+3. **Deploy the replaying Worker.** One run per open tab may be lost at the switch: the round it fetched ahead came from
+   the previous Worker (the page says "The board was updated during this run…" and fetches a new round).
+4. **Part B2 (`score_replay_finalize.sql`)**: only now, the Worker loses the right to count a round without a replay.
+Undo: redeploy the previous Worker, then `rollback_score_replay.sql` (rounds and seeds are kept; players untouched).
+`rollback_score_rounds.sql` refuses to run until this rollback has been run.
+If `src/engine.js` changes, re-run `scripts/sync-engine.mjs` in atherbyte-api and deploy the Worker with the page; a page
+on another engine version gets "The game was updated. Reload the page to play ranked rounds."
+What replay does not stop: a program that plays (it knows the seed once the round opens), or a slowed-down game
+(frame times are the page's word; only a game running faster than real time is refused).
