@@ -98,4 +98,17 @@ pairs=$("${P[@]}" -d "$db" -tA -c "select count(*) from players where name in ('
 dup=$("${P[@]}" -d "$db" -tA -c "select count(*) from (select account_id from players where account_id is not null group by account_id having count(*) > 1) d")
 [ "$dup" = "0" ] && [ "$pairs" -ge 1 ] && echo "ok: parallel links never give one account two players ($pairs linked)" || { echo "FAILED: parallel links ($pairs linked, $dup duplicated)"; exit 1; }
 
+# ---- ranked rounds (score_rounds.sql)
+db="gs_score_rounds_$$"; new_db "$db"
+"${P[@]}" -d "$db" -f score_rounds.sql >"$LOG" 2>&1 || { echo "FAILED: score rounds"; grep -E 'FAILED|ERROR' "$LOG" | head -5; exit 1; }
+grep -c 'NOTICE:  ok:' "$LOG" | sed 's/^/score round checks passed: /'
+# Concurrency: the same round submitted many times at once is counted exactly once.
+"${P[@]}" -d "$db" -c "update player_rounds set status = 'abandoned' where status = 'open'" >/dev/null
+rid=$("${P[@]}" -d "$db" -tA -c "select gs_start_round('11111111-1111-4111-8111-111111111111')->>'round'")
+"${P[@]}" -d "$db" -c "update player_rounds set started_at = now() - interval '50 seconds' where id = '$rid'" >/dev/null
+for i in $(seq 1 10); do "${P[@]}" -d "$db" -tA -c "select gs_submit_round('11111111-1111-4111-8111-111111111111', '$rid', $((100 + i)), true, true, 'hard')->>'status'" >>"$OUT" & done
+wait
+counted=$(grep -cE '^(improved|kept)$' "$OUT" || true); : > "$OUT"
+[ "$counted" = "1" ] && echo "ok: a round submitted 10 times at once counts once" || { echo "FAILED: a round counted $counted times"; exit 1; }
+
 echo "all database checks passed"

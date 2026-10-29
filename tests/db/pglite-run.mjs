@@ -32,17 +32,21 @@ function inline(file, vars, seen = new Set()) {
   }).join('\n');
 }
 
-const files = process.argv.slice(2).length ? process.argv.slice(2) : ['leaderboard_v2.sql', 'account_link.sql'];
+const files = process.argv.slice(2).length ? process.argv.slice(2)
+  : ['leaderboard_v2.sql', 'account_link.sql', 'score_rounds.sql', 'rollback_order.stop.sql'];
 let failed = 0;
 for (const f of files) {
   const file = path.resolve(here, f);
+  const mustStop = f.endsWith('.stop.sql');     // these must end with a 'STOP:' error and nothing else
   const db = new PGlite();
   const notices = [];
   try {
     await db.exec(PREAMBLE + inline(file, {}), { onNotice: (n) => notices.push(n.message) });
     const ok = notices.filter((m) => m.startsWith('ok:')).length;
-    console.log(`${f}: ${ok} checks passed`);
+    if (mustStop) { failed++; console.log(`${f}: FAILED: it did not stop`); }
+    else console.log(`${f}: ${ok} checks passed`);
   } catch (e) {
+    if (mustStop && /STOP:/.test(e.message)) { console.log(`${f}: stopped as expected (${e.message.slice(0, 70)}…)`); continue; }
     failed++;
     console.log(`${f}: FAILED after ${notices.filter((m) => m.startsWith('ok:')).length} checks: ${e.message}`);
   } finally {

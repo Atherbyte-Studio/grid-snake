@@ -250,8 +250,26 @@ Checks: `tests/db/account_link.sql` (run by `tests/db/run.sh`, or without a Post
 4. **Apply `account_link.sql`** in the SQL Editor (one transaction: it either applies fully or changes nothing). Then check:
    `select count(*) from public.players;` gives the same count as before (24), and
    `select has_function_privilege('anon', 'public.gs_link_player(uuid, text)', 'execute');` gives `false`.
-5. **Deploy the Worker** (atherbyte-api, branch `feature/grid-snake-link`). `GET /v1/games/grid-snake/player` without a
-   token must answer `401`.
-6. **Publish the game's `index.html`** last, only after steps 4 and 5 work.
+   Then `account_name.sql`.
+5. **Ranked rounds, part A (`score_rounds.sql`)**: additive only (a table and two Worker-only functions). The Worker
+   that is live keeps working after it. Check: `tests/db/score_rounds.sql`.
+6. **Publish the game's `index.html` FIRST.** It works with both Workers: while the live Worker has no
+   `/v1/games/grid-snake/round` (it answers `404 not_found`), the page sends scores the old way, exactly as today; once
+   the new Worker is live, every run gets a round. Check a Time Attack round still counts. Then **wait at least 15
+   minutes**: GitHub Pages sends `Cache-Control: max-age=600`, so for 10 minutes some visitors may still get the old page.
+7. **Deploy the Worker** (atherbyte-api, branch `feature/grid-snake-link`). `GET /v1/games/grid-snake/player` without a
+   token must answer `401`, and `POST /v1/games/grid-snake/round` without a token `401` (not `404`). From now on a score
+   needs a round. What can still be lost: a run that started before this switch and ends after it (the page says "The
+   board was updated during this run…"), and scores from a tab opened before step 6 and never reloaded (the old page
+   says "That name or code is not valid.").
+8. **Ranked rounds, part B (`score_rounds_finalize.sql`)**: only after step 7 works, take away the Worker's right to the
+   unchecked `gs_submit_best`. One privilege, no data. Applied before step 7, it would break every score (502).
 
-To undo: publish the previous `index.html`, redeploy the previous Worker, then run `rollback_account_link.sql`.
+To undo the rounds only: redeploy the previous Worker, then run
+`rollback_score_rounds.sql` (gives `gs_submit_best` back to the Worker, removes the two round functions, moves the rounds
+table with every row to `gs_rolledback`; players, scores, codes and links are not touched). Never use
+`rollback_account_link.sql` for this: it refuses to run while rounds exist, and it would unlink every account.
+
+What can and cannot be undone: parts A and B and the rollback change no player, score or link. The scores counted while
+rounds were live stay counted (a best only goes up). The ranked-round time limit (`score_rounds.sql` header) is a
+plausibility filter, not anti-cheat.

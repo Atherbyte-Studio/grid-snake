@@ -16,6 +16,9 @@ begin
   if to_regclass('gs_rolledback.players_account_link') is not null or to_regclass('gs_rolledback.player_saves') is not null then
     raise exception 'STOP: an earlier rollback is kept in schema gs_rolledback. Check and rename it first. Nothing was changed.';
   end if;
+  if to_regclass('public.player_rounds') is not null then
+    raise exception 'STOP: ranked rounds are applied. Run rollback_score_rounds.sql first. Nothing was changed.';
+  end if;
 end $$;
 
 create schema if not exists gs_rolledback;

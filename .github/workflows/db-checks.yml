@@ -1,0 +1,30 @@
+# Runs tests/db/run.sh (the database checks, including concurrent submissions of one ranked round) against a
+# throw-away PostgreSQL 16 started for this run only. It never touches Supabase.
+# It runs only when a branch named ci/db-checks is pushed, or from the Actions tab once this file is on the default branch.
+name: db-checks
+on:
+  workflow_dispatch:
+  push:
+    branches: ['ci/db-checks']
+jobs:
+  db:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_PASSWORD: disposable-ci-only
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd pg_isready --health-interval 5s --health-timeout 5s --health-retries 12
+    steps:
+      - uses: actions/checkout@v4
+      - name: Database checks on a disposable PostgreSQL 16
+        env:
+          PGHOST: localhost
+          PGPORT: '5432'
+          PGUSER: postgres
+          PGPASSWORD: disposable-ci-only
+        run: |
+          psql --version
+          bash tests/db/run.sh

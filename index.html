@@ -4935,29 +4935,138 @@ var SnakeAccountLink = (function () {
         return { ok: false, reason: 'rejected' };
       });
     }
-    function submitScore(score, again) {
-      return call('score', 'POST', { score: score, walls: true, golden: true, difficulty: 'hard' }).then(function (r) {
-        if (notLinked(r) && !again) return ensurePlayer().then(function (e) { return e.ok ? submitScore(score, true) : { ok: false, reason: 'rejected' }; });
-        if (r.ok) return { ok: true, improved: !!r.data.improved, best: Number(r.data.best) || 0, rank: r.data.rank == null ? null : Number(r.data.rank) };
-        if (r.status === 0) return { ok: false, reason: r.code === 'timeout' ? 'timeout' : 'network' };
-        if (r.status >= 500) return { ok: false, reason: 'server' };
-        if (r.status === 400) return { ok: false, reason: 'invalid' };
-        return { ok: false, reason: 'rejected' };
+    /* ---------- ranked rounds (supabase/score_rounds.sql) ----------
+       Every Time Attack run asks the server for its own round when it starts (runStarted), and keeps its final score with
+       that round when it ends (runFinished). The game's queue sends scores oldest first; each one goes out with the round
+       of the run that earned it, and with no other:
+         counted (200)                                -> done
+         refused for good (400 404 409 410 422)       -> done: the game drops it, and the message says why
+         no answer (no connection, timeout, 5xx, 429) -> kept, with the SAME round, for Try again. If the lost request did
+                                                         reach the server, the round is already used: the retry is
+                                                         answered "round closed", reported as already counted, and the
+                                                         best is never raised twice
+         the run got no round (no connection when it started) -> done: it cannot be ranked, and the message says so
+       So a failed run never blocks the next ones for long: it is either retried with its own round or dropped. */
+    var runs = [];
+    var ROUND_LIFE_MS = 15 * 60 * 1000;   // the server's limit; an older run can never be counted
+    /* ROLLOUT ONLY: a Worker from before ranked rounds has no /round route and answers it 404 not_found (its router's
+       answer to any unknown path). This page is published BEFORE the new Worker, so for those minutes its scores go the
+       way that Worker expects (no round), exactly as today. Once the new Worker is live it answers /round, every run gets
+       a round, and a score without one is refused by the server whatever any page sends. */
+    var LEGACY = 'legacy-worker';
+    function openRound(again) {
+      return call('round', 'POST', {}).then(function (r) {
+        if (notLinked(r) && !again) return ensurePlayer().then(function (e) { return e.ok ? openRound(true) : null; });
+        if (r.status === 404 && r.data && r.data.error === 'not_found') return LEGACY;
+        return r.ok && r.data && typeof r.data.round_id === 'string' ? r.data.round_id : null;
+      }, function () { return null; });
+    }
+    function prune() {
+      var t = now();
+      runs = runs.filter(function (r) { return r.state !== 'done' && t - r.startedAt < ROUND_LIFE_MS; });
+    }
+    function runStarted() {
+      var run = { round: null, score: null, state: 'playing', tries: 0, startedAt: now() };
+      run.ready = openRound().then(function (id) { run.round = id; return id; });
+      runs.push(run);
+      return run;
+    }
+    function runFinished(run, score) {
+      run.score = Math.floor(score) || 0;
+      run.state = run.score > 0 ? 'finished' : 'done';     // the game does not send a score of 0
+      prune();
+    }
+    /* The game's queue gives the score, not the run: the oldest run still waiting with that score is the one it sends
+       (the queue is oldest first too). */
+    function runFor(score) {
+      prune();
+      for (var i = 0; i < runs.length; i++) {
+        var r = runs[i];
+        if ((r.state === 'finished' || r.state === 'retry') && r.score === score) return r;
+      }
+      return null;
+    }
+    function done(run, why, extra) {
+      run.state = 'done'; prune();
+      var out = { ok: false, reason: 'invalid', why: why };      // 'invalid' is a reason the game drops from its queue
+      if (extra) Object.keys(extra).forEach(function (k) { out[k] = extra[k]; });
+      return out;
+    }
+    function submitScore(score) {
+      var run = runFor(Math.floor(score));
+      if (!run) return Promise.resolve({ ok: false, reason: 'invalid', why: 'no-round' });
+      if (run.state === 'sending') return Promise.resolve({ ok: false, reason: 'rejected', why: 'busy' });
+      return run.ready.then(function (id) {
+        if (!id) return done(run, 'no-round');
+        run.state = 'sending';
+        run.tries++;
+        var body = { score: run.score, walls: true, golden: true, difficulty: 'hard' };
+        if (id !== LEGACY) body.round_id = id;
+        return call('score', 'POST', body).then(function (r) {
+          // a run that started under the old Worker and ended after the new one went live has no round: not rankable
+          if (id === LEGACY && r.status === 400 && r.data && r.data.error === 'round_required') return done(run, 'switched');
+          if (r.ok) {
+            run.state = 'done'; prune();
+            return { ok: true, improved: !!r.data.improved, best: Number(r.data.best) || 0, rank: r.data.rank == null ? null : Number(r.data.rank) };
+          }
+          if (r.code === 'account_changed' || r.status === 401) { run.state = 'retry'; return { ok: false, reason: 'rejected', why: 'signed-out' }; }
+          if (r.status === 0 || r.status >= 500 || r.status === 429) {
+            run.state = 'retry';
+            return { ok: false, reason: r.code === 'timeout' ? 'timeout' : r.status === 0 ? 'network' : 'server', why: 'retry' };
+          }
+          var err = r.data && r.data.error;
+          if (err === 'round_closed' && run.tries > 1) {
+            // an earlier try of this same round reached the server: it was counted then (or this round was replaced)
+            return boardMe().then(function (me) { return done(run, 'already', { best: me.ok ? me.best : null }); });
+          }
+          return done(run, err === 'round_closed' ? 'closed' : err === 'round_expired' ? 'expired'
+            : err === 'score_not_plausible' ? 'implausible' : err === 'round_not_found' ? 'no-round' : 'refused');
+        });
       });
     }
+    function pendingRuns() { return runs.map(function (r) { return { round: r.round, score: r.score, state: r.state, tries: r.tries }; }); }
 
     return {
       account: account, bind: bind, state: state, verifySession: verifySession, owner: owner, useSlotOf: useSlotOf, claimDevice: claimDevice, ensurePlayer: ensurePlayer, fetchPlayer: fetchPlayer, decideSync: decideSync, refresh: refresh,
       link: link, linkWithCode: linkWithCode, localPlayerChecked: localPlayerChecked, useAccountName: useAccountName,
       writeIdentity: writeIdentity, useAccountSave: useAccountSave, useDeviceSave: useDeviceSave, syncNow: syncNow,
-      boardMe: boardMe, submitScore: submitScore,
+      boardMe: boardMe, runStarted: runStarted, runFinished: runFinished, submitScore: submitScore, pendingRuns: pendingRuns,
       exportLocal: exportLocal, backup: backup, backups: backups, localPlayer: localPlayer, localIsEmpty: localIsEmpty
     };
   }
 
   /* The game's board client, made account-only: who-am-I and scores go through the Worker, and no local player can be
      created or restored by name or code from inside the game. Reading the top ten stays as it is. */
-  function patchBoard(board, core) {
+  /* The engine: a Time Attack run opens its server round when it starts, and keeps its final score with that round when
+     it ends. This listener is added before the page's own, so the run is closed before the game sends its score. */
+  function patchEngine(engine, core) {
+    if (!engine || engine.__account) return engine;
+    var create = engine.create;
+    engine.create = function (opts) {
+      var g = create.apply(engine, arguments);
+      if (opts && opts.mode === 'timeattack' && g && typeof g.start === 'function') {
+        var start = g.start, run = null;
+        g.start = function () { if (!run) run = core.runStarted(); return start.apply(g, arguments); };
+        if (typeof g.on === 'function') g.on(function (e, S) { if (e && e.type === 'over' && run && run.state === 'playing') core.runFinished(run, S.score); });
+      }
+      return g;
+    };
+    engine.__account = true;
+    return engine;
+  }
+
+  /* Why a score was not counted, in the game's own words (shown on the game-over screen in place of the generic text). */
+  var WHY = {
+    'no-round': 'This run was not registered with the board when it started, so it cannot be ranked.',
+    switched: 'The board was updated during this run, so this one score cannot be ranked. The next run will be.',
+    closed: 'This round was already sent to the board.',
+    already: 'This round was already counted.',
+    expired: 'This round is more than 15 minutes old, so it can no longer be ranked.',
+    implausible: 'The board could not accept this score for the time this round took.',
+    refused: 'The board did not accept this round.'
+  };
+
+  function patchBoard(board, core, explain) {
     if (!board || board.__account) return board;
     var no = function () { return Promise.resolve({ ok: false, reason: board.REASON ? board.REASON.rejected : 'rejected' }); };
     board.enrollPlayer = no;
@@ -4968,7 +5077,11 @@ var SnakeAccountLink = (function () {
       if (!board.isRanked(o && o.settings)) return Promise.resolve({ ok: false, reason: board.REASON.notRanked });
       var v = board.validateScore(o.score);
       if (!v.ok) return Promise.resolve({ ok: false, reason: board.REASON.invalid });
-      return core.submitScore(v.score).then(function (r) { core.syncNow(); return r; });
+      return core.submitScore(v.score).then(function (r) {
+        core.syncNow();
+        if (explain && r.why && WHY[r.why]) explain(WHY[r.why] + (r.why === 'already' && r.best != null ? ' Your best is ' + r.best + '.' : ''));
+        return r;
+      });
     };
     board.__account = true;
     return board;
@@ -5162,14 +5275,24 @@ var SnakeAccountLink = (function () {
     core.claimDevice();
     core.bind();
     core.writeIdentity(name);
-    var board;
+    var board, engine;
+    // after the game has written its own (generic) message for this score, the precise reason replaces it
+    function explain(text) {
+      win.setTimeout(function () {
+        var row = win.document.getElementById('ovRankRow'), msg = win.document.getElementById('ovRankMsg');
+        if (row && msg && !row.hidden) msg.textContent = text;
+      }, 0);
+    }
     try {
       Object.defineProperty(win, 'SnakeLeaderboard', { configurable: true, get: function () { return board; },
-        set: function (v) { board = patchBoard(v, core); } });
+        set: function (v) { board = patchBoard(v, core, explain); } });
+      Object.defineProperty(win, 'SnakeEngine', { configurable: true, get: function () { return engine; },
+        set: function (v) { engine = patchEngine(v, core); } });
     } catch (e) { /* defined already: patched below */ }
     ui.close();
     runGame(win);
-    if (win.SnakeLeaderboard) patchBoard(win.SnakeLeaderboard, core);
+    if (win.SnakeLeaderboard) patchBoard(win.SnakeLeaderboard, core, explain);
+    if (win.SnakeEngine) patchEngine(win.SnakeEngine, core);
     var w = watch(win, core, Account);
     mountPanel(win, core, name, Account, w);
   }
@@ -5316,7 +5439,7 @@ var SnakeAccountLink = (function () {
     }, down);
   }
 
-  return { create: create, patchBoard: patchBoard, boot: boot, BACKUP_KEY: BACKUP_KEY, SYNC_KEY: SYNC_KEY, LOCAL_ONLY_KEY: LOCAL_ONLY_KEY,
+  return { create: create, patchBoard: patchBoard, patchEngine: patchEngine, boot: boot, BACKUP_KEY: BACKUP_KEY, SYNC_KEY: SYNC_KEY, LOCAL_ONLY_KEY: LOCAL_ONLY_KEY,
            OWNER_KEY: OWNER_KEY, SLOT_PREFIX: SLOT_PREFIX };
 })();
 if (typeof module !== 'undefined' && module.exports) module.exports = SnakeAccountLink;

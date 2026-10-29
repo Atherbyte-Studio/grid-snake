@@ -32,13 +32,14 @@ test.after(async () => { if (browser) await browser.close(); });
 
 /* The Worker: one record per account (found by the token, as the real one does), and the Benzema player with its code. */
 function fakeWorker() {
-  const w = { players: { benz: { name: 'Benzema', code: BENZ, account: null, best: 300, save: null } }, calls: [] };
+  const w = { players: { benz: { name: 'Benzema', code: BENZ, account: null, best: 300, save: null } }, calls: [], roundSeq: 0, rounds: {}, failScore: [], counted: [] };
   w.of = (acct) => Object.values(w.players).find((p) => p.account === acct);
   return w;
 }
 
 async function open(seed, opts = {}) {
-  const html = fs.readFileSync(path.join(ROOT, 'index.html'), 'utf8');
+  let html = fs.readFileSync(path.join(ROOT, 'index.html'), 'utf8');
+  if (opts.html) html = opts.html(html);
   const ctx = await browser.newContext({ viewport: { width: 390, height: 780 } });
   await ctx.addInitScript((s) => { if (!sessionStorage.getItem('seeded')) { sessionStorage.setItem('seeded', '1'); Object.keys(s).forEach((k) => { if (localStorage.getItem(k) === null) localStorage.setItem(k, s[k]); }); } }, seed);
   const page = await ctx.newPage();
@@ -95,11 +96,29 @@ async function open(seed, opts = {}) {
       mine.save = { version: (cur || 0) + 1, data: body.data };
       return json(200, { version: mine.save.version });
     }
-    if (p.endsWith('/score')) { if (mine.best == null || body.score > mine.best) mine.best = body.score; return json(200, { improved: mine.best === body.score, best: mine.best, rank: 1 }); }
+    if (p.endsWith('/round')) { const id = 'round-' + (++w.roundSeq); w.rounds[id] = { owner: u.id, state: 'open' }; return json(200, { round_id: id, started_at: 't', expires_at: 't' }); }
+    if (p.endsWith('/score')) {
+      const f = w.failScore.shift();                         // 'abort' (no answer) | 'implausible'
+      if (f === 'abort') return r.abort('connectionreset');
+      if (!body.round_id) return json(400, { error: 'round_required' });
+      const rd = w.rounds[body.round_id];
+      if (!rd || rd.owner !== u.id) return json(404, { error: 'round_not_found' });
+      if (rd.state !== 'open') return json(409, { error: 'round_closed' });
+      if (f === 'implausible') { rd.state = 'rejected'; return json(422, { error: 'score_not_plausible' }); }
+      rd.state = 'used';
+      w.counted.push({ round: body.round_id, score: body.score });
+      if (mine.best == null || body.score > mine.best) mine.best = body.score;
+      return json(200, { improved: mine.best === body.score, best: mine.best, rank: 1 });
+    }
     return json(404, { error: 'not_found' });
   });
   await page.goto('https://atherbyte.online/grid-snake/');
   return { ctx, page, errors, board, w };
+}
+/* Waits for a condition on the test's side (the fake Worker), instead of a fixed delay. */
+async function until(fn, what, ms = 10000) {
+  const end = Date.now() + ms;
+  while (!fn()) { if (Date.now() > end) throw new Error('timed out waiting: ' + what); await new Promise((r) => setTimeout(r, 25)); }
 }
 const gameRan = (page) => page.evaluate(() => typeof window.SnakeLeaderboard !== 'undefined' || !document.getElementById('playBtn').disabled);
 const started = (page) => page.waitForFunction(() => !document.getElementById('acGate') && !document.getElementById('playBtn').disabled);
@@ -187,7 +206,15 @@ test('A plays, signs out on the website, B signs in in the game, B signs out, A 
   assert.deepEqual(JSON.parse(aLive['gridsnake-player-v1']), { name: 'ronaldo', secret: BENZ });
   assert.equal(JSON.parse(aLive['gridsnake-profile-v2']).coins, 1234);
   assert.equal(w.players.benz.account, USERS.ronaldo.id);
+  // a score with no run behind it never leaves the page; a Time Attack run opens its round, and its score goes with it
+  assert.deepEqual(await page.evaluate(() => SnakeLeaderboard.submitBest({ secret: 'x', score: 450, settings: { walls: true, golden: true, difficulty: 'hard' } })),
+    { ok: false, reason: 'invalid', why: 'no-round' });
+  assert.ok(!w.calls.some((c) => c.path.endsWith('/score')));
+  await page.evaluate(() => { const g = SnakeEngine.create({ mode: 'timeattack', edge: 'walls', golden: true }); g.start(); window.__run = g; });
+  await until(() => Object.keys(w.rounds).length === 1, 'the run\'s round is open');
+  await page.evaluate(() => { const g = window.__run; g.state.score = 450; g.update(100); g.state.timeLeft = 0; g.update(1); });
   assert.deepEqual(await page.evaluate(() => SnakeLeaderboard.submitBest({ secret: 'x', score: 450, settings: { walls: true, golden: true, difficulty: 'hard' } })), { ok: true, improved: true, best: 450, rank: 1 });
+  assert.deepEqual(w.counted, [{ round: 'round-1', score: 450 }]);
   const aSave = JSON.stringify(w.players.benz.save);
 
   // 2. signed out on the website, in another tab: the game locks at once, without a reload
@@ -211,8 +238,7 @@ test('A plays, signs out on the website, B signs in in the game, B signs out, A 
   assert.notEqual(JSON.parse(bLive['gridsnake-player-v1']).secret, BENZ, 'not A\'s recovery code');
   assert.ok(!w.calls.some((c) => c.account === 'neymar' && c.path.endsWith('/link')), 'A\'s code was never sent for B');
   await page.evaluate(() => { document.getElementById('profileDlg').showModal(); document.getElementById('profileDlg').close(); });   // first save makes B's player
-  await page.waitForFunction(() => true);
-  await new Promise((r) => setTimeout(r, 500));
+  await until(() => w.players.neymar, 'B\'s first save made its player');
   assert.equal(w.players.neymar && w.players.neymar.account, USERS.neymar.id, 'B got its own, separate player');
   assert.equal(JSON.stringify(w.players.benz.save), aSave, 'A\'s cloud save untouched by B');
   assert.equal(w.players.benz.best, 450);
@@ -229,6 +255,45 @@ test('A plays, signs out on the website, B signs in in the game, B signs out, A 
   assert.equal(w.players.benz.account, USERS.ronaldo.id);
   assert.ok(!gateTexts.some((t) => /linked to a different|different Grid Snake player/.test(t)), 'no ownership warning at any point');
   assert.ok(!board.some((u) => /submit_best|register_player/.test(u)));
+  assert.deepEqual(errors, []);
+  await ctx.close();
+});
+
+/* The real page and its real score queue (rankRun, flushRanks, Try again), with Time Attack shortened to 1.2 s. */
+const SHORT_TA = (h) => h.replace('duration: 60000,', 'duration: 1200,').replace('/*TEST_HOOK*/', 'window.__t = { game: function () { return game; } };');
+async function playShortRound(page, score) {
+  await page.evaluate(() => { const b = document.querySelector('.mode[data-mode="timeattack"]'); if (b) b.click(); });
+  await page.evaluate(() => { const o = document.getElementById('overlay'); const b = o && !o.hidden ? document.getElementById('ovBtn') : document.getElementById('playBtn'); b.click(); });
+  await page.waitForFunction(() => window.__t && __t.game() && __t.game().state.phase === 'running');
+  await page.evaluate((s) => { __t.game().state.score = s; }, score);
+  await page.waitForFunction(() => __t.game().state.phase === 'over');
+  await page.waitForFunction(() => { const m = document.getElementById('ovRankMsg'); return m && m.textContent && !/Saving/.test(m.textContent); });
+  return page.evaluate(() => ({ msg: document.getElementById('ovRankMsg').textContent, retry: !document.getElementById('ovRetry').hidden }));
+}
+
+test('real queue: no answer -> Try again with the same round; a refusal -> dropped with its reason; the next run counts', { skip }, async () => {
+  const { ctx, page, errors, w } = await open(Object.assign({}, benzema, session(USERS.ronaldo)), { html: SHORT_TA });
+  await started(page);
+
+  // run 1: the answer is lost; the score waits for Try again, with its own round
+  w.failScore.push('abort');
+  let r = await playShortRound(page, 12);
+  assert.equal(r.retry, true, 'Try again is offered');
+  assert.deepEqual(w.counted, []);
+  await page.evaluate(() => document.getElementById('ovRetry').click());
+  await page.waitForFunction(() => /best/i.test(document.getElementById('ovRankMsg').textContent));
+  assert.deepEqual(w.counted, [{ round: 'round-1', score: 12 }], 'counted once, with run 1\'s round');
+
+  // run 2: refused for good; the queue lets it go and says why
+  w.failScore.push('implausible');
+  r = await playShortRound(page, 13);
+  await page.waitForFunction(() => /time this round took/.test(document.getElementById('ovRankMsg').textContent));
+  assert.equal(await page.isHidden('#ovRetry'), true, 'nothing to retry: it was refused for good');
+
+  // run 3: counted with its own round; nothing from run 2 is attached to it
+  r = await playShortRound(page, 14);
+  assert.match(r.msg, /best/i);
+  assert.deepEqual(w.counted, [{ round: 'round-1', score: 12 }, { round: 'round-3', score: 14 }]);
   assert.deepEqual(errors, []);
   await ctx.close();
 });
