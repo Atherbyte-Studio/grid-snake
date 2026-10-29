@@ -124,4 +124,12 @@ wait
 counted=$(grep -cE '^(improved|kept)$' "$OUT" || true); closed=$(grep -c '^closed$' "$OUT" || true); : > "$OUT"
 [ $((counted + closed)) = "1" ] && echo "ok: a replayed round sent 10 times at once (and rejected once) ends exactly once" || { echo "FAILED: counted $counted, closed $closed"; exit 1; }
 
+# ---- the old direct score path is closed for browser keys (lock_legacy_submit.sql and its rollback)
+db="gs_lock_legacy_$$"; new_db "$db"
+"${P[@]}" -d "$db" -f lock_legacy_submit.sql >"$LOG" 2>&1 || true
+for note in 'ok: before: anon can call submit_best' 'ok: before replay: the lock stopped' 'ok: after: anon cannot call submit_best' 'ok: after: authenticated cannot call submit_best' 'ok: after: the board and registration still work' 'ok: rollback: submit_best is callable again'; do
+  grep -q "$note" "$LOG" || { echo "FAILED: lock legacy submit did not reach: $note"; grep -E 'FAILED' "$LOG" | head -3; exit 1; }
+done
+echo "ok: submit_best is closed to browser keys, the board still works, and the rollback reopens it"
+
 echo "all database checks passed"
