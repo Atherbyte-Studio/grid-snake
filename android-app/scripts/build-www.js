@@ -45,6 +45,7 @@ fs.rmSync(out, { recursive: true, force: true });
 fs.mkdirSync(path.join(out, 'fonts'), { recursive: true });
 fs.writeFileSync(path.join(out, 'index.html'), html);
 for (const f of ['Sora.ttf', 'InstrumentSans.ttf']) fs.copyFileSync(path.join(root, 'assets/fonts', f), path.join(out, 'fonts', f));
+fs.cpSync(path.join(root, '..', 'assets', 'skins'), path.join(out, 'assets', 'skins'), { recursive: true });   // shop pictures and heads
 fs.writeFileSync(path.join(out, 'fonts/fonts.css'), `/* Sora and Instrument Sans, SIL Open Font License (see assets/fonts/OFL-*.txt). Variable fonts: one file, all weights. */
 @font-face { font-family: "Sora"; font-weight: 100 800; font-style: normal; font-display: swap; src: url("Sora.ttf") format("truetype"); }
 @font-face { font-family: "Instrument Sans"; font-weight: 400 700; font-style: normal; font-display: swap; src: url("InstrumentSans.ttf") format("truetype"); }
