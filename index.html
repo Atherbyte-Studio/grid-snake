@@ -4073,6 +4073,7 @@ if (typeof module !== 'undefined' && module.exports) module.exports = SnakeChase
   }
 
   /* ---------- the snake ---------- */
+  function starSkin() { var k = SKINS[look.skin]; return !!(k && k.gear && k.gear.type === 'face'); }   // football stars: a fatter, outlined sticker snake
   function bodyWidth(t) {                                 // body thickness (in cells) along the snake, 0 = neck, 1 = tail tip
     if (t < 0.12) return 0.56 + 0.1 * (t / 0.12);
     if (t < 0.55) return 0.66;
@@ -4120,7 +4121,7 @@ if (typeof module !== 'undefined' && module.exports) module.exports = SnakeChase
       var line = resample(chaikin(px, 2), c * 0.1), s0 = 0;
       line.forEach(function (q, k) {
         if (k) s0 += c * 0.1;
-        var t = Math.min(1, (used + s0 / c) / total), w = bodyWidth(t) * c;
+        var t = Math.min(1, (used + s0 / c) / total), w = bodyWidth(t) * c * (starSkin() ? 1.4 : 1);
         if (withWave) {
           var env = Math.min(1, t * 5) * (1 - t * 0.3), off = c * 0.07 * env * Math.sin(s0 / c * 2.2 - FX.clock / 160);
           q = { x: q.x - Math.sin(q.a) * off, y: q.y + Math.cos(q.a) * off, a: q.a };
@@ -4135,8 +4136,9 @@ if (typeof module !== 'undefined' && module.exports) module.exports = SnakeChase
       samples.forEach(function (q) { ctx.beginPath(); ctx.arc(q.x + dx * q.w, q.y + dy * q.w, q.w * k / 2, 0, Math.PI * 2); ctx.fill(); });
     }
     circles(0.1, 0.14, 1.04, shadow);
-    circles(0, 0, 1, edge);
-    circles(0, 0, 0.86, base);
+    var star = starSkin();
+    circles(0, 0, 1, star ? '#0B0B0F' : edge);
+    circles(0, 0, star ? 0.88 : 0.86, base);
     circles(-0.08, -0.1, 0.5, lit);
     var next = 0.5 * c;                                    // dorsal diamonds and speckles every so often
     samples.forEach(function (q) {
@@ -4242,12 +4244,13 @@ if (typeof module !== 'undefined' && module.exports) module.exports = SnakeChase
     }
     if (b.label) {                                       // the number, written along the body
       var lnext = c * 0.9;
-      ctx.font = '700 ' + Math.max(7, c * 0.26) + 'px Sora, sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.font = '800 ' + Math.max(8, c * 0.4) + 'px Sora, sans-serif'; ctx.lineJoin = 'round'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
       samples.forEach(function (q) {
         if (q.s < lnext || q.t < 0.12 || q.t > 0.9) return;
-        lnext = q.s + c * 2.1;
+        lnext = q.s + c * 2.6;
         ctx.save(); ctx.translate(q.x, q.y); ctx.rotate(Math.cos(q.a) < 0 ? q.a + Math.PI : q.a);
-        ctx.fillStyle = b.labelColor || '#000000'; ctx.globalAlpha = 0.85; ctx.fillText(b.label, 0, 0);
+        ctx.globalAlpha = 0.9; ctx.lineWidth = Math.max(2, c * 0.09); ctx.strokeStyle = 'rgba(255,255,255,.55)'; ctx.strokeText(b.label, 0, 0);
+        ctx.fillStyle = b.labelColor || '#000000'; ctx.fillText(b.label, 0, 0);
         ctx.restore();
       });
     }
@@ -4270,11 +4273,14 @@ if (typeof module !== 'undefined' && module.exports) module.exports = SnakeChase
     if (g.type === 'face') {                           // a round picture on the head, kept upright whichever way the snake goes
       var img = faceImage(g.src);
       if (!img) return;
-      var r = c * 0.62;
-      ctx.save(); ctx.translate(c * 0.1, 0); ctx.rotate(-(ang || 0));
+      var r = c * 0.74;
+      ctx.save(); ctx.translate(c * 0.12, 0); ctx.rotate(-(ang || 0));
+      ctx.fillStyle = '#1A1A22'; ctx.beginPath(); ctx.arc(0, 0, r, 0, Math.PI * 2); ctx.fill();   // behind a picture with see-through corners
       ctx.drawImage(img, -r, -r, r * 2, r * 2);
-      ctx.strokeStyle = g.ring || '#FFFFFF'; ctx.lineWidth = Math.max(1.5, c * 0.07);
+      ctx.strokeStyle = '#0B0B0F'; ctx.lineWidth = Math.max(2, c * 0.1);       // the sticker outline, then a thin ring in the team colour
       ctx.beginPath(); ctx.arc(0, 0, r - ctx.lineWidth / 2, 0, Math.PI * 2); ctx.stroke();
+      ctx.strokeStyle = g.ring || '#FFFFFF'; ctx.lineWidth = Math.max(1.5, c * 0.05);
+      ctx.beginPath(); ctx.arc(0, 0, r - c * 0.12, 0, Math.PI * 2); ctx.stroke();
       ctx.restore();
       return;
     }
