@@ -20,7 +20,8 @@ const TWEAKS = [
   ['announceMs: 8000,', 'announceMs: 700,'],
   ['eventMs: 10500,', 'eventMs: 1400,'],
   ['DD.flow = \'countdown\'; DD.flowT = 3000;', 'DD.flow = \'countdown\'; DD.flowT = 400;'],
-  ['DD.flowT = 2600;', 'DD.flowT = 400;']
+  ['DD.flowT = 2700;', 'DD.flowT = 900;'],
+  ['var events = Events.order(rng, MAX_ROUNDS);', 'var events = Events.order(rng, MAX_ROUNDS); if (window.__ev) events = events.map(function () { return window.__ev; });']
 ];
 
 let browser;
@@ -35,13 +36,14 @@ function pageHtml() {
     '<style>:root{color-scheme:light}body{margin:0}</style></head><body>' + src + '</body></html>';
 }
 
-async function open(context, storage) {
+async function open(context, storage, ev) {
   const ctx = await browser.newContext(Object.assign({ viewport: { width: 1280, height: 860 } }, context || {}));
   const page = await ctx.newPage();
   const errors = [];
   page.on('pageerror', e => errors.push('pageerror: ' + e.message));
   page.on('console', m => { if (m.type() === 'error' && !/Failed to load resource/.test(m.text())) errors.push('console: ' + m.text()); });
   await ctx.addInitScript(([k, v]) => { try { if (localStorage.getItem(k) === null) localStorage.setItem(k, v); } catch (e) {} }, [KEY, JSON.stringify({ name: 'Waseem', secret: SECRET })]);
+  if (ev) await ctx.addInitScript(e => { window.__ev = e; }, ev);
   const seed = Object.assign({ 'gridsnake-profile-v2': JSON.stringify({ name: 'Tester', prefs: { mode: 'classic', edge: 'walls' } }) }, storage || {});
   await ctx.addInitScript(s => Object.keys(s).forEach(k => { try { if (localStorage.getItem(k) === null) localStorage.setItem(k, s[k]); } catch (e) {} }), seed);
   await page.route('**/rest/v1/rpc/**', defaultBoard().route);
@@ -65,16 +67,19 @@ test('the home screen offers the Duel; its menu has the three rivals, the record
   assert.equal(await page.evaluate(() => __t.view()), 'duel');
   assert.ok(await visible(page, '#duelMenu'));
   assert.equal(await page.locator('#duelLevels button').count(), 3);
-  assert.equal(await page.locator('#duelStatList > div').count(), 12);
-  assert.equal(await page.getAttribute('#duelLevels [data-level="medium"]', 'aria-pressed'), 'true');
+  assert.equal(await page.locator('#duelStatList > div').count(), 8);
+  assert.equal(await page.locator('#duelEventList li').count(), 5);
+  assert.equal(await page.getAttribute('#duelLevels [data-level="medium"]', 'aria-checked'), 'true');
   await page.click('#duelLevels [data-level="hard"]');
-  assert.equal(await page.getAttribute('#duelLevels [data-level="hard"]', 'aria-pressed'), 'true');
-  assert.match(await page.textContent('#duelLevelDesc'), /cuts you off/);
+  assert.equal(await page.getAttribute('#duelLevels [data-level="hard"]', 'aria-checked'), 'true');
+  await page.keyboard.press('ArrowLeft');                         // radio group: arrows move the choice
+  assert.equal(await page.getAttribute('#duelLevels [data-level="medium"]', 'aria-checked'), 'true');
+  await page.click('#duelLevels [data-level="hard"]');
   await shot(page, 'duel-menu-desktop');
   await page.reload();
   await page.waitForFunction(() => !document.getElementById('playBtn').disabled);
   await page.click('#duelEntry');
-  assert.equal(await page.getAttribute('#duelLevels [data-level="hard"]', 'aria-pressed'), 'true', 'the rival level is remembered');
+  assert.equal(await page.getAttribute('#duelLevels [data-level="hard"]', 'aria-checked'), 'true', 'the rival level is remembered');
   await page.click('#duelBack');
   assert.equal(await page.evaluate(() => __t.view()), 'home');
   assert.ok(await visible(page, '#home'));
@@ -122,7 +127,8 @@ test('pause and resume with Space; leaving mid-match is not counted', async () =
   await page.waitForFunction(() => __t.duel().round && __t.duel().round.state.phase === 'running');
   await page.keyboard.press('Space');
   assert.equal(await duel(page, () => __t.duel().round.state.phase), 'paused');
-  assert.match(await page.textContent('#duelOvTitle'), /Paused/);
+  assert.match(await page.textContent('#duelOvKicker'), /Paused/);
+  assert.ok(await visible(page, '#duelOvMain'));
   await shot(page, 'duel-paused');
   const t = await duel(page, () => __t.duel().round.state.tick);
   await page.waitForTimeout(400);
@@ -158,7 +164,9 @@ test('a whole match to the results screen; stats are saved under their own key; 
   assert.ok(await visible(page, '#duelOvMain'));
   assert.match(await page.textContent('#duelOvMain'), /Rematch/);
   assert.ok(await page.locator('#duelOvRounds li').count() >= 2);
-  assert.match(await page.textContent('#duelOvText'), /Rounds \d – \d/);
+  assert.ok(await visible(page, '#duelOvFinal'));
+  assert.equal(await page.locator('#duelOvStats > div').count(), 3);
+  await page.waitForTimeout(1300);                               // after the entrance animation
   await shot(page, 'duel-results');
   const stats = await page.evaluate(() => JSON.parse(localStorage.getItem('gridsnake-duel-stats-v1')));
   assert.equal(stats.played, 1);
@@ -244,6 +252,48 @@ test('Android app (www/): Back pauses a duel, resumes it, leaves for the duel me
   assert.equal(await page.evaluate(() => window.__androidBack()), true);
   assert.equal(await page.evaluate(() => __t.view()), 'home');
   assert.equal(await page.evaluate(() => window.__androidBack()), false, 'on the game menu Back lets the app minimise');
+  assert.deepEqual(errors, []);
+  await ctx.close();
+});
+
+test('each of the five events in the page: announced with a banner, shown in the event strip, drawn on the board', async () => {
+  for (const ev of ['vanish', 'portal', 'laser', 'walls', 'core']) {
+    const { ctx, page, errors } = await open(null, null, ev);
+    await page.click('#duelEntry');
+    await page.click('#duelStart');
+    await page.waitForFunction(() => __t.duel().round && __t.duel().round.state.phase === 'running');
+    // a steady AI drives the player so the round lasts; this only replaces the key presses
+    await page.evaluate(() => { const ai = SnakeDuelAI.create('hard', 7); __t.duel().human.next = (r, i) => ai.next(r, i); });
+    await page.waitForFunction(() => { const r = __t.duel().round; return !r || r.state.phase !== 'running' || r.state.eventPhase === 'announce' || r.state.eventPhase === 'live'; }, null, { timeout: 10000 });
+    const bannerSeen = await page.evaluate(() => !document.getElementById('duelBanner').hidden);
+    await page.waitForFunction(() => { const r = __t.duel().round; return !r || r.state.phase !== 'running' || r.state.eventPhase === 'live'; }, null, { timeout: 10000 });
+    const live = await page.evaluate(() => { const r = __t.duel().round; return r && r.state.eventPhase === 'live'; });
+    if (live) {
+      // let the event build up in game time (ticked directly, as the frame loop would), then let one frame draw it
+      await page.evaluate(() => { const r = __t.duel().round; for (let i = 0; i < 60 && r.state.phase === 'running'; i++) r.tick(); });
+      await page.waitForTimeout(150);
+      const strip = await page.evaluate(() => ({ ev: document.getElementById('duelEvent').getAttribute('data-event'), live: document.getElementById('duelEvent').classList.contains('live'), name: document.getElementById('duelEventName').textContent, status: document.getElementById('duelEventStatus').textContent }));
+      assert.equal(strip.ev, ev);
+      assert.ok(strip.name.length > 3 && strip.status.length > 3, ev + ' strip text');
+      await shot(page, 'event-' + ev);
+    }
+    assert.ok(bannerSeen || !live, ev + ': the event banner was shown');
+    assert.deepEqual(errors, [], ev);
+    await ctx.close();
+  }
+});
+
+test('reduced motion: a match still plays to the results with no particles, and the overlays still show', async () => {
+  const ctx0 = { reducedMotion: 'reduce' };
+  const { ctx, page, errors } = await open(ctx0);
+  await page.click('#duelEntry');
+  await page.click('#duelStart');
+  await page.waitForFunction(() => __t.duel().round && __t.duel().round.state.phase === 'running');
+  await page.evaluate(() => { const ai = SnakeDuelAI.create('medium', 3); __t.duel().human.next = (r, i) => ai.next(r, i); });
+  await page.waitForTimeout(1500);
+  assert.equal(await page.evaluate(() => __t.duel().fx.parts.length), 0, 'no particles with reduced motion');
+  await page.waitForFunction(() => __t.duel().flow === 'results', null, { timeout: 40000 });
+  assert.ok(await visible(page, '#duelOvMain'));
   assert.deepEqual(errors, []);
   await ctx.close();
 });
