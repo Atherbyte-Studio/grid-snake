@@ -492,3 +492,17 @@ test('stats: their own key only, broken data never crashes, an abandoned match i
   t.recordMatch({ winner: 0, difficulty: 'easy', rounds: [] });
   assert.equal(t.get().won, 1);
 });
+
+/* ---------------- the page ---------------- */
+
+test('src/duel/ui.js shares the page script: none of its names may replace one of the page (a clash broke drawing once)', () => {
+  const fs = require('fs'), path = require('path');
+  const ui = fs.readFileSync(path.join(__dirname, '..', 'src', 'duel', 'ui.js'), 'utf8');
+  const page = fs.readFileSync(path.join(__dirname, '..', 'src', 'index.template.html'), 'utf8').replace(ui, '').replace('/*@include src/duel/ui.js*/', '');
+  const top = [...ui.matchAll(/^  (?:function ([A-Za-z0-9_$]+)|var ([A-Za-z0-9_$]+))/gm)].map(m => m[1] || m[2]);
+  assert.ok(top.length > 20);
+  for (const name of top) {
+    const re = new RegExp('(function ' + name + '\b|var ' + name + '\b|[,] ' + name + ' =)');
+    assert.ok(!re.test(page), name + ' is already defined by the page');
+  }
+});

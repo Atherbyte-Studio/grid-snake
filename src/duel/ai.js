@@ -226,8 +226,11 @@ var SnakeDuelAI = (function () {
     return best;
   }
 
-  function create(level, seed) {
+  /* opts.budgetMs (the page sets it): when a decision takes longer than this on a slow device, the next ones look one
+     tick ahead instead of two for a while, so the game never stutters. Without it (tests) the AI is fully deterministic. */
+  function create(level, seed, opts) {
     if (LEVELS.indexOf(level) < 0) level = 'medium';
+    var budget = opts && opts.budgetMs, easeOff = 0;
     var C = CONF[level], rng = Duel.seededRng((seed == null ? 99 : seed) ^ 0x5bd1e995);
     var stats = { decisions: 0, maxMs: 0, totalMs: 0 };
     var clock = (typeof performance !== 'undefined' && performance.now) ? function () { return performance.now(); } : function () { return Date.now(); };
@@ -239,14 +242,16 @@ var SnakeDuelAI = (function () {
         var B = readBoard(round, me), st = { me: B.me, op: B.op, taken: {} }, choice;
         if (C.depth === 0) choice = easyMove(B, st, C, rng);
         else {
-          var best = -Infinity, guess = predict(B, st, C);
+          var best = -Infinity, guess = predict(B, st, C), depth = C.depth;
+          if (easeOff > 0) { easeOff--; depth = 1; }
           moves(st.me.dir).forEach(function (m) {
-            var v = search(B, st, m, C.depth, 0, C, guess);
+            var v = search(B, st, m, depth, 0, C, guess);
             if (m.x === st.me.dir.x && m.y === st.me.dir.y) v += 0.5;  // ties: keep going straight
             if (v > best) { best = v; choice = m; }
           });
         }
         var ms = clock() - t0;
+        if (budget && ms > budget && C.depth > 1) easeOff = 25;
         stats.decisions++; stats.totalMs += ms; if (ms > stats.maxMs) stats.maxMs = ms; if (ms > 8) stats.slow = (stats.slow || 0) + 1;
         return choice || null;
       }

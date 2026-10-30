@@ -582,6 +582,112 @@ html[data-motion="off"] *, html[data-motion="off"] *::before, html[data-motion="
   .btn, .seg button, .mode { transition: none; }
   .spin { animation: none; }
 }
+
+/* ===================== Grid Snake Duel =====================
+   Its own screens in the studio's look: near-black, white type, the Atherbyte purple. Scoped to #duel and the
+   home entry, so nothing else in the game changes. */
+#duel {
+  --d-bg: #0B0B0F; --d-surface: #15151D; --d-surface-2: #1B1B27; --d-line: rgba(255, 255, 255, .09); --d-line-2: rgba(255, 255, 255, .16);
+  --d-text: #F5F5F7; --d-muted: #A9A9BA; --d-accent: #885CFF; --d-deep: #6A3BF2; --d-soft: #B79CFF; --d-gold: #FFD76E; --d-danger: #FF5C7A;
+  --d-you: #34B07A; --d-rival: #9B7BFF;
+  color: var(--d-text); max-width: 1080px;
+}
+html.in-duel body { background: #0B0B0F; }
+.duel-entry { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 14px; width: 100%; padding: 16px 18px; border-radius: 18px;
+  border: 1px solid rgba(136, 92, 255, .45); background: linear-gradient(120deg, rgba(106, 59, 242, .22), rgba(136, 92, 255, .06) 60%, rgba(214, 107, 255, .08));
+  color: var(--text); font: inherit; text-align: left; cursor: pointer; transition: border-color .15s ease, transform .1s ease; -webkit-tap-highlight-color: transparent; }
+.duel-entry:hover { border-color: #B79CFF; }
+.duel-entry:active { transform: scale(.99); }
+.duel-entry:focus-visible { outline: 2px solid #B79CFF; outline-offset: 3px; }
+.duel-entry svg { width: 34px; height: 34px; fill: none; stroke: #B79CFF; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
+.duel-entry b { display: block; font-family: var(--font-display); font-size: 17px; font-weight: 600; }
+.duel-entry span span { display: block; font-size: 13px; color: var(--muted); }
+.duel-entry i { font-style: normal; font-size: 12px; font-weight: 600; letter-spacing: .1em; text-transform: uppercase; color: #B79CFF; }
+
+.duel-menu { display: grid; gap: 26px; max-width: 720px; padding-block: clamp(8px, 4vh, 40px); }
+.duel-top { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.duel-btn { font: inherit; font-weight: 600; font-size: 15px; min-height: 46px; padding: 0 20px; border-radius: 12px; border: 1px solid var(--d-line); background: var(--d-surface-2); color: var(--d-text); cursor: pointer; transition: background-color .15s ease, border-color .15s ease; -webkit-tap-highlight-color: transparent; }
+.duel-btn:hover { border-color: var(--d-line-2); background: #232333; }
+.duel-btn:focus-visible { outline: 2px solid var(--d-soft); outline-offset: 3px; }
+.duel-btn--primary { background: linear-gradient(135deg, var(--d-accent), var(--d-deep)); border-color: transparent; color: #fff; box-shadow: 0 14px 30px -18px var(--d-accent); }
+.duel-btn--primary:hover { background: linear-gradient(135deg, #9A74FF, #7448F5); }
+.duel-btn--xl { min-height: 62px; width: 100%; font-family: var(--font-display); font-size: 19px; border-radius: 16px; }
+.duel-kicker { margin: 0 0 8px; font-size: 12px; font-weight: 600; letter-spacing: .16em; text-transform: uppercase; color: var(--d-soft); }
+.duel-menu h1 { margin: 0; font-family: var(--font-display); font-weight: 700; font-size: clamp(38px, 9vw, 64px); line-height: 1.02; letter-spacing: -.03em; }
+.duel-menu h1 span { background: linear-gradient(90deg, #B79CFF, #D66BFF); -webkit-background-clip: text; background-clip: text; color: transparent; }
+.duel-lede { margin-top: 12px; max-width: 46ch; color: var(--d-muted); font-size: 16px; }
+.duel-label { margin: 0 0 10px; font-size: 11px; font-weight: 600; letter-spacing: .14em; text-transform: uppercase; color: var(--d-muted); }
+.duel-levels { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+.duel-levels button { font: inherit; font-weight: 600; min-height: 50px; border-radius: 12px; border: 1px solid var(--d-line); background: var(--d-surface); color: var(--d-text); cursor: pointer; -webkit-tap-highlight-color: transparent; }
+.duel-levels button[aria-pressed="true"] { border-color: var(--d-accent); background: rgba(136, 92, 255, .16); box-shadow: inset 0 0 0 1px var(--d-accent); }
+.duel-levels button:focus-visible { outline: 2px solid var(--d-soft); outline-offset: 3px; }
+.duel-note { margin-top: 10px; font-size: 14px; color: var(--d-muted); min-height: 1.5em; }
+.duel-card { border: 1px solid var(--d-line); border-radius: 16px; background: var(--d-surface); padding: 16px 18px; }
+.duel-stats { margin: 0; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 14px 10px; }
+.duel-stats dt { font-size: 11px; letter-spacing: .08em; text-transform: uppercase; color: var(--d-muted); }
+.duel-stats dd { margin: 2px 0 0; font-family: var(--font-display); font-size: 22px; font-weight: 600; font-variant-numeric: tabular-nums; }
+@media (max-width: 560px) { .duel-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+.duel-rules summary { cursor: pointer; font-weight: 600; }
+.duel-rules ul { margin: 12px 0 0; padding-left: 18px; display: grid; gap: 6px; font-size: 14px; color: var(--d-muted); }
+.duel-rules b { color: var(--d-text); font-weight: 600; }
+
+.duel-play { display: grid; gap: 12px; padding-block: 8px; }
+@media (min-width: 980px) { .duel-play { grid-template-columns: minmax(0, 1fr) 270px; align-items: start; } .duel-hud { grid-column: 1 / -1; } }
+.duel-hud { display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); align-items: center; gap: 10px; }
+.duel-side { display: grid; gap: 4px; padding: 10px 14px; border-radius: 14px; background: var(--d-surface); border: 1px solid var(--d-line); min-width: 0; }
+.duel-side--rival { text-align: right; justify-items: end; }
+.duel-who { display: flex; align-items: center; gap: 8px; font-size: 12px; font-weight: 600; letter-spacing: .1em; text-transform: uppercase; color: var(--d-muted); }
+.duel-who i { width: 10px; height: 10px; border-radius: 50%; background: var(--d-you); }
+.duel-side--rival .duel-who i { background: var(--d-rival); }
+.duel-score { font-family: var(--font-display); font-size: clamp(24px, 6vw, 34px); font-weight: 700; line-height: 1; font-variant-numeric: tabular-nums; }
+.duel-pips { display: flex; gap: 5px; }
+.duel-pips span { width: 18px; height: 5px; border-radius: 3px; background: var(--d-line-2); }
+.duel-pips span.on { background: var(--d-you); }
+.duel-side--rival .duel-pips span.on { background: var(--d-rival); }
+.duel-mid { text-align: center; display: grid; gap: 2px; }
+.duel-clock { font-family: var(--font-display); font-size: clamp(22px, 5.5vw, 30px); font-weight: 600; font-variant-numeric: tabular-nums; }
+.duel-clock.urgent { color: var(--d-danger); }
+.duel-round { font-size: 12px; color: var(--d-muted); white-space: nowrap; }
+.duel-board-wrap { position: relative; display: grid; justify-items: center; min-width: 0; touch-action: none; }
+#duelBoard { display: block; border-radius: 10px; box-shadow: 0 30px 60px -40px rgba(136, 92, 255, .55); }
+.duel-aside { display: grid; gap: 10px; align-content: start; }
+.duel-event { display: grid; gap: 4px; }
+.duel-event b { font-family: var(--font-display); font-size: 16px; }
+.duel-event span { font-size: 13px; color: var(--d-muted); }
+.duel-btns { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+.duel-btns .duel-btn { padding: 0 8px; font-size: 14px; }
+.duel-keys { margin: 0; padding: 0; list-style: none; display: grid; gap: 4px; font-size: 13px; color: var(--d-muted); }
+.duel-keys kbd { font: 600 12px var(--font-body); padding: 1px 6px; border-radius: 6px; border: 1px solid var(--d-line-2); color: var(--d-text); }
+.duel-touch { display: none !important; }
+@media (pointer: coarse) {
+  .duel-touch { display: grid !important; }
+  .duel-keys { display: none; }
+  html[data-controls="swipe"] .duel-touch, html[data-controls="turn"] #duelPad, html[data-controls="arrows"] #duelTurns { display: none !important; }
+}
+.duel-turns { grid-template-columns: 1fr 1fr; gap: 12px; }
+.duel-turns button, .duel-pad button { font: inherit; font-size: 26px; min-height: 78px; border-radius: 18px; border: 1px solid var(--d-line-2); background: var(--d-surface-2); color: var(--d-text); touch-action: none; -webkit-tap-highlight-color: transparent; }
+.duel-turns svg { width: 30px; height: 30px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.duel-pad { grid-template-columns: repeat(3, 64px); grid-template-rows: repeat(2, 56px); gap: 8px; justify-content: center; }
+.duel-pad button { min-height: 0; font-size: 22px; }
+.duel-pad .up { grid-column: 2; grid-row: 1; } .duel-pad .left { grid-column: 1; grid-row: 2; } .duel-pad .down { grid-column: 2; grid-row: 2; } .duel-pad .right { grid-column: 3; grid-row: 2; }
+.duel-ov { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; padding: 20px; text-align: center;
+  background: radial-gradient(ellipse at center, rgba(11, 11, 15, .82), rgba(11, 11, 15, .94)); border-radius: 10px; overflow: auto; animation: duelIn .25s ease both; }
+.duel-ov[hidden] { display: none !important; }
+.duel-ov h2 { margin: 0; font-family: var(--font-display); font-size: clamp(28px, 7vw, 44px); font-weight: 700; letter-spacing: -.02em; }
+.duel-ov p { max-width: 38ch; margin: 0; color: var(--d-muted); }
+.duel-ov.tone-win h2 { color: #fff; text-shadow: 0 0 24px rgba(136, 92, 255, .7); }
+.duel-ov.tone-loss h2 { color: #E5DDF7; }
+.duel-ov.tone-draw h2 { color: var(--d-soft); }
+.duel-count { font-family: var(--font-display); font-size: clamp(56px, 16vw, 96px); font-weight: 700; color: var(--d-soft); line-height: 1; }
+.duel-rounds { list-style: none; margin: 6px 0; padding: 0; display: grid; gap: 6px; width: min(360px, 100%); }
+.duel-rounds li { display: grid; grid-template-columns: auto 1fr; gap: 0 12px; padding: 8px 12px; border-radius: 10px; background: var(--d-surface); border: 1px solid var(--d-line); text-align: left; }
+.duel-rounds li span { text-align: right; font-variant-numeric: tabular-nums; }
+.duel-rounds li small { grid-column: 1 / -1; color: var(--d-muted); font-size: 12px; }
+.duel-rounds li.tone-win { border-color: rgba(136, 92, 255, .55); }
+.duel-actions { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; margin-top: 6px; }
+@keyframes duelIn { from { opacity: 0; } to { opacity: 1; } }
+@media (prefers-reduced-motion: reduce) { .duel-ov { animation: none; } .duel-entry, .duel-btn { transition: none; } }
+html[data-motion="off"] .duel-ov { animation: none; }
 </style>
 
 <div class="sr-only" id="announce" role="status" aria-live="polite"></div>
@@ -602,6 +708,7 @@ html[data-motion="off"] *, html[data-motion="off"] *::before, html[data-motion="
       <div class="modes" id="modes" role="group" aria-label="Game mode"></div>
     </div>
     <button class="btn btn--primary btn--xl" id="playBtn" type="button" disabled><span class="spin" aria-hidden="true"></span>Loading</button>
+    <button class="duel-entry" id="duelEntry" type="button"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h6v4M20 17h-6v-4M10 11h4M4 4v3M20 20v-3"/><circle cx="4" cy="4" r="1.6"/><circle cx="20" cy="20" r="1.6"/></svg><span><b>Duel</b><span>A battle of minds: you against a clever rival, best of three.</span></span><i>New</i></button>
     <div class="tiles">
       <button class="tile" id="homeAchBtn" type="button"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l2.6 5.6 6 .7-4.5 4.1 1.2 6L12 16.4 6.7 19.4l1.2-6L3.4 9.3l6-.7z"/></svg><span class="tile-name">Achievements</span><span class="count" id="homeAchCount">0/0</span></button>
       <button class="tile" id="homeShopBtn" type="button"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 8h14l1 12H4zM9 8a3 3 0 0 1 6 0"/></svg><span class="tile-name">Shop</span><span class="count" id="homeCoins">0</span></button>
@@ -690,6 +797,90 @@ html[data-motion="off"] *, html[data-motion="off"] *::before, html[data-motion="
       </div>
       </div>
     </aside>
+  </div>
+</section>
+
+<section class="view" id="duel" hidden aria-label="Grid Snake Duel">
+  <div class="duel-menu" id="duelMenu">
+    <div class="duel-top">
+      <button class="duel-btn" id="duelBack" type="button">← Grid Snake</button>
+    </div>
+    <div>
+      <p class="duel-kicker">A battle of minds</p>
+      <h1>Grid Snake <span>Duel</span></h1>
+      <p class="duel-lede">Think ahead. Outsmart your rival. One arena, two snakes, best of three rounds, and a new twist on the battlefield every round.</p>
+    </div>
+    <div>
+      <p class="duel-label" id="duelLevelLabel">Rival</p>
+      <div class="duel-levels" id="duelLevels" role="group" aria-labelledby="duelLevelLabel">
+        <button type="button" data-level="easy">Easy</button>
+        <button type="button" data-level="medium">Medium</button>
+        <button type="button" data-level="hard">Hard</button>
+      </div>
+      <p class="duel-note" id="duelLevelDesc"></p>
+    </div>
+    <button class="duel-btn duel-btn--primary duel-btn--xl" id="duelStart" type="button">Start match</button>
+    <div class="duel-card">
+      <p class="duel-label">Your duel record</p>
+      <dl class="duel-stats" id="duelStatList"></dl>
+      <p class="duel-note" id="duelStatEmpty">No matches yet. Your record is kept on this device.</p>
+    </div>
+    <details class="duel-card duel-rules">
+      <summary>How a duel works</summary>
+      <ul>
+        <li><b>Win two rounds.</b> A round lasts 90 seconds. Crash and the round goes to your rival.</li>
+        <li><b>Food is +1.</b> When the clock runs out, the higher score wins. A tie goes to 15 seconds of sudden death: the first point wins.</li>
+        <li><b>Crashes:</b> walls, your own body and your rival's body. Both heads into the same cell, or swapping cells, crashes both: then the higher score takes the round, equal scores are a draw.</li>
+        <li><b>Draws</b> give nobody a point and a fresh round is played. After three draws the match is decided on round wins, then total points.</li>
+        <li><b>Events:</b> each round brings one: Vanishing Grid, Portal Shift, Laser Sweep, Moving Walls or The Core (+3). Danger is always shown before it can hurt, and it only hurts a head that runs into it.</li>
+        <li><b>A fair rival:</b> the same speed, the same rules, and only what you can see on screen.</li>
+      </ul>
+    </details>
+  </div>
+
+  <div class="duel-play" id="duelPlay" hidden>
+    <div class="duel-hud">
+      <div class="duel-side"><span class="duel-who"><i aria-hidden="true"></i>You</span><span class="duel-score" id="duelScoreYou">0</span><span class="duel-pips" id="duelPipsYou" aria-label="Rounds you won"><span></span><span></span></span></div>
+      <div class="duel-mid"><span class="duel-clock" id="duelClock" aria-label="Time left">1:30</span><span class="duel-round" id="duelRound">Round 1</span></div>
+      <div class="duel-side duel-side--rival"><span class="duel-who"><i aria-hidden="true"></i>Rival</span><span class="duel-score" id="duelScoreRival">0</span><span class="duel-pips" id="duelPipsRival" aria-label="Rounds the rival won"><span></span><span></span></span></div>
+    </div>
+    <div class="duel-board-wrap" id="duelBoardWrap">
+      <canvas id="duelBoard" aria-label="Duel arena"></canvas>
+      <div class="duel-ov" id="duelOv" hidden>
+        <span class="duel-count" id="duelOvCount" hidden>3</span>
+        <h2 id="duelOvTitle"></h2>
+        <p id="duelOvText"></p>
+        <ul class="duel-rounds" id="duelOvRounds" hidden></ul>
+        <div class="duel-actions" id="duelOvActions" hidden>
+          <button class="duel-btn duel-btn--primary" id="duelOvMain" type="button">Resume</button>
+          <button class="duel-btn" id="duelOvRestart" type="button">Restart match</button>
+          <button class="duel-btn" id="duelOvSec" type="button">Leave match</button>
+        </div>
+      </div>
+    </div>
+    <aside class="duel-aside">
+      <div class="duel-card duel-event"><span class="duel-label" style="margin:0">This round</span><b id="duelEventName"></b><span id="duelEventStatus"></span></div>
+      <div class="duel-touch duel-turns" id="duelTurns">
+        <button type="button" id="duelTurnLeft" aria-label="Turn left"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 19v-5a4 4 0 0 0-4-4H5M9 5l-4 5 4 5"/></svg></button>
+        <button type="button" id="duelTurnRight" aria-label="Turn right"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 19v-5a4 4 0 0 1 4-4h6M15 5l4 5-4 5"/></svg></button>
+      </div>
+      <div class="duel-touch duel-pad" id="duelPad" aria-label="Direction pad">
+        <button type="button" class="up" data-dx="0" data-dy="-1" aria-label="Up">↑</button>
+        <button type="button" class="left" data-dx="-1" data-dy="0" aria-label="Left">←</button>
+        <button type="button" class="down" data-dx="0" data-dy="1" aria-label="Down">↓</button>
+        <button type="button" class="right" data-dx="1" data-dy="0" aria-label="Right">→</button>
+      </div>
+      <div class="duel-btns">
+        <button class="duel-btn" id="duelPauseBtn" type="button">Pause</button>
+        <button class="duel-btn" id="duelMuteBtn" type="button" aria-pressed="false">Sound on</button>
+        <button class="duel-btn" id="duelLeaveBtn" type="button">Leave</button>
+      </div>
+      <ul class="duel-keys">
+        <li><kbd>←</kbd> <kbd>↑</kbd> <kbd>↓</kbd> <kbd>→</kbd> or <kbd>W</kbd> <kbd>A</kbd> <kbd>S</kbd> <kbd>D</kbd> to steer</li>
+        <li><kbd>Space</kbd> or <kbd>P</kbd> pauses · <kbd>Esc</kbd> menu</li>
+      </ul>
+    </aside>
+    <div class="sr-only" id="duelLive" role="status" aria-live="polite"></div>
   </div>
 </section>
 
@@ -918,6 +1109,12 @@ html[data-motion="off"] *, html[data-motion="off"] *::before, html[data-motion="
 /*@include src/leaderboard.js*/
 /*@include src/sound.js*/
 /*@include src/chase.js*/
+/*@include src/duel/maps.js*/
+/*@include src/duel/events.js*/
+/*@include src/duel/engine.js*/
+/*@include src/duel/match.js*/
+/*@include src/duel/ai.js*/
+/*@include src/duel/stats.js*/
 
 /* ===================== Page: wires the pure modules to the DOM ===================== */
 (function () {
@@ -1643,8 +1840,10 @@ html[data-motion="off"] *, html[data-motion="off"] *::before, html[data-motion="
   function setView(v) {
     view = v;
     document.documentElement.classList.toggle('in-game', v === 'game');
+    document.documentElement.classList.toggle('in-duel', v === 'duel');
     $('home').hidden = v !== 'home';
     $('game').hidden = v !== 'game';
+    $('duel').hidden = v !== 'duel';
     if (v === 'game') resize(); else updateHome();
   }
   function play() {
@@ -3058,6 +3257,7 @@ html[data-motion="off"] *, html[data-motion="off"] *::before, html[data-motion="
     if (game) {
       game.update(dt);
       if (view === 'game') { draw(); syncHud(); }
+      if (view === 'duel') duelFrame(dt);
       checkAcc += dt;
       if (checkAcc >= 500) { checkAcc = 0; tracker.tick(); }
     }
@@ -3080,6 +3280,7 @@ html[data-motion="off"] *, html[data-motion="off"] *::before, html[data-motion="
   });
   document.addEventListener('keydown', function (e) {
     if (e.metaKey || e.ctrlKey || e.altKey) return;
+    if (view === 'duel') { if (!dialogOpen()) duelKey(e); return; }      // the Duel has its own keys (src/duel/ui.js)
     if (view !== 'game' || dialogOpen()) return;
     if (KEYS[e.key]) { e.preventDefault(); steer(KEYS[e.key][0], KEYS[e.key][1]); }
     else if (e.key === ' ' || e.code === 'Space') { e.preventDefault(); toggleRun(); }
@@ -3207,6 +3408,8 @@ html[data-motion="off"] *, html[data-motion="off"] *::before, html[data-motion="
   document.addEventListener('visibilitychange', function () {
     if (document.hidden && game && game.state.phase === 'running') pauseRun();
   });
+
+/*@include src/duel/ui.js*/
 
   /* ---------- start-up: loading state until the fonts are ready ---------- */
   function markReady() {
