@@ -71,7 +71,7 @@ async function open(seed, opts = {}) {
     const u = Object.values(USERS).find((x) => 'Bearer ' + x.token === req.headers().authorization);
     w.calls.push({ path: p, body, account: u ? u.username : null });
     if (!u) return json(401, { error: 'unauthorized' });
-    if (p === '/v1/me') return json(200, { id: u.id, username: u.username });
+    if (p === '/v1/me') return json(200, { id: u.id, username: u.username, avatar_url: (w.avatars && w.avatars[u.username]) || null });
     const mine = w.of(u.id);
     if (p.endsWith('/player')) return json(200, mine ? { linked: true, name: mine.name, best: mine.best, rank: 1, save: mine.save } : { linked: false });
     if (p.endsWith('/link')) {
@@ -112,6 +112,7 @@ async function open(seed, opts = {}) {
     }
     return json(404, { error: 'not_found' });
   });
+  if (opts.routes) await opts.routes(ctx);
   await page.goto('https://atherbyte.online/grid-snake/');
   return { ctx, page, errors, board, w };
 }
@@ -297,5 +298,64 @@ test('real queue: no answer -> Try again with the same round; a refusal -> dropp
   const final3 = await page.evaluate(() => Math.floor(__t.game().state.score));    // the snake may eat during the run
   assert.deepEqual(w.counted, [{ round: 'round-1', score: final1 }, { round: 'round-3', score: final3 }], 'run 3 with its own round and its own final score');
   assert.deepEqual(errors, []);
+  await ctx.close();
+});
+
+/* ---- profile picture (set on the studio site, shown here) ---- */
+const PIC = (id, v) => 'https://abcdefghij.supabase.co/storage/v1/object/public/avatars/' + id + '/avatar?v=' + v;
+const PNG = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==', 'base64');
+const servePicture = (hits) => async (ctx) => ctx.route(/\/storage\/v1\/object\/public\/avatars\//, (r) => { hits.push(r.request().url()); r.fulfill({ contentType: 'image/png', body: PNG }); });
+
+test('the account picture shows on the home chip and in the profile, in place of the letter', { skip }, async () => {
+  const hits = [], w = fakeWorker();
+  w.avatars = { ronaldo: PIC(USERS.ronaldo.id, 111) };
+  const { ctx, page, errors } = await open(session(USERS.ronaldo), { worker: w, routes: servePicture(hits) });
+  await started(page);
+  await page.waitForSelector('#homeAvatar img');
+  assert.equal(await page.getAttribute('#homeAvatar img', 'src'), PIC(USERS.ronaldo.id, 111));
+  assert.equal(await page.evaluate(() => document.getElementById('homeAvatar').firstChild.nodeValue), 'R', 'the letter is still there underneath');
+  await page.click('#homeProfileBtn');
+  await page.waitForSelector('#pfAvatar img');
+  assert.equal(await page.getAttribute('#pfAvatar img', 'src'), PIC(USERS.ronaldo.id, 111));
+  assert.equal(await page.evaluate(() => document.querySelector('#pfAvatar img').naturalWidth > 0), true, 'it really loaded');
+  assert.ok(hits.length >= 1);
+  assert.deepEqual(errors, []);
+  await ctx.close();
+});
+
+test('no picture set: the letter stays and nothing is requested', { skip }, async () => {
+  const hits = [];
+  const { ctx, page } = await open(session(USERS.ronaldo), { routes: servePicture(hits) });
+  await started(page);
+  await page.waitForTimeout(400);
+  assert.equal(await page.$('#homeAvatar img'), null);
+  assert.equal(await page.textContent('#homeAvatar'), 'R');
+  assert.equal(hits.length, 0);
+  await ctx.close();
+});
+
+test('an address outside the studio avatars storage is never used', { skip }, async () => {
+  const w = fakeWorker(), seen = [];
+  w.avatars = { ronaldo: 'https://evil.example/x.png' };
+  const { ctx, page } = await open(session(USERS.ronaldo), { worker: w, routes: async (c) => c.route(/evil\.example/, (r) => { seen.push(r.request().url()); r.fulfill({ status: 200, body: '' }); }) });
+  await started(page);
+  await page.waitForTimeout(500);
+  assert.equal(await page.$('#homeAvatar img'), null);
+  assert.deepEqual(seen, []);
+  await ctx.close();
+});
+
+test('a picture that cannot load falls back to the letter and is not requested again and again', { skip }, async () => {
+  const hits = [], w = fakeWorker();
+  w.avatars = { ronaldo: PIC(USERS.ronaldo.id, 222) };
+  const { ctx, page } = await open(session(USERS.ronaldo), { worker: w, routes: async (c) => c.route(/\/avatars\//, (r) => { hits.push(1); r.fulfill({ status: 404, body: '' }); }) });
+  await started(page);
+  await page.waitForTimeout(800);
+  await page.click('#homeProfileBtn');
+  await page.waitForTimeout(400);
+  assert.equal(await page.$('#homeAvatar img'), null);
+  assert.equal(await page.$('#pfAvatar img'), null);
+  assert.equal(await page.textContent('#homeAvatar'), 'R');
+  assert.ok(hits.length <= 2, 'asked ' + hits.length + ' times');
   await ctx.close();
 });

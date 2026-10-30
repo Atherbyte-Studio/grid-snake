@@ -528,6 +528,8 @@ html[data-motion="off"] *, html[data-motion="off"] *::before, html[data-motion="
 .profile-chip:focus-visible { outline: 2px solid var(--focus); outline-offset: 3px; }
 .avatar { width: 30px; height: 30px; border-radius: 50%; background: var(--accent); color: var(--on-accent); display: grid; place-items: center; font-weight: 700; font-size: 14px; }
 .avatar { flex: none; }
+.avatar { position: relative; overflow: hidden; }
+.avatar img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; border-radius: 50%; }
 .welcome { grid-template-columns: minmax(0, 1fr); }
 .welcome .pf-name { flex-wrap: wrap; }
 .welcome .pf-name input { flex: 1 1 140px; min-width: 0; }
@@ -4484,6 +4486,30 @@ if (typeof module !== 'undefined' && module.exports) module.exports = SnakeDuelS
 
   function announce(msg) { $('announce').textContent = msg; }
   function setText(node, v) { v = String(v); if (node.textContent !== v) node.textContent = v; }
+
+  /* The account's profile picture (chosen on atherbyte.online/account/), the same one the studio site shows. It only exists on the
+     web page, where the studio's account script is loaded; in the Android app, the claude.ai copy or a local file there is
+     no picture and the letter stays. The address comes from the account client, which only ever returns an address inside the
+     studio's own avatars storage. */
+  var badAvatarUrl = '';
+  function accountAvatarUrl() {
+    try { var A = window.AtherbyteAccount; var u = A && A.get ? A.get().avatarUrl() : ''; return u && u !== badAvatarUrl ? u : ''; } catch (e) { return ''; }
+  }
+  function setAvatar(node, nm) {
+    var letter = nm ? Array.from(nm)[0].toUpperCase() : '?';
+    if (!node.firstChild || node.firstChild.nodeType !== 3) node.insertBefore(document.createTextNode(''), node.firstChild);
+    if (node.firstChild.nodeValue !== letter) node.firstChild.nodeValue = letter;
+    var url = accountAvatarUrl(), img = node.querySelector('img');
+    if (!url) { if (img) img.remove(); return; }
+    if (!img) {
+      img = document.createElement('img');
+      img.alt = ''; img.decoding = 'async';
+      // If the picture cannot load, the letter shows and we do not keep asking for that address.
+      img.addEventListener('error', function () { badAvatarUrl = img.getAttribute('src') || ''; img.remove(); });
+      node.appendChild(img);
+    }
+    if (img.getAttribute('src') !== url) img.src = url;
+  }
   function fmt(totalSeconds) {
     var s = Math.max(0, Math.floor(totalSeconds));
     return Math.floor(s / 60) + ':' + (s % 60 < 10 ? '0' : '') + (s % 60);
@@ -4562,7 +4588,7 @@ if (typeof module !== 'undefined' && module.exports) module.exports = SnakeDuelS
     setText($('homeName'), nm || 'Player');
     setText($('homeCoinPill'), profile.getCoins());
     setText($('homeLede'), nm ? 'Welcome back, ' + nm + '. Pick a mode and beat your best.' : 'Steer the snake, eat to grow, and keep clear of your own tail. Pick a mode and play.');
-    setText($('homeAvatar'), nm ? Array.from(nm)[0].toUpperCase() : '?');
+    setAvatar($('homeAvatar'), nm);
     $('modeWalls').setAttribute('aria-pressed', effEdge() === 'walls' ? 'true' : 'false');
     $('modeWrap').setAttribute('aria-pressed', effEdge() === 'wrap' ? 'true' : 'false');
     setText($('edgeNote'), EDGE_NOTE[effEdge()]);
@@ -5009,7 +5035,7 @@ if (typeof module !== 'undefined' && module.exports) module.exports = SnakeDuelS
     var t = profile.getTotals(), nm = displayName(), tiers = Ach.completedTiers(profile.achMap()), items = SHOP.filter(function (i) { return profile.owns(i.id); }).length;
     setText($('pfNameState'), player ? 'Your player name is ' + player.name + '. It is permanent.' : 'No player on this browser yet. You create one when you first play.');
     $('pfCodeShow').hidden = true;
-    setText($('pfAvatar'), nm ? Array.from(nm)[0].toUpperCase() : '?');
+    setAvatar($('pfAvatar'), nm);
     setText($('pfHeroName'), nm || 'Player');
     setText($('pfHeroSub'), tiers + ' of ' + Ach.totalTiers() + ' achievement tiers · ' + items + ' of ' + SHOP.length + ' shop items');
     var box = $('pfStats'); box.textContent = '';
@@ -7336,6 +7362,14 @@ if (typeof module !== 'undefined' && module.exports) module.exports = SnakeDuelS
     updateHome();
     if (shopDlg.open) renderShop();
   });
+  /* Once an hour at most, ask the account service for the latest picture (the same one the studio site shows), then redraw it. */
+  try {
+    var AA = window.AtherbyteAccount && window.AtherbyteAccount.get ? window.AtherbyteAccount.get() : null;
+    if (AA && AA.hasSession() && AA.refreshAvatar) AA.refreshAvatar(false).then(function () {
+      updateHome();
+      if ($('pfAvatar')) setAvatar($('pfAvatar'), displayName());
+    });
+  } catch (e) { /* no picture: the letter stays */ }
   /*TEST_HOOK*/
 })();
 </script>
