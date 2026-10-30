@@ -297,3 +297,32 @@ test('reduced motion: a match still plays to the results with no particles, and 
   assert.deepEqual(errors, []);
   await ctx.close();
 });
+
+test('the AI driving into your body gives YOU the round, whatever your snake colour (orange or purple)', async () => {
+  for (const [skin, you] of [['sunset', '#E0764A'], ['violet', '#8F6FE0']]) {
+    const { ctx, page, errors } = await open(null, { 'gridsnake-profile-v2': JSON.stringify({ name: 'Tester', prefs: { mode: 'classic', edge: 'walls', skin } }) });
+    await page.click('#duelEntry');
+    await page.click('#duelStart');
+    await page.waitForFunction(() => __t.duel().round && __t.duel().round.state.phase === 'running');
+    const colours = await page.evaluate(() => { const st = getComputedStyle(document.getElementById('duel')); return { you: st.getPropertyValue('--dz-you').trim(), rival: st.getPropertyValue('--dz-rival').trim() }; });
+    assert.equal(colours.you.toUpperCase(), you, skin + ': your colour');
+    assert.notEqual(colours.rival.toUpperCase(), you, skin + ': the rival has another colour');
+    await page.evaluate(() => {
+      const D = __t.duel(), S = D.round.state;
+      D.round.pause();
+      S.snakes[0].body = [[5, 20], [4, 20], [3, 20], [2, 20], [1, 20]].map(([x, y]) => ({ x, y })); S.snakes[0].dir = { x: 1, y: 0 };
+      S.snakes[1].body = [[4, 19], [4, 18], [4, 17]].map(([x, y]) => ({ x, y })); S.snakes[1].dir = { x: 0, y: 1 };
+      S.foods = [{ x: 0, y: 29 }, { x: 29, y: 0 }, { x: 0, y: 28 }];
+      D.ai.next = () => ({ x: 0, y: 1 });                         // the AI drives down into your body
+      D.human.next = () => null;
+      D.round.resume();
+    });
+    await page.waitForFunction(() => document.getElementById('duelOvTitle').textContent === 'Round won' || document.getElementById('duelOvTitle').textContent === 'Round lost', null, { timeout: 8000 });
+    assert.equal(await page.textContent('#duelOvTitle'), 'Round won', skin);
+    assert.match(await page.textContent('#duelOvText'), /The rival ran into your body/);
+    assert.deepEqual(await page.evaluate(() => __t.duel().match.state.wins), [1, 0]);
+    await shot(page, 'ai-hits-you-' + skin);
+    assert.deepEqual(errors, []);
+    await ctx.close();
+  }
+});

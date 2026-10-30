@@ -3433,7 +3433,7 @@ var SnakeDuel = (function () {
       timeLeft: T.roundMs, overtime: false, otLeft: 0,
       snakes: map.spawns.map(function (sp, i) {
         return { id: i, body: sp.body.map(function (c) { return { x: c.x, y: c.y }; }), dir: { x: sp.dir.x, y: sp.dir.y },
-                 alive: true, reason: null, score: 0, grow: 0, foods: 0, cores: 0, ported: false };
+                 alive: true, reason: null, into: -1, score: 0, grow: 0, foods: 0, cores: 0, ported: false };
       }),
       foods: [],
       eventId: opts.event || null, event: null, eventPhase: opts.event ? 'pending' : 'none',
@@ -3544,7 +3544,7 @@ var SnakeDuel = (function () {
       var snakes = S.snakes, crash = [null, null];
       // 1. a warning that ran out under a head
       for (var i = 0; i < 2; i++) { var h0 = snakes[i].body[0], l0 = lethal(h0.x, h0.y); if (l0) crash[i] = l0; }
-      var stuck = [!!crash[0], !!crash[1]];
+      var stuck = [!!crash[0], !!crash[1]], into = [-1, -1];   // into: whose body a head entered
 
       // 2. moves
       var dirs = [0, 1].map(function (k) {
@@ -3580,7 +3580,7 @@ var SnakeDuel = (function () {
       for (i = 0; i < 2; i++) {
         if (!land[i] || crash[i]) continue;
         var who = occupied(land[i].x, land[i].y);
-        if (who >= 0) crash[i] = who === i ? 'tail' : 'body';
+        if (who >= 0) { crash[i] = who === i ? 'tail' : 'body'; into[i] = who; }
       }
       if (land[0] && land[1] && !crash[0] && !crash[1] && land[0].x === land[1].x && land[0].y === land[1].y) {
         crash[0] = crash[1] = 'headon';
@@ -3617,7 +3617,8 @@ var SnakeDuel = (function () {
       var dead = [!!crash[0], !!crash[1]];
       for (i = 0; i < 2; i++) if (dead[i]) {
         snakes[i].alive = false; snakes[i].reason = crash[i];
-        emit('crash', { who: i, reason: crash[i], x: (land[i] || snakes[i].body[0]).x, y: (land[i] || snakes[i].body[0]).y });
+        snakes[i].into = into[i];
+        emit('crash', { who: i, reason: crash[i], into: into[i], x: (land[i] || snakes[i].body[0]).x, y: (land[i] || snakes[i].body[0]).y });
       }
       if (dead[0] || dead[1]) {
         if (dead[0] && dead[1]) {
@@ -3646,7 +3647,7 @@ var SnakeDuel = (function () {
       if (S.phase === 'over') return;
       S.phase = 'over';
       S.result = { winner: winner, draw: winner < 0, reason: reason, scores: [S.snakes[0].score, S.snakes[1].score],
-                   crashes: [S.snakes[0].reason, S.snakes[1].reason], ticks: S.tick, overtime: S.overtime };
+                   crashes: [S.snakes[0].reason, S.snakes[1].reason], into: [S.snakes[0].into, S.snakes[1].into], ticks: S.tick, overtime: S.overtime };
       emit('over', Object.assign({}, S.result));
     }
 
@@ -6499,6 +6500,7 @@ if (typeof module !== 'undefined' && module.exports) module.exports = SnakeDuelS
     walls:  { color: '#FFB547', ico: 'M4 6h16M4 12h10M4 18h16M17 9l3 3-3 3', tip: 'Walls slide along the dashed tracks. The glowing cells are where they go next.' },
     core:   { color: '#FFD76E', ico: 'M12 3l7 9-7 9-7-9zM12 8l3 4-3 4-3-4z', tip: 'The Core in the centre is worth 3 points. Get there first: it comes back after a while.' }
   };
+  var DUEL_ROUND_WHY = { crash: 'Crash · ', headon: 'Head-on · ', double: 'Double crash · ', time: 'On points · ', overtime: 'Sudden death · ' };
   var DUEL_IDLE_TIP = 'Eat food to score. Keep clear of the walls and of both bodies.';
   var duelLevel = (function () { try { var v = window.localStorage.getItem(DUEL_LEVEL_KEY); return DUEL_LEVELS[v] ? v : 'medium'; } catch (e) { return 'medium'; } })();
   var DD = {
@@ -6596,7 +6598,7 @@ if (typeof module !== 'undefined' && module.exports) module.exports = SnakeDuelS
   }
   function duelResetAnim() {
     DD.an = { born: {}, head: [0, 0], death: [null, null], gone: {}, falling: [], portalKey: '', portalAt: -1e9, coreAt: -1e9,
-              bars: [], wallsLive: false, entry: [null, null] };
+              bars: [], wallsLive: false, entry: [null, null], marks: [] };
     DD.fx.parts = []; DD.fx.rings = []; DD.fx.texts = []; DD.fx.flash = 0; DD.fx.shake = 0;
     DD.shown = [0, 0]; DD.prev = null;
   }
@@ -6665,6 +6667,7 @@ if (typeof module !== 'undefined' && module.exports) module.exports = SnakeDuelS
       duelRing(e.x, e.y, '#FFFFFF', 2.2, 360, 3);
       duelBurst(e.x, e.y, col, 26, 1.8);
       DD.an.death[e.who] = DD.t;
+      DD.an.marks.push({ x: e.x, y: e.y, c: e.reason === 'headon' ? '#FFFFFF' : col });
       DD.fx.shake = motionOk() ? 1 : 0;
       if (you) { DD.fx.flash = 0.8; DD.fx.flashCol = '#FF5C7A'; buzz(60); }
       sfx.play('crunch');
@@ -6680,9 +6683,7 @@ if (typeof module !== 'undefined' && module.exports) module.exports = SnakeDuelS
     if (res.draw) text = 'Nobody takes the round' + (phase === 'over' ? '.' : '. A fresh round decides it.');
     else if (res.reason === 'time') text = 'On points at the bell, ' + res.scores[0] + ' to ' + res.scores[1] + '.';
     else if (res.reason === 'overtime') text = 'First point in sudden death.';
-    else if (res.reason === 'headon') text = 'Head-on! The higher score takes it, ' + res.scores[0] + ' to ' + res.scores[1] + '.';
-    else if (res.reason === 'double') text = 'Both crashed. The higher score takes it, ' + res.scores[0] + ' to ' + res.scores[1] + '.';
-    else text = crashes[0] ? 'Your snake ' + (DUEL_REASON[crashes[0]] || 'crashed') + '.' : 'The rival ' + (DUEL_REASON[crashes[1]] || 'crashed') + '.';
+    else text = duelCrashText(res);
     sfx.play(res.draw ? 'timeUp' : res.winner === 0 ? 'level' : 'over');
     $('duelEvent').classList.remove('live');
     DD.flow = phase === 'over' ? 'toResults' : 'toNext';
@@ -6692,6 +6693,21 @@ if (typeof module !== 'undefined' && module.exports) module.exports = SnakeDuelS
       if (DD.flow === 'toResults' || DD.flow === 'toNext') duelOverlay('round', { kicker: 'Round ' + n + ' · rounds ' + wins[0] + ' – ' + wins[1], title: title, text: text, tone: tone });
     }, motionOk() ? 650 : 0);
   }
+  /* Exactly what happened, from the engine's own record: whose head went where. */
+  function duelCrashText(res) {
+    var c = res.crashes || [], into = res.into || [-1, -1], sc = res.scores[0] + ' to ' + res.scores[1];
+    function one(i) {
+      var who = i === 0 ? 'You' : 'The rival', other = i === 0 ? "the rival's" : 'your';
+      if (c[i] === 'body') return who + ' ran into ' + other + ' body';
+      if (c[i] === 'tail') return who + (i === 0 ? ' ran into your own body' : ' ran into its own body');
+      return who + ' ' + (DUEL_REASON[c[i]] || 'crashed');
+    }
+    var ahead = res.winner === 0 ? 'You were ahead (' + sc + '), so the round is yours.' : res.winner === 1 ? 'The rival was ahead (' + sc + '), so it takes the round.' : 'Scores level (' + sc + '): a draw.';
+    if (res.reason === 'headon') return 'Head-on: both heads entered the same cell at the same moment. ' + ahead;
+    if (res.reason === 'double') return (c[0] === 'body' && c[1] === 'body' && into[0] === 1 && into[1] === 0 ? 'You swapped cells head to head: both crash. ' : one(0) + ', and ' + one(1).charAt(0).toLowerCase() + one(1).slice(1) + ' on the same move. ') + ahead;
+    return (c[0] ? one(0) : one(1)) + '.';
+  }
+
   function showResults() {
     var R = DD.match.results();
     duelStats.recordMatch(R, { cores: DD.cores });
@@ -6703,7 +6719,7 @@ if (typeof module !== 'undefined' && module.exports) module.exports = SnakeDuelS
       tone: won ? 'win' : drawn ? 'draw' : 'loss', final: R.wins,
       rounds: R.rounds.map(function (r) {
         return { n: r.number, tone: r.draw ? 'draw' : r.winner === 0 ? 'win' : 'loss', mark: r.draw ? '=' : r.winner === 0 ? 'W' : 'L',
-                 score: r.scores[0] + ' – ' + r.scores[1], sub: DuelEvents.INFO[r.event].name + ' · ' + DuelMaps.build(r.map).name };
+                 score: r.scores[0] + ' – ' + r.scores[1], sub: (DUEL_ROUND_WHY[r.reason] || '') + DuelEvents.INFO[r.event].name + ' · ' + DuelMaps.build(r.map).name };
       }),
       stats: [['Points', R.totals[0] + ' – ' + R.totals[1]], ['Food eaten', DD.foods], ['Cores', DD.cores]]
     });
@@ -6967,6 +6983,8 @@ if (typeof module !== 'undefined' && module.exports) module.exports = SnakeDuelS
     var a = S.phase === 'running' && moving ? Math.min(1, S.acc / R.tuning.stepMs) : 1;
     drawDuelSnake(S.snakes[1], DD.prev && DD.prev[1], a, c, DD.rival.snake, DD.rival.head, 1, t);
     drawDuelSnake(S.snakes[0], DD.prev && DD.prev[0], a, c, PAL.snake, PAL.head, 0, t);
+    drawDuelMarks(c);
+    if (S.tick < 22 && S.snakes[0].alive) drawDuelYou(S.snakes[0], c, t);
     drawDuelFx(c, moving);
     dctx.restore();
     if (DD.fx.flash > 0) {
@@ -7214,6 +7232,25 @@ if (typeof module !== 'undefined' && module.exports) module.exports = SnakeDuelS
       if (s.alive) { dctx.beginPath(); dctx.arc(x + d.x * c * 0.04, y + d.y * c * 0.04, Math.max(1, c * 0.07), 0, Math.PI * 2); dctx.fill(); }
       else { dctx.lineWidth = 1.2; dctx.strokeStyle = '#0B0B0F'; var z = c * 0.06; dctx.beginPath(); dctx.moveTo(x - z, y - z); dctx.lineTo(x + z, y + z); dctx.moveTo(x + z, y - z); dctx.lineTo(x - z, y + z); dctx.stroke(); }
     });
+  }
+
+  /* Where a crash happened: the cell the head tried to enter, ringed and crossed in the colour of the snake that crashed. */
+  function drawDuelMarks(c) {
+    DD.an.marks.forEach(function (m) {
+      var cx = (m.x + 0.5) * c, cy = (m.y + 0.5) * c, z = c * 0.28;
+      dctx.strokeStyle = m.c; dctx.lineWidth = 2;
+      dctx.beginPath(); dctx.arc(cx, cy, c * 0.55, 0, Math.PI * 2); dctx.stroke();
+      dctx.beginPath(); dctx.moveTo(cx - z, cy - z); dctx.lineTo(cx + z, cy + z); dctx.moveTo(cx + z, cy - z); dctx.lineTo(cx - z, cy + z); dctx.stroke();
+    });
+  }
+  /* "YOU" over the player's head for the first seconds of a round, so the colours are never in doubt. */
+  function drawDuelYou(s, c, t) {
+    var h = s.body[0], x = (h.x + 0.5) * c, y = (h.y + 0.5) * c - c * 1.3;
+    dctx.font = '700 ' + Math.max(9, Math.round(c * 0.75)) + 'px Sora, sans-serif'; dctx.textAlign = 'center'; dctx.textBaseline = 'middle';
+    var w = dctx.measureText('YOU').width + c * 0.6;
+    dctx.fillStyle = 'rgba(10,10,14,0.85)'; duelRoundRect(x - w / 2, y - c * 0.5, w, c, c * 0.3); dctx.fill();
+    dctx.strokeStyle = PAL.snake; dctx.lineWidth = 1.5; dctx.stroke();
+    dctx.fillStyle = PAL.snake; dctx.fillText('YOU', x, y + 0.5);
   }
 
   function drawDuelFx(c, moving) {

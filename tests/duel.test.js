@@ -509,3 +509,78 @@ test('src/duel/ui.js shares the page script: none of its names may replace one o
     assert.ok(!re.test(page), name + ' is already defined by the page');
   }
 });
+
+/* ---------------- who crashed into whom (reported from play: "the AI hit my body but I lost") ---------------- */
+
+/* Player and AI, each placed as snake 0 and as snake 1: the snake whose HEAD enters a body loses, nobody else. */
+for (const playerIs of [0, 1]) {
+  const ai = 1 - playerIs;
+  function place(r, p, a, dp, da) {
+    const S = r.state;
+    S.snakes[playerIs].body = p.map(([x, y]) => ({ x, y })); S.snakes[playerIs].dir = dp;
+    S.snakes[ai].body = a.map(([x, y]) => ({ x, y })); S.snakes[ai].dir = da;
+    S.foods = [[0, 29], [29, 0], [0, 28]].map(([x, y]) => ({ x, y }));
+  }
+  test('the AI head runs into the player body: the AI loses, the player wins (player is snake ' + playerIs + ')', () => {
+    const c = [straight(), straight()];
+    const r = Duel.createRound({ map: 'crossroads', seed: 3, controllers: c });
+    // player crosses left to right along row 20; the AI comes down column 4 into the player's middle
+    place(r, [[5, 20], [4, 20], [3, 20], [2, 20], [1, 20]], [[4, 19], [4, 18], [4, 17]], R, D);
+    r.start(); r.tick();
+    const res = r.state.result;
+    assert.equal(res.winner, playerIs);
+    assert.equal(res.crashes[ai], 'body');
+    assert.equal(res.crashes[playerIs], null);
+    assert.equal(res.into[ai], playerIs, 'the AI entered the player body');
+    assert.equal(r.state.snakes[playerIs].alive, true);
+  });
+  test('the player head runs into the AI body: the player loses (player is snake ' + playerIs + ')', () => {
+    const r = Duel.createRound({ map: 'crossroads', seed: 3, controllers: [straight(), straight()] });
+    place(r, [[4, 19], [4, 18], [4, 17]], [[5, 20], [4, 20], [3, 20], [2, 20], [1, 20]], D, R);
+    r.start(); r.tick();
+    assert.equal(r.state.result.winner, ai);
+    assert.equal(r.state.result.crashes[playerIs], 'body');
+    assert.equal(r.state.result.into[playerIs], ai);
+  });
+  test('the AI turns into the player neck from the side while the player moves on: only the AI crashes (player is snake ' + playerIs + ')', () => {
+    const r = Duel.createRound({ map: 'crossroads', seed: 3, controllers: playerIs === 0 ? [straight(), script([U])] : [script([U]), straight()] });
+    // player heads right from (5,20); the AI at (5,21) heading left turns up into (5,20), the cell the player's head just left
+    place(r, [[5, 20], [4, 20], [3, 20]], [[5, 21], [6, 21], [7, 21]], R, L);
+    r.start(); r.tick();
+    assert.equal(r.state.result.winner, playerIs);
+    assert.equal(r.state.result.crashes[ai], 'body');
+  });
+  test('a genuine head-on into the same cell from the side crashes both; then the higher score wins (player is snake ' + playerIs + ')', () => {
+    const r = Duel.createRound({ map: 'crossroads', seed: 3, controllers: playerIs === 0 ? [straight(), script([U])] : [script([U]), straight()] });
+    place(r, [[5, 20], [4, 20], [3, 20]], [[6, 21], [7, 21], [8, 21]], R, L);   // both reach (6,20) on the same move
+    r.state.snakes[playerIs].score = 4; r.state.snakes[ai].score = 2;
+    r.start(); r.tick();
+    assert.equal(r.state.result.reason, 'headon');
+    assert.deepEqual(r.state.result.crashes, ['headon', 'headon']);
+    assert.equal(r.state.result.winner, playerIs, 'the player was ahead');
+  });
+}
+
+test('every body crash in 120 AI-vs-AI rounds goes to the snake whose head entered the body (independent check)', () => {
+  let checked = 0;
+  for (let s = 1; s <= 120; s++) {
+    const moves = [null, null];
+    const rec = (c) => ({ next: (rd, k) => { const d = c.next(rd, k); moves[k] = d; return d; } });
+    const r = Duel.createRound({ map: Maps.ids[s % 4], event: s % 2 ? null : Events.IDS[s % 5], seed: s, controllers: [rec(AI.create(AI.LEVELS[s % 3], s)), rec(AI.create(AI.LEVELS[(s + 1) % 3], s + 9))] });
+    r.start();
+    while (r.state.phase === 'running') {
+      const S = r.state, pre = S.snakes.map(x => ({ b: x.body.map(c => ({ x: c.x, y: c.y })), dir: x.dir, grow: x.grow })), foods = S.foods.map(f => f.x + ',' + f.y);
+      r.tick();
+      if (S.phase !== 'over') continue;
+      const land = pre.map((p, i) => { const m = moves[i]; const d = m && !(m.x === -p.dir.x && m.y === -p.dir.y) ? m : p.dir; return { x: p.b[0].x + d.x, y: p.b[0].y + d.y }; });
+      const grows = pre.map((p, i) => p.grow > 0 || foods.includes(land[i].x + ',' + land[i].y));
+      const owner = L => { for (let j = 0; j < 2; j++) { const b = pre[j].b, n = grows[j] ? b.length : b.length - 1; for (let k = 0; k < n; k++) if (b[k].x === L.x && b[k].y === L.y) return j; } return -1; };
+      for (let i = 0; i < 2; i++) {
+        const rs = S.snakes[i].reason;
+        if (rs === 'body' || rs === 'tail') { checked++; assert.equal(owner(land[i]), rs === 'tail' ? i : 1 - i, 'seed ' + s); }
+        if (!rs && S.result.winner === i) assert.equal(owner(S.snakes[i].body[0]), -1, 'the winner never lands on a body, seed ' + s);
+      }
+    }
+  }
+  assert.ok(checked > 30, 'checked ' + checked + ' body crashes');
+});

@@ -92,7 +92,7 @@ var SnakeDuel = (function () {
       timeLeft: T.roundMs, overtime: false, otLeft: 0,
       snakes: map.spawns.map(function (sp, i) {
         return { id: i, body: sp.body.map(function (c) { return { x: c.x, y: c.y }; }), dir: { x: sp.dir.x, y: sp.dir.y },
-                 alive: true, reason: null, score: 0, grow: 0, foods: 0, cores: 0, ported: false };
+                 alive: true, reason: null, into: -1, score: 0, grow: 0, foods: 0, cores: 0, ported: false };
       }),
       foods: [],
       eventId: opts.event || null, event: null, eventPhase: opts.event ? 'pending' : 'none',
@@ -203,7 +203,7 @@ var SnakeDuel = (function () {
       var snakes = S.snakes, crash = [null, null];
       // 1. a warning that ran out under a head
       for (var i = 0; i < 2; i++) { var h0 = snakes[i].body[0], l0 = lethal(h0.x, h0.y); if (l0) crash[i] = l0; }
-      var stuck = [!!crash[0], !!crash[1]];
+      var stuck = [!!crash[0], !!crash[1]], into = [-1, -1];   // into: whose body a head entered
 
       // 2. moves
       var dirs = [0, 1].map(function (k) {
@@ -239,7 +239,7 @@ var SnakeDuel = (function () {
       for (i = 0; i < 2; i++) {
         if (!land[i] || crash[i]) continue;
         var who = occupied(land[i].x, land[i].y);
-        if (who >= 0) crash[i] = who === i ? 'tail' : 'body';
+        if (who >= 0) { crash[i] = who === i ? 'tail' : 'body'; into[i] = who; }
       }
       if (land[0] && land[1] && !crash[0] && !crash[1] && land[0].x === land[1].x && land[0].y === land[1].y) {
         crash[0] = crash[1] = 'headon';
@@ -276,7 +276,8 @@ var SnakeDuel = (function () {
       var dead = [!!crash[0], !!crash[1]];
       for (i = 0; i < 2; i++) if (dead[i]) {
         snakes[i].alive = false; snakes[i].reason = crash[i];
-        emit('crash', { who: i, reason: crash[i], x: (land[i] || snakes[i].body[0]).x, y: (land[i] || snakes[i].body[0]).y });
+        snakes[i].into = into[i];
+        emit('crash', { who: i, reason: crash[i], into: into[i], x: (land[i] || snakes[i].body[0]).x, y: (land[i] || snakes[i].body[0]).y });
       }
       if (dead[0] || dead[1]) {
         if (dead[0] && dead[1]) {
@@ -305,7 +306,7 @@ var SnakeDuel = (function () {
       if (S.phase === 'over') return;
       S.phase = 'over';
       S.result = { winner: winner, draw: winner < 0, reason: reason, scores: [S.snakes[0].score, S.snakes[1].score],
-                   crashes: [S.snakes[0].reason, S.snakes[1].reason], ticks: S.tick, overtime: S.overtime };
+                   crashes: [S.snakes[0].reason, S.snakes[1].reason], into: [S.snakes[0].into, S.snakes[1].into], ticks: S.tick, overtime: S.overtime };
       emit('over', Object.assign({}, S.result));
     }
 
