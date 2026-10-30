@@ -9,6 +9,7 @@ const Events = require('../src/duel/events.js');
 const Match = require('../src/duel/match.js');
 const AI = require('../src/duel/ai.js');
 const Stats = require('../src/duel/stats.js');
+const Sim = require('../scripts/duel-sim.js');           // measured with the reference players in tests/support/duel-bots.js
 
 const R = { x: 1, y: 0 }, L = { x: -1, y: 0 }, U = { x: 0, y: -1 }, D = { x: 0, y: 1 };
 /* A controller that plays a fixed list of moves, then keeps going straight. */
@@ -431,25 +432,27 @@ test('the AI never asks for a reversal and never steers into a wall it can see w
   }
 });
 
-test('levels are ordered: medium and hard beat easy, hard beats medium more often than not', () => {
-  const tally = (a, b, n) => { let w = 0; for (let s = 1; s <= n; s++) if (aiMatch(a, b, s).res.winner === 0) w++; return w; };
-  assert.ok(tally('medium', 'easy', 6) >= 5, 'medium vs easy');
-  assert.ok(tally('hard', 'easy', 6) >= 5, 'hard vs easy');
-  assert.ok(tally('hard', 'medium', 8) >= 5, 'hard vs medium');
+test('hard competes for points: it eats about as often as a food-first player and never goes long without eating', () => {
+  const s = Sim.summary(Sim.pairing('hard', 'greedy', 5).hard);
+  assert.ok(s.foods >= 8, 'hard ate ' + s.foods + ' per round');
+  assert.ok(s.drought <= 15, 'hard went ' + s.drought + ' s without eating');
+  assert.ok(s.win >= 50, 'hard won ' + s.win + '% against a food-first player');
 });
 
-test('easy still plays: it collects food and survives a while', () => {
-  let food = 0, ticks = 0;
-  for (let s = 1; s <= 6; s++) {
-    const r = Duel.createRound({ map: Maps.ids[s % 4], seed: s, controllers: [AI.create('easy', s), straight()] });
-    r.state.snakes[1].body = [{ x: 23, y: 25 }]; r.state.snakes[1].dir = L;
-    const c1 = { next: () => null };
-    r.start();
-    while (r.state.phase === 'running' && ticks < 1e6) { r.state.snakes[1].body = [{ x: 28, y: 28 }]; r.state.snakes[1].dir = U; r.tick(); ticks++; if (r.state.tick > 400) break; }
-    food += r.state.snakes[0].foods;
-    assert.ok(c1);
-  }
-  assert.ok(food >= 12, 'easy ate ' + food);
+test('easy is beatable: a beginner-style player wins about as often as it does, and easy still eats and stays safe', () => {
+  const t = Sim.pairing('easy', 'novice', 8), e = Sim.summary(t.easy), n = Sim.summary(t.novice);
+  assert.ok(n.win >= e.win - 10, 'novice ' + n.win + '% vs easy ' + e.win + '%');
+  assert.ok(e.foods >= 3, 'easy ate ' + e.foods);
+  const walls = t.easy.filter(r => r.reason === 'wall').length;
+  assert.ok(walls <= 2, 'easy drove into a wall ' + walls + ' times');
+});
+
+test('medium sits between: it beats easy, loses to hard more often than not, and is even with a solid player', () => {
+  const em = Sim.pairing('easy', 'medium', 5), mh = Sim.pairing('medium', 'hard', 4), mg = Sim.pairing('medium', 'greedy', 5);
+  assert.ok(Sim.summary(em.medium).win > Sim.summary(em.easy).win, 'medium vs easy');
+  assert.ok(Sim.summary(mh.hard).win > Sim.summary(mh.medium).win, 'hard vs medium');
+  const g = Sim.summary(mg.medium).win;
+  assert.ok(g >= 25 && g <= 80, 'medium vs a solid player: ' + g + '%');
 });
 
 test('AI decisions are quick (average well under a frame)', () => {
