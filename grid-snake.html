@@ -582,6 +582,212 @@ html[data-motion="off"] *, html[data-motion="off"] *::before, html[data-motion="
   .btn, .seg button, .mode { transition: none; }
   .spin { animation: none; }
 }
+
+/* ===================== Grid Snake Duel =====================
+   Its own screens in the studio's look: near-black, white type, the Atherbyte purple, soft depth. Every rule is
+   scoped to #duel (classes start with dz-) or to the home entry button, so the other modes never change. */
+#duel {
+  --dz-bg: #0A0A0E; --dz-s1: #121219; --dz-s2: #181822; --dz-s3: #1F1F2B;
+  --dz-line: rgba(255, 255, 255, .07); --dz-line2: rgba(255, 255, 255, .13);
+  --dz-text: #F5F5F7; --dz-muted: #9D9DB2; --dz-faint: #6E6E84;
+  --dz-accent: #885CFF; --dz-deep: #6A3BF2; --dz-soft: #B79CFF; --dz-hot: #D66BFF; --dz-gold: #FFD76E; --dz-danger: #FF5C7A; --dz-amber: #FFB547; --dz-cyan: #4FD6E3;
+  --dz-you: #34B07A; --dz-rival: #9B7BFF;
+  --dz-ease: cubic-bezier(.2, .7, .2, 1);
+  --dz-shadow: 0 1px 0 rgba(255, 255, 255, .04) inset, 0 18px 40px -24px rgba(0, 0, 0, .8);
+  color: var(--dz-text); max-width: 1120px;
+}
+html.in-duel body { background: radial-gradient(1200px 600px at 50% -10%, rgba(106, 59, 242, .12), transparent 60%), #0A0A0E; background-attachment: fixed; }
+#duel svg { fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+
+/* home entry */
+.duel-entry { position: relative; overflow: hidden; display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 14px; width: 100%; padding: 16px 18px; border-radius: 18px;
+  border: 1px solid rgba(136, 92, 255, .42); background: linear-gradient(120deg, rgba(106, 59, 242, .24), rgba(18, 18, 25, .6) 55%, rgba(214, 107, 255, .1));
+  color: var(--text); font: inherit; text-align: left; cursor: pointer; transition: border-color .2s ease, transform .15s ease, box-shadow .2s ease; -webkit-tap-highlight-color: transparent; }
+.duel-entry::after { content: ""; position: absolute; inset: 0; background: linear-gradient(100deg, transparent 30%, rgba(183, 156, 255, .14) 50%, transparent 70%); transform: translateX(-100%); transition: transform .7s ease; pointer-events: none; }
+.duel-entry:hover { border-color: #B79CFF; box-shadow: 0 16px 34px -22px #885CFF; }
+.duel-entry:hover::after { transform: translateX(100%); }
+.duel-entry:active { transform: scale(.99); }
+.duel-entry:focus-visible { outline: 2px solid #B79CFF; outline-offset: 3px; }
+.duel-entry svg { width: 34px; height: 34px; fill: none; stroke: #B79CFF; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
+.duel-entry b { display: block; font-family: var(--font-display); font-size: 17px; font-weight: 600; }
+.duel-entry span span { display: block; font-size: 13px; color: var(--muted); }
+.duel-entry i { font-style: normal; font-size: 11px; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; color: #fff; padding: 4px 9px; border-radius: 999px; background: linear-gradient(135deg, #885CFF, #6A3BF2); }
+
+/* buttons */
+.dz-btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; font: inherit; font-weight: 600; font-size: 15px; min-height: 46px; padding: 0 20px; border-radius: 12px;
+  border: 1px solid var(--dz-line2); background: var(--dz-s2); color: var(--dz-text); cursor: pointer; transition: background-color .18s ease, border-color .18s ease, transform .12s ease, box-shadow .18s ease; -webkit-tap-highlight-color: transparent; }
+.dz-btn svg { width: 18px; height: 18px; }
+.dz-btn:hover { border-color: rgba(183, 156, 255, .45); background: var(--dz-s3); }
+.dz-btn:active { transform: translateY(1px) scale(.985); }
+.dz-btn:focus-visible { outline: 2px solid var(--dz-soft); outline-offset: 3px; }
+.dz-btn--ghost { background: transparent; }
+.dz-btn--primary { border-color: transparent; color: #fff; background: linear-gradient(135deg, #9370FF, var(--dz-deep)); box-shadow: 0 1px 0 rgba(255, 255, 255, .22) inset, 0 16px 34px -18px var(--dz-accent); }
+.dz-btn--primary:hover { background: linear-gradient(135deg, #A283FF, #7448F5); box-shadow: 0 1px 0 rgba(255, 255, 255, .25) inset, 0 20px 40px -18px var(--dz-accent); }
+.dz-btn--xl { min-height: 62px; width: 100%; font-family: var(--font-display); font-size: 19px; border-radius: 16px; }
+.dz-btn--xl svg { transition: transform .2s var(--dz-ease); }
+.dz-btn--xl:hover svg { transform: translateX(4px); }
+.dz-chip { font-size: 12px; color: var(--dz-muted); padding: 6px 12px; border: 1px solid var(--dz-line2); border-radius: 999px; }
+
+/* menu */
+.dz-menu { display: grid; gap: 22px; max-width: 760px; padding-block: clamp(6px, 3vh, 34px); }
+.dz-top { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.dz-kicker { margin: 0 0 10px; font-size: 12px; font-weight: 700; letter-spacing: .18em; text-transform: uppercase; color: var(--dz-soft); }
+.dz-title { margin: 0; font-family: var(--font-display); font-weight: 700; font-size: clamp(40px, 9.5vw, 72px); line-height: 1; letter-spacing: -.035em; }
+.dz-title span { background: linear-gradient(92deg, #C4AEFF, #D66BFF 70%); -webkit-background-clip: text; background-clip: text; color: transparent; }
+.dz-lede { margin-top: 14px; max-width: 48ch; color: var(--dz-muted); font-size: 16px; line-height: 1.55; }
+.dz-label { margin: 0 0 12px; font-size: 11px; font-weight: 700; letter-spacing: .16em; text-transform: uppercase; color: var(--dz-faint); }
+.dz-sub { margin-top: 4px; font-size: 13px; color: var(--dz-muted); }
+.dz-levels { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+@media (max-width: 620px) { .dz-levels { grid-template-columns: 1fr; } }
+.dz-level { position: relative; display: grid; gap: 8px; align-content: start; text-align: left; font: inherit; padding: 16px; border-radius: 16px; border: 1px solid var(--dz-line);
+  background: var(--dz-s1); color: var(--dz-text); cursor: pointer; transition: border-color .2s ease, background-color .2s ease, transform .2s var(--dz-ease), box-shadow .2s ease; -webkit-tap-highlight-color: transparent; }
+.dz-level:hover { border-color: var(--dz-line2); transform: translateY(-2px); }
+.dz-level:focus-visible { outline: 2px solid var(--dz-soft); outline-offset: 3px; }
+.dz-level[aria-checked="true"] { border-color: rgba(136, 92, 255, .8); background: linear-gradient(160deg, rgba(136, 92, 255, .18), rgba(18, 18, 25, .9) 70%); box-shadow: 0 0 0 1px rgba(136, 92, 255, .5) inset, 0 18px 36px -24px var(--dz-accent); }
+.dz-level-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.dz-level-head b { font-family: var(--font-display); font-size: 18px; }
+.dz-level-desc { font-size: 13px; line-height: 1.45; color: var(--dz-muted); }
+.dz-dots { display: flex; gap: 4px; }
+.dz-dots i { width: 8px; height: 8px; border-radius: 3px; background: rgba(255, 255, 255, .12); transition: background-color .25s ease, box-shadow .25s ease; }
+.dz-level[data-level="easy"] .dz-dots i:nth-child(1), .dz-level[data-level="medium"] .dz-dots i:nth-child(-n+2), .dz-level[data-level="hard"] .dz-dots i { background: #6E6E84; }
+.dz-level[aria-checked="true"][data-level="easy"] .dz-dots i:nth-child(1), .dz-level[aria-checked="true"][data-level="medium"] .dz-dots i:nth-child(-n+2), .dz-level[aria-checked="true"][data-level="hard"] .dz-dots i { background: #B79CFF; box-shadow: 0 0 8px rgba(183, 156, 255, .7); }
+.dz-card { border: 1px solid var(--dz-line); border-radius: 18px; background: linear-gradient(180deg, var(--dz-s1), rgba(18, 18, 25, .7)); padding: 18px 20px; box-shadow: var(--dz-shadow); }
+.dz-record-main { display: flex; align-items: center; gap: 18px; margin-bottom: 16px; }
+.dz-ring { --p: 0; flex: none; width: 86px; height: 86px; border-radius: 50%; display: grid; place-content: center; text-align: center;
+  background: radial-gradient(closest-side, var(--dz-s1) 78%, transparent 80% 100%), conic-gradient(var(--dz-accent) calc(var(--p) * 1%), var(--dz-line2) 0); transition: --p .6s ease; }
+.dz-ring span { font-family: var(--font-display); font-size: 22px; font-weight: 700; line-height: 1; }
+.dz-ring small { font-size: 10px; color: var(--dz-faint); letter-spacing: .08em; text-transform: uppercase; margin-top: 3px; }
+.dz-wld { margin: 0; display: flex; align-items: baseline; gap: 6px; flex-wrap: wrap; }
+.dz-wld b { font-family: var(--font-display); font-size: 28px; font-variant-numeric: tabular-nums; }
+.dz-wld span { color: var(--dz-faint); font-size: 13px; font-weight: 600; margin-right: 10px; }
+.dz-stats { margin: 0; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; padding-top: 14px; border-top: 1px solid var(--dz-line); }
+.dz-stats dt { font-size: 11px; color: var(--dz-faint); }
+.dz-stats dd { margin: 3px 0 0; font-family: var(--font-display); font-size: 19px; font-weight: 600; font-variant-numeric: tabular-nums; }
+@media (max-width: 560px) { .dz-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+.dz-events { margin: 0; padding: 0; list-style: none; display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 8px; }
+@media (max-width: 620px) { .dz-events { grid-template-columns: 1fr 1fr; } .dz-events li:last-child { grid-column: 1 / -1; } }
+.dz-events li { display: grid; gap: 6px; padding: 12px; border-radius: 12px; background: var(--dz-s2); border: 1px solid var(--dz-line); font-size: 12px; color: var(--dz-muted); line-height: 1.4; }
+.dz-events li b { display: flex; align-items: center; gap: 8px; color: var(--dz-text); font-size: 13px; }
+.dz-events svg { width: 18px; height: 18px; flex: none; }
+.dz-rules summary { cursor: pointer; font-weight: 600; list-style: none; display: flex; justify-content: space-between; }
+.dz-rules summary::after { content: "+"; color: var(--dz-soft); font-size: 18px; line-height: 1; transition: transform .2s ease; }
+.dz-rules[open] summary::after { transform: rotate(45deg); }
+.dz-rules ul { margin: 14px 0 0; padding-left: 18px; display: grid; gap: 8px; font-size: 14px; color: var(--dz-muted); line-height: 1.5; }
+.dz-rules b { color: var(--dz-text); }
+.dz-rise { animation: dzRise .55s var(--dz-ease) both; animation-delay: calc(var(--d, 0) * 60ms); }
+@keyframes dzRise { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: none; } }
+
+/* play */
+.dz-play { display: grid; gap: 10px; padding-block: 6px; animation: dzFade .35s ease both; }
+@media (min-width: 980px) { .dz-play { grid-template-columns: minmax(0, 1fr) 280px; align-items: start; column-gap: 18px; } .dz-hud, .dz-event { grid-column: 1 / -1; } }
+@keyframes dzFade { from { opacity: 0; } to { opacity: 1; } }
+.dz-hud { display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); align-items: stretch; gap: 10px; }
+.dz-side { position: relative; overflow: hidden; display: grid; gap: 6px; padding: 10px 14px; border-radius: 16px; background: var(--dz-s1); border: 1px solid var(--dz-line); min-width: 0; box-shadow: var(--dz-shadow); }
+.dz-side::before { content: ""; position: absolute; inset: 0 auto 0 0; width: 3px; background: var(--dz-you); }
+.dz-side--rival { text-align: right; justify-items: end; }
+.dz-side--rival::before { inset: 0 0 0 auto; background: var(--dz-rival); }
+.dz-who { display: flex; align-items: center; gap: 7px; white-space: nowrap; min-width: 0; font-size: 11px; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; color: var(--dz-muted); }
+.dz-who i { width: 9px; height: 9px; border-radius: 50%; background: var(--dz-you); box-shadow: 0 0 10px var(--dz-you); }
+.dz-side--rival .dz-who i { background: var(--dz-rival); box-shadow: 0 0 10px var(--dz-rival); }
+.dz-score { font-family: var(--font-display); font-size: clamp(26px, 6.4vw, 38px); font-weight: 700; line-height: 1; font-variant-numeric: tabular-nums; display: inline-block; transform-origin: left center; }
+.dz-side--rival .dz-score { transform-origin: right center; }
+.dz-score.bump { animation: dzBump .45s var(--dz-ease); }
+@keyframes dzBump { 30% { transform: scale(1.22); color: #fff; } }
+.dz-pips { display: flex; gap: 5px; }
+.dz-pips span { width: 20px; height: 5px; border-radius: 3px; background: var(--dz-line2); transition: background-color .3s ease, box-shadow .3s ease; }
+.dz-pips span.on { background: var(--dz-you); box-shadow: 0 0 10px var(--dz-you); }
+.dz-side--rival .dz-pips span.on { background: var(--dz-rival); box-shadow: 0 0 10px var(--dz-rival); }
+.dz-mid { display: grid; justify-items: center; align-content: center; gap: 3px; min-width: 96px; padding: 0 4px; }
+.dz-round { font-size: 11px; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; color: var(--dz-faint); white-space: nowrap; }
+.dz-clock { font-family: var(--font-display); font-size: clamp(22px, 5.6vw, 30px); font-weight: 600; font-variant-numeric: tabular-nums; line-height: 1.1; transition: color .3s ease; }
+.dz-clock.urgent { color: var(--dz-danger); }
+.dz-clock.ot { color: var(--dz-gold); }
+.dz-timebar { width: 100%; height: 3px; border-radius: 2px; background: var(--dz-line2); overflow: hidden; }
+.dz-timebar i { display: block; height: 100%; width: 100%; background: linear-gradient(90deg, var(--dz-deep), var(--dz-soft)); transform-origin: left; transition: transform .25s linear; }
+.dz-clock.urgent + .dz-timebar i { background: var(--dz-danger); }
+.dz-event { --ev: var(--dz-soft); position: relative; overflow: hidden; display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: center; gap: 12px; padding: 9px 14px; border-radius: 14px;
+  background: linear-gradient(90deg, color-mix(in srgb, var(--ev) 16%, transparent), var(--dz-s1) 60%); border: 1px solid color-mix(in srgb, var(--ev) 35%, transparent); transition: border-color .3s ease; }
+.dz-event[data-event="vanish"] { --ev: #FF5C7A; } .dz-event[data-event="portal"] { --ev: #4FD6E3; } .dz-event[data-event="laser"] { --ev: #FF4678; } .dz-event[data-event="walls"] { --ev: #FFB547; } .dz-event[data-event="core"] { --ev: #FFD76E; }
+.dz-event-ico { width: 34px; height: 34px; border-radius: 10px; display: grid; place-items: center; color: var(--ev); background: color-mix(in srgb, var(--ev) 14%, transparent); }
+.dz-event-ico svg { width: 20px; height: 20px; }
+.dz-event-text { display: grid; min-width: 0; }
+.dz-event-text b { font-family: var(--font-display); font-size: 15px; }
+.dz-event-text span { font-size: 13px; color: var(--dz-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.dz-event-bar { position: absolute; left: 0; right: 0; bottom: 0; height: 2px; }
+.dz-event-bar i { display: block; height: 100%; width: 100%; background: var(--ev); transform-origin: left; transform: scaleX(0); transition: transform .2s linear; }
+.dz-event.live .dz-event-ico { animation: dzPulse 1.6s ease-in-out infinite; }
+@keyframes dzPulse { 50% { box-shadow: 0 0 0 6px color-mix(in srgb, var(--ev) 12%, transparent); } }
+.dz-board-wrap { position: relative; display: grid; justify-items: center; min-width: 0; touch-action: none; }
+#duelBoard { display: block; border-radius: 14px; box-shadow: 0 0 0 1px rgba(136, 92, 255, .22), 0 40px 80px -50px rgba(136, 92, 255, .6); }
+.dz-banner { position: absolute; top: 8%; left: 50%; transform: translateX(-50%); width: min(88%, 460px); display: grid; justify-items: center; gap: 4px; padding: 14px 18px; text-align: center; pointer-events: none;
+  border-radius: 16px; background: rgba(10, 10, 14, .82); border: 1px solid var(--dz-line2); box-shadow: 0 24px 50px -20px rgba(0, 0, 0, .9); -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px); }
+.dz-banner.show { animation: dzBanner 2.6s var(--dz-ease) both; }
+@keyframes dzBanner { 0% { opacity: 0; transform: translate(-50%, -14px) scale(.96); } 12% { opacity: 1; transform: translate(-50%, 0) scale(1); } 82% { opacity: 1; transform: translate(-50%, 0); } 100% { opacity: 0; transform: translate(-50%, -8px); } }
+.dz-banner-ico { width: 40px; height: 40px; border-radius: 12px; display: grid; place-items: center; color: var(--ev, #B79CFF); background: color-mix(in srgb, var(--ev, #B79CFF) 16%, transparent); }
+.dz-banner-ico svg { width: 22px; height: 22px; }
+.dz-banner b { font-family: var(--font-display); font-size: clamp(18px, 4.6vw, 24px); letter-spacing: .04em; text-transform: uppercase; }
+.dz-banner span { font-size: 13px; color: var(--dz-muted); max-width: 40ch; }
+.dz-aside { display: grid; gap: 10px; align-content: start; }
+.dz-howto p:last-child { margin: 0; font-size: 14px; line-height: 1.5; color: var(--dz-muted); }
+.dz-btns { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+.dz-btns .dz-btn { padding: 0 8px; font-size: 14px; min-height: 44px; }
+.dz-keys { margin: 0; padding: 0; list-style: none; display: grid; gap: 6px; font-size: 13px; color: var(--dz-muted); }
+.dz-keys kbd { font: 600 11px var(--font-body); padding: 2px 6px; margin-right: 2px; border-radius: 6px; border: 1px solid var(--dz-line2); border-bottom-width: 2px; color: var(--dz-text); }
+.dz-touch { display: none !important; }
+@media (pointer: coarse) {
+  .dz-touch { display: grid !important; }
+  .dz-keys, .dz-howto { display: none; }
+  html[data-controls="swipe"] .dz-touch, html[data-controls="turn"] #duelPad, html[data-controls="arrows"] #duelTurns { display: none !important; }
+}
+.dz-turns { grid-template-columns: 1fr 1fr; gap: 12px; }
+.dz-turns button, .dz-pad button { font: inherit; font-size: 24px; min-height: 76px; border-radius: 20px; border: 1px solid var(--dz-line2); background: linear-gradient(180deg, var(--dz-s3), var(--dz-s2)); color: var(--dz-text); touch-action: none; -webkit-tap-highlight-color: transparent; transition: transform .08s ease, background-color .08s ease; }
+.dz-turns button:active, .dz-pad button:active { transform: scale(.96); background: rgba(136, 92, 255, .22); }
+.dz-turns svg { width: 30px; height: 30px; }
+.dz-pad { grid-template-columns: repeat(3, 64px); grid-template-rows: repeat(2, 56px); gap: 8px; justify-content: center; }
+.dz-pad button { min-height: 0; font-size: 22px; }
+.dz-pad .up { grid-column: 2; grid-row: 1; } .dz-pad .left { grid-column: 1; grid-row: 2; } .dz-pad .down { grid-column: 2; grid-row: 2; } .dz-pad .right { grid-column: 3; grid-row: 2; }
+
+/* overlays: countdown, round result, pause, match result */
+.dz-ov { position: absolute; inset: 0; display: grid; place-items: center; padding: 14px; border-radius: 14px; overflow: auto; background: radial-gradient(ellipse at center, rgba(10, 10, 14, .55), rgba(10, 10, 14, .9)); animation: dzFade .25s ease both; }
+.dz-ov[hidden] { display: none !important; }
+.dz-ov-card { display: grid; justify-items: center; gap: 10px; width: min(100%, 440px); padding: 22px 20px; text-align: center; }
+.dz-ov--paused .dz-ov-card, .dz-ov--results .dz-ov-card { border-radius: 20px; background: rgba(18, 18, 25, .92); border: 1px solid var(--dz-line2); box-shadow: 0 30px 70px -30px rgba(0, 0, 0, .9); animation: dzPop .45s var(--dz-ease) both; }
+.dz-ov--results.tone-win .dz-ov-card { border-color: rgba(136, 92, 255, .6); box-shadow: 0 0 0 1px rgba(136, 92, 255, .3), 0 30px 80px -30px rgba(136, 92, 255, .7); }
+@keyframes dzPop { from { opacity: 0; transform: translateY(14px) scale(.96); } to { opacity: 1; transform: none; } }
+.dz-ov-kicker { font-size: 11px; font-weight: 700; letter-spacing: .18em; text-transform: uppercase; color: var(--dz-soft); }
+.dz-ov h2 { margin: 0; font-family: var(--font-display); font-size: clamp(30px, 8vw, 46px); font-weight: 700; letter-spacing: -.02em; line-height: 1.05; }
+.dz-ov p { margin: 0; max-width: 36ch; color: var(--dz-muted); font-size: 15px; }
+.dz-ov--round h2, .dz-ov--countdown h2 { animation: dzSlam .5s var(--dz-ease) both; }
+@keyframes dzSlam { from { opacity: 0; transform: scale(1.25); letter-spacing: .06em; } to { opacity: 1; transform: none; } }
+.dz-ov.tone-win h2 { background: linear-gradient(92deg, #fff, #C4AEFF); -webkit-background-clip: text; background-clip: text; color: transparent; }
+.dz-ov.tone-loss h2 { color: #D9D3EA; }
+.dz-ov.tone-draw h2 { color: var(--dz-soft); }
+.dz-count { font-family: var(--font-display); font-size: clamp(64px, 18vw, 110px); font-weight: 700; line-height: 1; background: linear-gradient(180deg, #fff, #B79CFF); -webkit-background-clip: text; background-clip: text; color: transparent; }
+.dz-count.tick { animation: dzCount .9s var(--dz-ease) both; }
+@keyframes dzCount { from { opacity: 0; transform: scale(1.6); } 30% { opacity: 1; transform: scale(1); } to { opacity: .9; transform: scale(.92); } }
+.dz-final { display: flex; align-items: baseline; gap: 14px; font-family: var(--font-display); }
+.dz-final b { font-size: clamp(40px, 11vw, 60px); line-height: 1; }
+.dz-final b:first-child { color: var(--dz-you); }
+.dz-final b:last-child { color: var(--dz-rival); }
+.dz-final span { color: var(--dz-faint); font-size: 28px; }
+.dz-rounds { list-style: none; margin: 4px 0; padding: 0; display: grid; gap: 6px; width: 100%; counter-reset: r; }
+.dz-rounds li { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 10px; padding: 9px 12px; border-radius: 12px; background: var(--dz-s2); border: 1px solid var(--dz-line); text-align: left; font-size: 14px; animation: dzRise .4s var(--dz-ease) both; animation-delay: calc(var(--i, 0) * 90ms + 150ms); }
+.dz-rounds li i { width: 26px; height: 26px; border-radius: 8px; display: grid; place-items: center; font-style: normal; font-size: 12px; font-weight: 700; }
+.dz-rounds li.tone-win i { background: color-mix(in srgb, var(--dz-you) 22%, transparent); color: var(--dz-you); }
+.dz-rounds li.tone-loss i { background: color-mix(in srgb, var(--dz-rival) 22%, transparent); color: var(--dz-rival); }
+.dz-rounds li.tone-draw i { background: var(--dz-line2); color: var(--dz-muted); }
+.dz-rounds li small { display: block; color: var(--dz-faint); font-size: 12px; }
+.dz-rounds li b { font-variant-numeric: tabular-nums; }
+.dz-ov-stats { margin: 0; width: 100%; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+.dz-ov-stats div { padding: 8px; border-radius: 10px; background: var(--dz-s2); }
+.dz-ov-stats dt { font-size: 11px; color: var(--dz-faint); }
+.dz-ov-stats dd { margin: 2px 0 0; font-family: var(--font-display); font-size: 18px; font-weight: 600; }
+.dz-actions { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; margin-top: 6px; }
+@media (prefers-reduced-motion: reduce) {
+  #duel *, #duel *::before, #duel *::after, .duel-entry, .duel-entry::after { animation: none !important; transition: none !important; }
+  .dz-banner.show { opacity: 1; }
+}
+html[data-motion="off"] #duel *, html[data-motion="off"] #duel *::before, html[data-motion="off"] #duel *::after { animation: none !important; transition: none !important; }
 </style>
 
 <div class="sr-only" id="announce" role="status" aria-live="polite"></div>
@@ -602,6 +808,7 @@ html[data-motion="off"] *, html[data-motion="off"] *::before, html[data-motion="
       <div class="modes" id="modes" role="group" aria-label="Game mode"></div>
     </div>
     <button class="btn btn--primary btn--xl" id="playBtn" type="button" disabled><span class="spin" aria-hidden="true"></span>Loading</button>
+    <button class="duel-entry" id="duelEntry" type="button"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h6v4M20 17h-6v-4M10 11h4M4 4v3M20 20v-3"/><circle cx="4" cy="4" r="1.6"/><circle cx="20" cy="20" r="1.6"/></svg><span><b>Duel</b><span>A battle of minds: you against a clever rival, best of three.</span></span><i>New</i></button>
     <div class="tiles">
       <button class="tile" id="homeAchBtn" type="button"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l2.6 5.6 6 .7-4.5 4.1 1.2 6L12 16.4 6.7 19.4l1.2-6L3.4 9.3l6-.7z"/></svg><span class="tile-name">Achievements</span><span class="count" id="homeAchCount">0/0</span></button>
       <button class="tile" id="homeShopBtn" type="button"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 8h14l1 12H4zM9 8a3 3 0 0 1 6 0"/></svg><span class="tile-name">Shop</span><span class="count" id="homeCoins">0</span></button>
@@ -690,6 +897,132 @@ html[data-motion="off"] *, html[data-motion="off"] *::before, html[data-motion="
       </div>
       </div>
     </aside>
+  </div>
+</section>
+
+<section class="view" id="duel" hidden aria-label="Grid Snake Duel">
+  <div class="dz-menu" id="duelMenu">
+    <div class="dz-top">
+      <button class="dz-btn dz-btn--ghost" id="duelBack" type="button"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 6l-6 6 6 6"/></svg>Grid Snake</button>
+      <span class="dz-chip">Offline · vs computer</span>
+    </div>
+    <div class="dz-hero dz-rise">
+      <p class="dz-kicker">A battle of minds</p>
+      <h1 class="dz-title">Grid Snake <span>Duel</span></h1>
+      <p class="dz-lede">Think ahead. Outsmart your rival. Two snakes, one arena, best of three rounds, and a new twist on the battlefield every round.</p>
+    </div>
+    <div class="dz-pick dz-rise" style="--d: 1">
+      <p class="dz-label" id="duelLevelLabel">Choose your rival</p>
+      <div class="dz-levels" id="duelLevels" role="radiogroup" aria-labelledby="duelLevelLabel">
+        <button type="button" class="dz-level" data-level="easy" role="radio">
+          <span class="dz-level-head"><b>Easy</b><span class="dz-dots" aria-hidden="true"><i></i><i></i><i></i></span></span>
+          <span class="dz-level-desc">Takes the nearest food, slips up now and then. Good for learning the arena.</span>
+        </button>
+        <button type="button" class="dz-level" data-level="medium" role="radio">
+          <span class="dz-level-head"><b>Medium</b><span class="dz-dots" aria-hidden="true"><i></i><i></i><i></i></span></span>
+          <span class="dz-level-desc">Plans its route, reads the hazards and picks the food it can win.</span>
+        </button>
+        <button type="button" class="dz-level" data-level="hard" role="radio">
+          <span class="dz-level-head"><b>Hard</b><span class="dz-dots" aria-hidden="true"><i></i><i></i><i></i></span></span>
+          <span class="dz-level-desc">Thinks two moves ahead, races you for every point and cuts you off.</span>
+        </button>
+      </div>
+    </div>
+    <button class="dz-btn dz-btn--primary dz-btn--xl dz-rise" style="--d: 2" id="duelStart" type="button">Start match<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg></button>
+    <div class="dz-card dz-record dz-rise" style="--d: 3">
+      <div class="dz-record-main">
+        <div class="dz-ring" id="duelWinRing" style="--p: 0"><span id="duelWinRate">–</span><small>win rate</small></div>
+        <div>
+          <p class="dz-label">Your record</p>
+          <p class="dz-wld"><b id="duelW">0</b><span>W</span><b id="duelL">0</b><span>L</span><b id="duelD">0</b><span>D</span></p>
+          <p class="dz-sub" id="duelStatEmpty">Play a match to start your record. It is kept on this device.</p>
+        </div>
+      </div>
+      <dl class="dz-stats" id="duelStatList"></dl>
+    </div>
+    <div class="dz-card dz-rise" style="--d: 4">
+      <p class="dz-label">One event every round</p>
+      <ul class="dz-events" id="duelEventList"></ul>
+    </div>
+    <details class="dz-card dz-rules dz-rise" style="--d: 5">
+      <summary>Rules of the duel</summary>
+      <ul>
+        <li><b>Win two rounds.</b> A round lasts 90 seconds. Crash, and the round goes to your rival.</li>
+        <li><b>Food is +1, the Core +3.</b> At the bell the higher score wins. A tie goes to 15 seconds of sudden death: the first point wins.</li>
+        <li><b>Crashes:</b> walls, your own body and your rival's body. Two heads into one cell, or swapping cells, crashes both: the higher score takes the round, equal scores are a draw.</li>
+        <li><b>Draws</b> give nobody a point; a fresh round is played. After three draws the match goes to round wins, then total points.</li>
+        <li><b>Hazards</b> always warn before they can hurt, and only hurt a head that runs into them.</li>
+        <li><b>A fair rival:</b> the same speed, the same rules, and only what you can see on screen.</li>
+      </ul>
+    </details>
+  </div>
+
+  <div class="dz-play" id="duelPlay" hidden>
+    <div class="dz-hud">
+      <div class="dz-side dz-side--you">
+        <span class="dz-who"><i aria-hidden="true"></i>You</span>
+        <span class="dz-score" id="duelScoreYou">0</span>
+        <span class="dz-pips" id="duelPipsYou" aria-label="Rounds you won"><span></span><span></span></span>
+      </div>
+      <div class="dz-mid">
+        <span class="dz-round" id="duelRound">Round 1</span>
+        <span class="dz-clock" id="duelClock" aria-label="Time left">1:30</span>
+        <span class="dz-timebar" aria-hidden="true"><i id="duelTimeBar"></i></span>
+      </div>
+      <div class="dz-side dz-side--rival">
+        <span class="dz-who"><i aria-hidden="true"></i><span id="duelRivalName">Rival</span></span>
+        <span class="dz-score" id="duelScoreRival">0</span>
+        <span class="dz-pips" id="duelPipsRival" aria-label="Rounds the rival won"><span></span><span></span></span>
+      </div>
+    </div>
+    <div class="dz-event" id="duelEvent" data-event="">
+      <span class="dz-event-ico" id="duelEventIco" aria-hidden="true"></span>
+      <span class="dz-event-text"><b id="duelEventName"></b><span id="duelEventStatus"></span></span>
+      <span class="dz-event-bar" aria-hidden="true"><i id="duelEventBar"></i></span>
+    </div>
+    <div class="dz-board-wrap" id="duelBoardWrap">
+      <canvas id="duelBoard" aria-label="Duel arena"></canvas>
+      <div class="dz-banner" id="duelBanner" hidden aria-hidden="true"><span class="dz-banner-ico" id="duelBannerIco"></span><b id="duelBannerName"></b><span id="duelBannerTip"></span></div>
+      <div class="dz-ov" id="duelOv" hidden>
+        <div class="dz-ov-card" id="duelOvCard">
+          <span class="dz-ov-kicker" id="duelOvKicker"></span>
+          <span class="dz-count" id="duelOvCount" hidden>3</span>
+          <h2 id="duelOvTitle"></h2>
+          <p id="duelOvText"></p>
+          <div class="dz-final" id="duelOvFinal" hidden><b id="duelOvYou">0</b><span>–</span><b id="duelOvRival">0</b></div>
+          <ol class="dz-rounds" id="duelOvRounds" hidden></ol>
+          <dl class="dz-ov-stats" id="duelOvStats" hidden></dl>
+          <div class="dz-actions" id="duelOvActions" hidden>
+            <button class="dz-btn dz-btn--primary" id="duelOvMain" type="button">Resume</button>
+            <button class="dz-btn" id="duelOvRestart" type="button">Restart match</button>
+            <button class="dz-btn dz-btn--ghost" id="duelOvSec" type="button">Leave match</button>
+          </div>
+        </div>
+      </div>
+    </div>
+    <aside class="dz-aside">
+      <div class="dz-card dz-howto" id="duelHowto"><p class="dz-label">What to do</p><p id="duelHowtoText">Eat food to score. Keep clear of walls and both bodies.</p></div>
+      <div class="dz-touch dz-turns" id="duelTurns">
+        <button type="button" id="duelTurnLeft" aria-label="Turn left"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 19v-5a4 4 0 0 0-4-4H5M9 5l-4 5 4 5"/></svg></button>
+        <button type="button" id="duelTurnRight" aria-label="Turn right"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 19v-5a4 4 0 0 1 4-4h6M15 5l4 5-4 5"/></svg></button>
+      </div>
+      <div class="dz-touch dz-pad" id="duelPad" aria-label="Direction pad">
+        <button type="button" class="up" data-dx="0" data-dy="-1" aria-label="Up">↑</button>
+        <button type="button" class="left" data-dx="-1" data-dy="0" aria-label="Left">←</button>
+        <button type="button" class="down" data-dx="0" data-dy="1" aria-label="Down">↓</button>
+        <button type="button" class="right" data-dx="1" data-dy="0" aria-label="Right">→</button>
+      </div>
+      <div class="dz-btns">
+        <button class="dz-btn" id="duelPauseBtn" type="button">Pause</button>
+        <button class="dz-btn" id="duelMuteBtn" type="button" aria-pressed="false">Sound on</button>
+        <button class="dz-btn dz-btn--ghost" id="duelLeaveBtn" type="button">Leave</button>
+      </div>
+      <ul class="dz-keys">
+        <li><kbd>←</kbd><kbd>↑</kbd><kbd>↓</kbd><kbd>→</kbd> or <kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> steer</li>
+        <li><kbd>Space</kbd> or <kbd>P</kbd> pause · <kbd>Esc</kbd> menu</li>
+      </ul>
+    </aside>
+    <div class="sr-only" id="duelLive" role="status" aria-live="polite"></div>
   </div>
 </section>
 
@@ -2559,6 +2892,1268 @@ var SnakeChase = (function () {
 })();
 if (typeof module !== 'undefined' && module.exports) module.exports = SnakeChase;
 
+/* Grid Snake Duel: arenas
+ * Fixed 30 x 30 battlefields with walls, corridors and choke points. Every arena is point-symmetric
+ * (cell x,y mirrors to 29-x,29-y) and so are the two spawns, so neither side starts with a better
+ * position. No DOM. Each arena is written as rectangles for one half; the mirror half is added here.
+ */
+var SnakeDuelMaps = (function () {
+  'use strict';
+
+  var SIZE = 30;
+  var START_LEN = 4;
+  /* Player 0 starts top-left heading right, player 1 is its mirror (bottom-right heading left). */
+  var SPAWNS = [
+    { head: { x: 6, y: 4 }, dir: { x: 1, y: 0 } },
+    { head: { x: SIZE - 1 - 6, y: SIZE - 1 - 4 }, dir: { x: -1, y: 0 } }
+  ];
+
+  /* rects: [x, y, w, h] for one half (mirrored automatically). Spawn rows 3-5 (and their mirror) stay clear. */
+  var ARENAS = [
+    { id: 'crossroads', name: 'Crossroads', desc: 'Four blocks and a cross of corridors through the middle.',
+      rects: [[8, 8, 5, 5], [17, 8, 5, 5]] },
+    { id: 'pillars', name: 'Pillars', desc: 'A field of pillars: short cuts everywhere, cover nowhere.',
+      rects: (function () {
+        var r = [];
+        [5, 11, 17, 23].forEach(function (x) { [9, 14, 19].forEach(function (y) { if (y <= 14) r.push([x, y, 2, 2]); }); });
+        return r;
+      })() },
+    { id: 'gates', name: 'Twin Gates', desc: 'Two long walls with narrow gates guard the centre.',
+      rects: [[0, 11, 3, 1], [6, 11, 12, 1], [21, 11, 9, 1], [13, 14, 4, 2]] },
+    { id: 'chambers', name: 'Chambers', desc: 'Rooms and doorways: the shortest way is rarely the open one.',
+      rects: [[0, 9, 7, 1], [9, 13, 1, 4], [13, 0, 1, 6], [12, 12, 6, 1]] }
+  ];
+
+  function mirror(x, y) { return { x: SIZE - 1 - x, y: SIZE - 1 - y }; }
+  function idx(x, y) { return y * SIZE + x; }
+
+  /* The arena as a wall grid (1 = wall) plus the spawn bodies. */
+  function build(id) {
+    var A = null;
+    for (var i = 0; i < ARENAS.length; i++) if (ARENAS[i].id === id) A = ARENAS[i];
+    if (!A) A = ARENAS[0];
+    var walls = new Uint8Array(SIZE * SIZE);
+    A.rects.forEach(function (r) {
+      for (var y = r[1]; y < r[1] + r[3]; y++) for (var x = r[0]; x < r[0] + r[2]; x++) {
+        if (x < 0 || y < 0 || x >= SIZE || y >= SIZE) continue;
+        var m = mirror(x, y);
+        walls[idx(x, y)] = 1;
+        walls[idx(m.x, m.y)] = 1;
+      }
+    });
+    var spawns = SPAWNS.map(function (s) {
+      var body = [];
+      for (var k = 0; k < START_LEN; k++) body.push({ x: s.head.x - s.dir.x * k, y: s.head.y - s.dir.y * k });
+      return { body: body, dir: { x: s.dir.x, y: s.dir.y } };
+    });
+    return { id: A.id, name: A.name, desc: A.desc, size: SIZE, walls: walls, spawns: spawns };
+  }
+
+  return { SIZE: SIZE, START_LEN: START_LEN, ARENAS: ARENAS, ids: ARENAS.map(function (a) { return a.id; }), build: build, mirror: mirror };
+})();
+if (typeof module !== 'undefined' && module.exports) module.exports = SnakeDuelMaps;
+
+/* Grid Snake Duel: battlefield events
+ * One event per round. Each event is a small object with the same surface, so the round engine never
+ * needs to know which one is running, and a new event is one more entry in FACTORIES.
+ *
+ * Fairness rules every event follows
+ *  - Everything is point-symmetric (x,y <-> 29-x,29-y) or chosen to be equally far from both snakes.
+ *  - A hazard is always shown (warn) before it can hurt (lethal). warn() returns the ticks left, which is
+ *    exactly what the screen shows, so the AI never knows more than the player.
+ *  - Hazards only hurt a HEAD that moves into them (or a head standing on a cell the moment it turns
+ *    lethal after its warning). Bodies are never cut.
+ *  - Nothing appears on a snake: a vanishing cell, a portal or a moving wall waits until the cell is free.
+ *  - Random choices use env.rng (the round's seed), so a round can be replayed exactly.
+ *
+ * Surface: begin(env), tick(env) before the snakes move, after(env) after they move,
+ *          lethal(x,y) -> reason or null, warn(x,y) -> ticks until lethal (0 = no warning),
+ *          portalAt(x,y) -> { exit, open } or null, coreAt(x,y), takeCore(env) -> points,
+ *          noSpawn(x,y), status() -> short text for the HUD, view() -> what the renderer draws.
+ */
+var SnakeDuelEvents = (function () {
+  'use strict';
+
+  var INFO = {
+    vanish: { name: 'Vanishing Grid', tag: 'The edges fall away, ring by ring. Hold the middle.' },
+    portal: { name: 'Portal Shift', tag: 'Two linked portals. They move. A blocked exit is a dead end.' },
+    laser:  { name: 'Laser Sweep', tag: 'Laser bands sweep the arena. Find the safe lanes.' },
+    walls:  { name: 'Moving Walls', tag: 'Walls patrol fixed tracks. Read their path, use their cover.' },
+    core:   { name: 'The Core', tag: 'A Core worth 3 points appears in the centre. Contest it.' }
+  };
+  var IDS = Object.keys(INFO);
+
+  /* All times in ticks (one tick = one snake step, see SnakeDuel.TUNING.stepMs = 120 ms). */
+  var T = {
+    vanish: { every: 110, warn: 34, rings: 5 },
+    portal: { preview: 25, every: 150, minGap: 10, clearance: 3 },
+    laser:  { band: 3, warn: 17, active: 8, rest: 50, gap: 3 },
+    walls:  { preview: 25, len: 4, every: 4, pairs: 2 },
+    core:   { warn: 25, respawn: 80, points: 3, region: 4 }
+  };
+
+  function key(x, y) { return x + ',' + y; }
+  function shuffle(a, rng) { for (var i = a.length - 1; i > 0; i--) { var j = Math.floor(rng() * (i + 1)), t = a[i]; a[i] = a[j]; a[j] = t; } return a; }
+
+  /* ---------- the five events ---------- */
+
+  /* Vanishing Grid: ring r is every cell whose distance to the nearest edge is r. Waves remove rings 0..4. */
+  function vanish() {
+    var V = T.vanish, gone = {}, warned = {}, wave = -1, nextWave = 0, waveAt = 0;
+    function ring(x, y, n) { return Math.min(x, y, n - 1 - x, n - 1 - y); }
+    return {
+      begin: function () { nextWave = 0; },
+      tick: function (env) {
+        var n = env.size, t = env.tick;
+        if (wave + 1 < V.rings && t >= nextWave) {
+          wave++; waveAt = t + V.warn; nextWave = t + V.every;
+          for (var y = 0; y < n; y++) for (var x = 0; x < n; x++) {
+            if (ring(x, y, n) === wave && !env.isWall(x, y)) warned[key(x, y)] = waveAt;
+          }
+        }
+        Object.keys(warned).forEach(function (k) {             // a warned cell drops once its time is up and it is empty
+          if (t < warned[k]) return;
+          var p = k.split(','), x = +p[0], y = +p[1];
+          if (env.segAt(x, y)) return;
+          gone[k] = 1; delete warned[k];
+          env.relocate(x, y);
+        });
+      },
+      after: function () {},
+      lethal: function (x, y) { return gone[key(x, y)] ? 'void' : null; },
+      warn: function (x, y, env) { var w = warned[key(x, y)]; return w === undefined ? 0 : Math.max(1, w - env.tick); },
+      portalAt: function () { return null; }, coreAt: function () { return false; }, takeCore: function () { return 0; },
+      noSpawn: function (x, y) { var k = key(x, y); return !!(gone[k] || warned[k]); },
+      status: function (env) {
+        if (wave + 1 >= V.rings) return 'The arena has stopped shrinking';
+        return 'Next ring falls in ' + Math.max(0, Math.ceil((nextWave + V.warn - env.tick) * env.step / 1000)) + ' s';
+      },
+      view: function () { return { kind: 'vanish', gone: gone, warned: warned }; }
+    };
+  }
+
+  /* Portal Shift: one linked pair at mirrored cells. It moves every `every` ticks; the new spot is shown first. */
+  function portal() {
+    var P = T.portal, cur = null, next = null, nextAt = 0, moveAt = 0;
+    function pick(env) {
+      var n = env.size, cands = [];
+      for (var y = 1; y < n - 1; y++) for (var x = 1; x < n - 1; x++) {
+        var m = env.mirror(x, y);
+        if (x * n + y >= m.x * n + m.y) continue;                     // each pair once
+        if (Math.abs(x - m.x) + Math.abs(y - m.y) < P.minGap) continue;
+        if (!env.open(x, y) || !env.open(m.x, m.y) || env.isWall(x, y) || env.isWall(m.x, m.y)) continue;
+        if (env.nearHead(x, y, P.clearance) || env.nearHead(m.x, m.y, P.clearance)) continue;
+        if (cur && (key(x, y) === key(cur[0].x, cur[0].y) || key(x, y) === key(cur[1].x, cur[1].y))) continue;
+        var free = 0;                                                  // a portal needs room around it
+        [[1, 0], [-1, 0], [0, 1], [0, -1]].forEach(function (d) { if (!env.isWall(x + d[0], y + d[1])) free++; });
+        if (free < 3) continue;
+        cands.push([{ x: x, y: y }, m]);
+      }
+      return cands.length ? cands[Math.floor(env.rng() * cands.length)] : null;
+    }
+    function occupied(env, pair) { return env.segAt(pair[0].x, pair[0].y) || env.segAt(pair[1].x, pair[1].y); }
+    return {
+      begin: function (env) { next = pick(env); moveAt = env.tick + P.preview; },
+      tick: function (env) {
+        if (next && env.tick >= moveAt && !occupied(env, next)) {          // a portal never opens under a snake
+          cur = next; next = null; nextAt = env.tick + P.every - P.preview;
+          env.relocate(cur[0].x, cur[0].y); env.relocate(cur[1].x, cur[1].y);
+          env.emit('portalShift', {});
+        }
+        if (!next && cur && env.tick >= nextAt) { next = pick(env); moveAt = env.tick + P.preview; }
+      },
+      after: function () {},
+      lethal: function () { return null; },
+      warn: function () { return 0; },
+      portalAt: function (x, y, env) {
+        if (!cur) return null;
+        for (var i = 0; i < 2; i++) if (cur[i].x === x && cur[i].y === y) {
+          var e = cur[1 - i];
+          return { exit: e, open: !env.segAt(e.x, e.y) };
+        }
+        return null;
+      },
+      coreAt: function () { return false; }, takeCore: function () { return 0; },
+      noSpawn: function (x, y) {
+        var all = (cur || []).concat(next || []);
+        for (var i = 0; i < all.length; i++) if (all[i].x === x && all[i].y === y) return true;
+        return false;
+      },
+      status: function (env) {
+        if (!cur) return 'Portals opening';
+        if (next) return 'Portals move in ' + Math.max(0, Math.ceil((moveAt - env.tick) * env.step / 1000)) + ' s';
+        return 'Portals open';
+      },
+      view: function (env) {
+        var open = cur ? [!env.segAt(cur[1].x, cur[1].y), !env.segAt(cur[0].x, cur[0].y)] : null;
+        return { kind: 'portal', cur: cur, next: next, open: open };
+      }
+    };
+  }
+
+  /* Laser Sweep: the arena is cut into bands three cells thick. A sweep fires them in order, each band warned
+     before it fires. Sweeps alternate rows and columns and run edges-to-centre, then centre-to-edges; a band and its
+     mirror always fire together, and two mirrored safe lanes cross every band, so both sides face the same sweep. */
+  function laser() {
+    var L = T.laser, sweep = -1, axis = 'row', inward = true, lanes = [], startAt = 0, steps = 0, done = false;
+    function newSweep(env) {
+      sweep++;
+      axis = sweep % 2 === 0 ? 'row' : 'col';
+      inward = Math.floor(sweep / 2) % 2 === 0;
+      steps = Math.ceil(Math.ceil(env.size / L.band) / 2);
+      var c = 2 + Math.floor(env.rng() * (env.size / 2 - L.gap - 4));   // a lane in the first half, mirrored in the second
+      lanes = [[c, c + L.gap - 1], [env.size - c - L.gap, env.size - 1 - c]];
+      startAt = env.tick;
+    }
+    function orderOf(x, y, n) {
+      var v = axis === 'row' ? y : x, b = Math.floor(v / L.band), last = Math.ceil(n / L.band) - 1, k = Math.min(b, last - b);
+      return inward ? k : steps - 1 - k;
+    }
+    function inLane(x, y) {
+      var v = axis === 'row' ? x : y;
+      return (v >= lanes[0][0] && v <= lanes[0][1]) || (v >= lanes[1][0] && v <= lanes[1][1]);
+    }
+    function endAt() { return startAt + (steps - 1) * L.active + L.warn + L.active; }
+    /* Step k is warned from startAt + k*active, fires L.warn ticks later, for L.active ticks. */
+    function phaseAt(x, y, env) {
+      if (sweep < 0 || inLane(x, y)) return null;
+      var t = env.tick, k = orderOf(x, y, env.size), warnAt = startAt + k * L.active, fireAt = warnAt + L.warn, offAt = fireAt + L.active;
+      if (t >= warnAt && t < fireAt) return { warn: fireAt - t };
+      if (t >= fireAt && t < offAt) return { fire: true };
+      return null;
+    }
+    return {
+      begin: function (env) { newSweep(env); },
+      tick: function (env) {
+        if (env.tick >= endAt() + L.rest) newSweep(env);
+        done = env.tick >= endAt();
+      },
+      after: function () {},
+      lethal: function (x, y, env) { var p = phaseAt(x, y, env); return p && p.fire ? 'laser' : null; },
+      warn: function (x, y, env) { var p = phaseAt(x, y, env); return p && p.warn ? p.warn : 0; },
+      portalAt: function () { return null; }, coreAt: function () { return false; }, takeCore: function () { return 0; },
+      noSpawn: function (x, y, env) { return !!phaseAt(x, y, env); },
+      status: function (env) {
+        if (done) return 'Next sweep in ' + Math.max(0, Math.ceil((endAt() + L.rest - env.tick) * env.step / 1000)) + ' s';
+        return (inward ? 'Sweep closing in' : 'Sweep spreading out') + ' · stay in a safe lane';
+      },
+      view: function (env) {
+        var cells = [];
+        for (var y = 0; y < env.size; y++) for (var x = 0; x < env.size; x++) {
+          var p = phaseAt(x, y, env);
+          if (p) cells.push({ x: x, y: y, fire: !!p.fire, warn: p.warn || 0 });
+        }
+        return { kind: 'laser', cells: cells, lanes: lanes, axis: axis, active: sweep >= 0 && !done };
+      }
+    };
+  }
+
+  /* Moving Walls: bars four cells long patrol straight tracks and turn round at the ends. Mirrored pairs.
+     A bar never moves into a snake: if its next cells are taken, it waits. Its next step is always shown. */
+  function walls() {
+    var W = T.walls, bars = [], shownAt = 0, live = false;
+    function cellsOf(b, pos) {
+      var out = [];
+      for (var i = 0; i < W.len; i++) out.push(b.axis === 'x' ? { x: pos, y: b.fixed + i } : { x: b.fixed + i, y: pos });
+      return out;
+    }
+    function trackFree(env, b) {
+      for (var p = b.min; p <= b.max; p++) {
+        var cs = cellsOf(b, p);
+        for (var i = 0; i < cs.length; i++) if (env.isWall(cs[i].x, cs[i].y) || env.spawnZone(cs[i].x, cs[i].y)) return false;
+      }
+      return true;
+    }
+    function overlaps(a, b) {
+      var A = {}, hit = false;
+      for (var p = a.min; p <= a.max; p++) cellsOf(a, p).forEach(function (c) { A[key(c.x, c.y)] = 1; });
+      for (var q = b.min; q <= b.max; q++) cellsOf(b, q).forEach(function (c) { if (A[key(c.x, c.y)]) hit = true; });
+      return hit;
+    }
+    function mirrorBar(b, n) {
+      return { axis: b.axis, fixed: n - b.fixed - W.len, min: n - 1 - b.max, max: n - 1 - b.min, pos: n - 1 - b.pos, dir: -b.dir };
+    }
+    function build(env) {
+      var n = env.size;
+      for (var tries = 0; tries < 200 && bars.length < W.pairs * 2; tries++) {
+        var axis = env.rng() < 0.5 ? 'x' : 'y';
+        var fixed = 2 + Math.floor(env.rng() * (n / 2 - W.len - 2));
+        var len = 6 + Math.floor(env.rng() * 6), min = 3 + Math.floor(env.rng() * (n - len - 6));
+        var b = { axis: axis, fixed: fixed, min: min, max: min + len, pos: min, dir: 1 };
+        var m = mirrorBar(b, n);
+        if (!trackFree(env, b) || !trackFree(env, m) || overlaps(b, m)) continue;
+        if (bars.some(function (o) { return overlaps(o, b) || overlaps(o, m); })) continue;
+        bars.push(b, m);
+      }
+    }
+    function at(x, y) {
+      if (!live) return -1;
+      for (var i = 0; i < bars.length; i++) {
+        var b = bars[i], along = b.axis === 'x' ? x : y, across = b.axis === 'x' ? y : x;
+        if (along === b.pos && across >= b.fixed && across < b.fixed + W.len) return i;
+      }
+      return -1;
+    }
+    function nextPos(b) { var p = b.pos + b.dir; return (p < b.min || p > b.max) ? b.pos - b.dir : p; }
+    return {
+      begin: function (env) { build(env); shownAt = env.tick + W.preview; },
+      tick: function (env) {
+        if (!live && env.tick >= shownAt) {
+          var clear = bars.every(function (b) { return cellsOf(b, b.pos).every(function (c) { return !env.segAt(c.x, c.y); }); });
+          if (clear) { live = true; bars.forEach(function (b) { cellsOf(b, b.pos).forEach(function (c) { env.relocate(c.x, c.y); }); }); }
+        }
+      },
+      after: function (env) {
+        if (!live || env.tick % W.every !== 0) return;
+        bars.forEach(function (b) {
+          var p = nextPos(b), cs = cellsOf(b, p);
+          if (cs.some(function (c) { return env.segAt(c.x, c.y); })) return;   // a snake is in the way: wait
+          b.dir = p > b.pos ? 1 : -1;
+          b.pos = p;
+          cs.forEach(function (c) { env.relocate(c.x, c.y); });
+        });
+      },
+      lethal: function (x, y) { return at(x, y) >= 0 ? 'wall' : null; },
+      warn: function (x, y, env) {                                     // where the bars will appear, then the cells a bar enters next
+        if (!live) {
+          for (var j = 0; j < bars.length; j++) {
+            var a = bars[j], al = a.axis === 'x' ? x : y, ac = a.axis === 'x' ? y : x;
+            if (al === a.pos && ac >= a.fixed && ac < a.fixed + W.len) return Math.max(1, shownAt - env.tick);
+          }
+          return 0;
+        }
+        var left = W.every - (env.tick % W.every);
+        for (var i = 0; i < bars.length; i++) {
+          var b = bars[i], p = nextPos(b), along = b.axis === 'x' ? x : y, across = b.axis === 'x' ? y : x;
+          if (along === p && across >= b.fixed && across < b.fixed + W.len) return left;
+        }
+        return 0;
+      },
+      portalAt: function () { return null; }, coreAt: function () { return false; }, takeCore: function () { return 0; },
+      noSpawn: function (x, y) {
+        for (var i = 0; i < bars.length; i++) {
+          var b = bars[i], along = b.axis === 'x' ? x : y, across = b.axis === 'x' ? y : x;
+          if (along >= b.min && along <= b.max && across >= b.fixed && across < b.fixed + W.len) return true;
+        }
+        return false;
+      },
+      status: function (env) { return live ? 'Walls on patrol' : 'Walls arrive in ' + Math.max(0, Math.ceil((shownAt - env.tick) * env.step / 1000)) + ' s'; },
+      view: function () {
+        return { kind: 'walls', live: live, bars: bars.map(function (b) {
+          return { cells: cellsOf(b, b.pos), next: cellsOf(b, nextPos(b)), track: { axis: b.axis, fixed: b.fixed, min: b.min, max: b.max, len: W.len } };
+        }) };
+      }
+    };
+  }
+
+  /* The Core: worth 3. It appears near the centre on the free cell most equally far from both heads, is marked
+     before it appears, and comes back a while after it is taken. */
+  function core() {
+    var C = T.core, spot = null, live = false, showAt = 0, taken = 0;
+    function place(env) {
+      var n = env.size, c0 = n / 2 - 0.5, best = null, bestV = 1e9;
+      for (var y = 0; y < n; y++) for (var x = 0; x < n; x++) {
+        if (Math.abs(x - c0) > C.region || Math.abs(y - c0) > C.region) continue;
+        if (!env.open(x, y) || env.noSpawnOther(x, y)) continue;
+        var d = env.headDist(x, y), v = Math.abs(d[0] - d[1]) * 10 + Math.abs(x - c0) + Math.abs(y - c0) + env.rng() * 0.5;
+        if (v < bestV) { bestV = v; best = { x: x, y: y }; }
+      }
+      return best;
+    }
+    return {
+      begin: function (env) { spot = place(env); showAt = env.tick + C.warn; },
+      tick: function (env) {
+        if (!spot) { if (env.tick >= showAt) { spot = place(env); showAt = env.tick + C.warn; } return; }
+        if (!live && env.tick >= showAt && !env.segAt(spot.x, spot.y)) { live = true; env.relocate(spot.x, spot.y); env.emit('coreSpawn', { x: spot.x, y: spot.y }); }
+      },
+      after: function () {},
+      lethal: function () { return null; },
+      warn: function () { return 0; },
+      portalAt: function () { return null; },
+      coreAt: function (x, y) { return live && spot && spot.x === x && spot.y === y; },
+      takeCore: function (env) {
+        live = false; taken++; spot = null; showAt = env.tick + C.respawn;
+        return C.points;
+      },
+      noSpawn: function (x, y) { return !!(spot && spot.x === x && spot.y === y); },
+      status: function (env) {
+        if (live) return 'The Core is live: +' + C.points;
+        if (spot) return 'Core appears in ' + Math.max(0, Math.ceil((showAt - env.tick) * env.step / 1000)) + ' s';
+        return 'Core returns in ' + Math.max(0, Math.ceil((showAt - env.tick) * env.step / 1000)) + ' s';
+      },
+      view: function (env) { return { kind: 'core', spot: spot, live: live, warn: spot && !live ? Math.max(0, showAt - env.tick) : 0, taken: taken }; }
+    };
+  }
+
+  var FACTORIES = { vanish: vanish, portal: portal, laser: laser, walls: walls, core: core };
+
+  function create(id) {
+    var f = FACTORIES[id];
+    if (!f) throw new Error('unknown duel event: ' + id);
+    var ev = f();
+    ev.id = id; ev.name = INFO[id].name; ev.tag = INFO[id].tag;
+    return ev;
+  }
+
+  /* The events for a match: a shuffled pool, never repeating until every event has been used. */
+  function order(rng, count) {
+    var out = [];
+    while (out.length < count) {
+      var pool = shuffle(IDS.slice(), rng);
+      if (out.length && pool[0] === out[out.length - 1]) pool.push(pool.shift());   // no repeat across a refill
+      out = out.concat(pool);
+    }
+    return out.slice(0, count);
+  }
+
+  return { IDS: IDS, INFO: INFO, TUNING: T, create: create, order: order };
+})();
+if (typeof module !== 'undefined' && module.exports) module.exports = SnakeDuelEvents;
+
+/* Grid Snake Duel: the round engine (DuelEngine + RoundManager)
+ * Two snakes on one 30 x 30 arena, one round of 90 seconds. Pure rules: no DOM, no timers, no global
+ * randomness. Time moves only through update(dt); everything happens on a fixed tick (both snakes take
+ * exactly one step per tick), and random numbers come from the round's seed. The same seed and the same
+ * moves always give the same round, which is what tests use (and what an online match would need later).
+ *
+ * Controllers decide the moves. The engine asks each one once per tick: controller.next(round, index)
+ * returns a direction or null (keep going). The human controller below queues key presses; the AI is in
+ * src/duel/ai.js. Both use the same rules: the engine checks every move the same way.
+ *
+ * One tick, in this order (both snakes are resolved from the same picture, so update order never matters):
+ *  1. The event updates. A head standing on a cell whose warning just ran out is hit.
+ *  2. Each controller gives its move (a reversal is ignored; the snake keeps its heading).
+ *  3. Each head's next cell is worked out: past the edge or into a wall = crash; a portal moves it to the
+ *     linked portal (a blocked exit = crash); an active hazard there = crash.
+ *  4. Bodies: every snake's tail leaves its cell this tick unless that snake is growing. Entering any body
+ *     cell, your own or the rival's, is a crash. Both heads entering the same cell, or swapping cells, is a
+ *     head-on crash for both.
+ *  5. The survivors move and eat. Food is +1, the Core +3.
+ * A round ends at the first crash. If one snake crashed, the other wins. If both crashed in the same tick,
+ * the higher round score wins, and equal scores are a draw. At 90 s the higher score wins; equal scores go
+ * to 15 s of sudden-death overtime (the first point wins), then the round is a draw.
+ */
+var SnakeDuel = (function () {
+  'use strict';
+
+  var node = typeof module !== 'undefined' && module.exports && typeof require === 'function';
+  var Maps = node ? require('./maps.js') : SnakeDuelMaps;
+  var Events = node ? require('./events.js') : SnakeDuelEvents;
+
+  var TUNING = {
+    stepMs: 120,          // one tick: both snakes move one cell (about 8 cells a second)
+    roundMs: 90000,
+    overtimeMs: 15000,
+    announceMs: 8000,     // the event's name is shown at 8 s...
+    eventMs: 10500,       // ...and it begins at 10.5 s
+    foods: 3,             // food on the board at once
+    foodPoints: 1,
+    coreGrow: 2,          // extra segments from the Core (food adds one)
+    fairSpawn: 4,         // new food is at most this many steps nearer to one head than the other, when possible
+    minFoodDist: 3,
+    inputBuffer: 2,
+    maxDt: 100
+  };
+  var DIRS = [{ x: 1, y: 0 }, { x: 0, y: 1 }, { x: -1, y: 0 }, { x: 0, y: -1 }];
+
+  /* The same 32-bit generator as the Worker's replay (mulberry32). */
+  function seededRng(seed) {
+    var a = seed >>> 0;
+    return function () {
+      a = (a + 0x6D2B79F5) | 0;
+      var t = Math.imul(a ^ (a >>> 15), 1 | a);
+      t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+      return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+    };
+  }
+
+  /* LocalHumanController: key presses wait in a short line, one is used per tick. */
+  function humanController() {
+    var queue = [], round = null, me = 0;
+    return {
+      kind: 'human',
+      bind: function (r, i) { round = r; me = i; queue = []; },
+      turn: function (dx, dy) {
+        if (!round || Math.abs(dx) + Math.abs(dy) !== 1) return false;
+        var s = round.state.snakes[me];
+        if (!s.alive || round.state.phase === 'over') return false;
+        var last = queue.length ? queue[queue.length - 1] : s.dir;
+        if (last.x === dx && last.y === dy) return false;
+        if (last.x === -dx && last.y === -dy) return false;           // a reversal would bite the neck
+        if (queue.length < TUNING.inputBuffer) queue.push({ x: dx, y: dy });
+        return true;
+      },
+      heading: function () { var s = round.state.snakes[me]; return queue.length ? queue[queue.length - 1] : s.dir; },
+      next: function () { return queue.length ? queue.shift() : null; }
+    };
+  }
+
+  function createRound(opts) {
+    opts = opts || {};
+    var T = Object.assign({}, TUNING, opts.tuning || {});
+    var map = Maps.build(opts.map);
+    var N = map.size, STEP = T.stepMs;
+    var rng = seededRng(opts.seed == null ? 1 : opts.seed);
+    var listeners = [];
+    if (opts.onEvent) listeners.push(opts.onEvent);
+    var controllers = opts.controllers || [humanController(), humanController()];
+
+    var S = {
+      size: N, map: { id: map.id, name: map.name, walls: map.walls },
+      phase: 'ready', tick: 0, elapsed: 0, acc: 0,
+      timeLeft: T.roundMs, overtime: false, otLeft: 0,
+      snakes: map.spawns.map(function (sp, i) {
+        return { id: i, body: sp.body.map(function (c) { return { x: c.x, y: c.y }; }), dir: { x: sp.dir.x, y: sp.dir.y },
+                 alive: true, reason: null, into: -1, score: 0, grow: 0, foods: 0, cores: 0, ported: false };
+      }),
+      foods: [],
+      eventId: opts.event || null, event: null, eventPhase: opts.event ? 'pending' : 'none',
+      result: null
+    };
+    var announceTick = Math.round(T.announceMs / STEP), eventTick = Math.round(T.eventMs / STEP);
+    var otBase = null;
+
+    function emit(type, data) {
+      var e = data || {};
+      e.type = type;
+      for (var i = 0; i < listeners.length; i++) listeners[i](e, S);
+    }
+
+    /* ---------- the board ---------- */
+    function inside(x, y) { return x >= 0 && y >= 0 && x < N && y < N; }
+    function isWall(x, y) { return !inside(x, y) || map.walls[y * N + x] === 1; }
+    function segAt(x, y) {
+      for (var i = 0; i < 2; i++) { var b = S.snakes[i].body; for (var k = 0; k < b.length; k++) if (b[k].x === x && b[k].y === y) return true; }
+      return false;
+    }
+    function foodAt(x, y) { for (var i = 0; i < S.foods.length; i++) if (S.foods[i].x === x && S.foods[i].y === y) return i; return -1; }
+    function live() { return S.eventPhase === 'live' && S.event; }
+    function lethal(x, y) { return live() ? S.event.lethal(x, y, env) : null; }
+    function warn(x, y) { return live() ? S.event.warn(x, y, env) : 0; }
+    function portalAt(x, y) { return live() ? S.event.portalAt(x, y, env) : null; }
+    function coreAt(x, y) { return !!(live() && S.event.coreAt(x, y, env)); }
+    function eventBlocks(x, y) { return !!(live() && (S.event.noSpawn(x, y, env) || S.event.lethal(x, y, env))); }
+    function open(x, y) { return !isWall(x, y) && !segAt(x, y) && foodAt(x, y) < 0 && !eventBlocks(x, y); }
+
+    /* Steps from each head to every cell, round walls (bodies ignored: they move). */
+    function distFrom(h) {
+      var d = new Int16Array(N * N).fill(-1), q = [h.y * N + h.x], qi = 0;
+      d[q[0]] = 0;
+      while (qi < q.length) {
+        var c = q[qi++], cx = c % N, cy = (c - cx) / N;
+        for (var k = 0; k < 4; k++) {
+          var nx = cx + DIRS[k].x, ny = cy + DIRS[k].y;
+          if (isWall(nx, ny)) continue;
+          var ni = ny * N + nx;
+          if (d[ni] >= 0) continue;
+          d[ni] = d[c] + 1; q.push(ni);
+        }
+      }
+      return d;
+    }
+    function headDists() { return [distFrom(S.snakes[0].body[0]), distFrom(S.snakes[1].body[0])]; }
+    function nearHead(x, y, r) {
+      for (var i = 0; i < 2; i++) { var h = S.snakes[i].body[0]; if (Math.abs(h.x - x) + Math.abs(h.y - y) <= r) return true; }
+      return false;
+    }
+
+    /* New food: a free cell, not next to a head, and (when there is one) about as near to one snake as the other. */
+    function spawnFood() {
+      var D = headDists(), fair = [], any = [];
+      for (var y = 0; y < N; y++) for (var x = 0; x < N; x++) {
+        if (!open(x, y) || nearHead(x, y, T.minFoodDist - 1) || coreAt(x, y)) continue;
+        var i = y * N + x, a = D[0][i], b = D[1][i];
+        if (a < 0 || b < 0) continue;                                 // a sealed-off pocket
+        any.push({ x: x, y: y });
+        if (Math.abs(a - b) <= T.fairSpawn) fair.push({ x: x, y: y });
+      }
+      var pool = fair.length ? fair : any;
+      if (!pool.length) return null;
+      var c = pool[Math.floor(rng() * pool.length)];
+      S.foods.push(c);
+      return c;
+    }
+    function relocate(x, y) {
+      var i = foodAt(x, y);
+      if (i < 0) return;
+      S.foods.splice(i, 1);
+      spawnFood();
+    }
+
+    /* What events can see and do. Only public board facts. */
+    var env = {
+      size: N, step: STEP, rng: rng, mirror: Maps.mirror,
+      get tick() { return S.tick; },
+      isWall: isWall, segAt: segAt, open: open, nearHead: nearHead, relocate: relocate, emit: emit,
+      spawnZone: function (x, y) { return nearHead(x, y, 4); },
+      noSpawnOther: function (x, y) { return foodAt(x, y) >= 0; },
+      headDist: function (x, y) { var D = headDists(), i = y * N + x; return [D[0][i] < 0 ? 999 : D[0][i], D[1][i] < 0 ? 999 : D[1][i]]; }
+    };
+
+    /* ---------- one tick ---------- */
+    function validDir(s, d) {
+      if (!d || Math.abs(d.x) + Math.abs(d.y) !== 1) return s.dir;
+      if (d.x === -s.dir.x && d.y === -s.dir.y) return s.dir;         // no reversing into the neck
+      return { x: d.x, y: d.y };
+    }
+
+    function step() {
+      S.tick++;
+      S.elapsed += STEP;
+      if (S.eventPhase === 'pending' && S.tick >= announceTick) {
+        S.event = Events.create(S.eventId);
+        S.eventPhase = 'announce';
+        emit('announce', { event: S.eventId, name: S.event.name, tag: S.event.tag });
+      }
+      if (S.eventPhase === 'announce' && S.tick >= eventTick) {
+        S.eventPhase = 'live';
+        S.event.begin(env);
+        emit('eventStart', { event: S.eventId });
+      }
+      if (live()) S.event.tick(env);
+
+      var snakes = S.snakes, crash = [null, null];
+      // 1. a warning that ran out under a head
+      for (var i = 0; i < 2; i++) { var h0 = snakes[i].body[0], l0 = lethal(h0.x, h0.y); if (l0) crash[i] = l0; }
+      var stuck = [!!crash[0], !!crash[1]], into = [-1, -1];   // into: whose body a head entered
+
+      // 2. moves
+      var dirs = [0, 1].map(function (k) {
+        var c = controllers[k], d = c && c.next ? c.next(api, k) : null;
+        return validDir(snakes[k], d);
+      });
+
+      // 3. where each head goes
+      var land = [null, null], grows = [snakes[0].grow > 0, snakes[1].grow > 0], ported = [false, false];
+      for (i = 0; i < 2; i++) {
+        if (crash[i]) continue;
+        var h = snakes[i].body[0], nx = h.x + dirs[i].x, ny = h.y + dirs[i].y;
+        if (isWall(nx, ny)) { crash[i] = 'wall'; continue; }
+        var p = portalAt(nx, ny);
+        if (p) {
+          if (!p.open) { crash[i] = 'portal'; continue; }
+          nx = p.exit.x; ny = p.exit.y; ported[i] = true;
+        }
+        var lz = lethal(nx, ny);
+        if (lz) { crash[i] = lz; land[i] = { x: nx, y: ny }; continue; }
+        land[i] = { x: nx, y: ny };
+        grows[i] = foodAt(nx, ny) >= 0 || coreAt(nx, ny) || snakes[i].grow > 0;
+      }
+
+      // 4. bodies (tails leave unless growing; a snake hit in step 1 does not move, so its whole body stays)
+      function occupied(x, y) {
+        for (var j = 0; j < 2; j++) {
+          var b = snakes[j].body, n = (grows[j] || stuck[j]) ? b.length : b.length - 1;
+          for (var k = 0; k < n; k++) if (b[k].x === x && b[k].y === y) return j;
+        }
+        return -1;
+      }
+      for (i = 0; i < 2; i++) {
+        if (!land[i] || crash[i]) continue;
+        var who = occupied(land[i].x, land[i].y);
+        if (who >= 0) { crash[i] = who === i ? 'tail' : 'body'; into[i] = who; }
+      }
+      if (land[0] && land[1] && !crash[0] && !crash[1] && land[0].x === land[1].x && land[0].y === land[1].y) {
+        crash[0] = crash[1] = 'headon';
+      }
+
+      // 5. survivors move and eat
+      for (i = 0; i < 2; i++) {
+        var s = snakes[i];
+        if (crash[i]) continue;
+        var L = land[i];
+        s.body.unshift({ x: L.x, y: L.y });
+        s.dir = dirs[i];
+        s.ported = ported[i];
+        if (ported[i]) emit('portal', { who: i, x: L.x, y: L.y });
+        var fi = foodAt(L.x, L.y);
+        if (fi >= 0) {
+          S.foods.splice(fi, 1);
+          s.score += T.foodPoints; s.foods++;
+          emit('food', { who: i, x: L.x, y: L.y, points: T.foodPoints });
+        } else if (coreAt(L.x, L.y)) {
+          var pts = S.event.takeCore(env);
+          s.score += pts; s.cores++; s.grow += T.coreGrow;
+          emit('core', { who: i, x: L.x, y: L.y, points: pts });
+        } else if (s.grow > 0) {
+          s.grow--;
+        } else {
+          s.body.pop();
+        }
+      }
+      while (S.foods.length < T.foods && spawnFood()) {}
+      if (live()) S.event.after(env);
+
+      // the round's end
+      var dead = [!!crash[0], !!crash[1]];
+      for (i = 0; i < 2; i++) if (dead[i]) {
+        snakes[i].alive = false; snakes[i].reason = crash[i];
+        snakes[i].into = into[i];
+        emit('crash', { who: i, reason: crash[i], into: into[i], x: (land[i] || snakes[i].body[0]).x, y: (land[i] || snakes[i].body[0]).y });
+      }
+      if (dead[0] || dead[1]) {
+        if (dead[0] && dead[1]) {
+          var a = snakes[0].score, b = snakes[1].score;
+          finish(a === b ? -1 : (a > b ? 0 : 1), crash[0] === 'headon' ? 'headon' : 'double');
+        } else finish(dead[0] ? 1 : 0, 'crash');
+        return;
+      }
+      if (!S.overtime) {
+        S.timeLeft = Math.max(0, S.timeLeft - STEP);
+        if (S.timeLeft <= 0) {
+          var s0 = snakes[0].score, s1 = snakes[1].score;
+          if (s0 !== s1) { finish(s0 > s1 ? 0 : 1, 'time'); return; }
+          S.overtime = true; S.otLeft = T.overtimeMs; otBase = [s0, s1];
+          emit('overtime', {});
+        }
+      } else {
+        var g0 = snakes[0].score - otBase[0], g1 = snakes[1].score - otBase[1];
+        if (g0 !== g1) { finish(g0 > g1 ? 0 : 1, 'overtime'); return; }
+        S.otLeft = Math.max(0, S.otLeft - STEP);
+        if (S.otLeft <= 0) { finish(-1, 'time'); return; }
+      }
+    }
+
+    function finish(winner, reason) {
+      if (S.phase === 'over') return;
+      S.phase = 'over';
+      S.result = { winner: winner, draw: winner < 0, reason: reason, scores: [S.snakes[0].score, S.snakes[1].score],
+                   crashes: [S.snakes[0].reason, S.snakes[1].reason], into: [S.snakes[0].into, S.snakes[1].into], ticks: S.tick, overtime: S.overtime };
+      emit('over', Object.assign({}, S.result));
+    }
+
+    function update(dt) {
+      if (S.phase !== 'running') return;
+      S.acc += Math.min(Math.max(+dt || 0, 0), T.maxDt);
+      var n = 0;
+      while (S.acc >= STEP && S.phase === 'running' && n < 5) { S.acc -= STEP; step(); n++; }
+    }
+    function start() { if (S.phase !== 'ready') return; S.phase = 'running'; S.acc = 0; emit('start'); }
+    function pause() { if (S.phase !== 'running') return; S.phase = 'paused'; emit('pause'); }
+    function resume() { if (S.phase !== 'paused') return; S.phase = 'running'; S.acc = 0; emit('resume'); }
+
+    var api = {
+      state: S, tuning: T, size: N,
+      on: function (fn) { listeners.push(fn); },
+      start: start, pause: pause, resume: resume, update: update,
+      tick: function () { if (S.phase === 'running') step(); },        // one tick at once (tests)
+      isWall: isWall, segAt: segAt, lethal: lethal, warn: warn, portalAt: portalAt, coreAt: coreAt, foodAt: foodAt,
+      eventView: function () { return live() ? S.event.view(env) : null; },
+      eventStatus: function () { return live() ? S.event.status(env) : ''; },
+      timeLeft: function () { return S.overtime ? S.otLeft : S.timeLeft; }
+    };
+
+    while (S.foods.length < T.foods && spawnFood()) {}
+    controllers.forEach(function (c, i) { if (c && c.bind) c.bind(api, i); });
+    return api;
+  }
+
+  return { TUNING: TUNING, DIRS: DIRS, seededRng: seededRng, humanController: humanController, createRound: createRound };
+})();
+if (typeof module !== 'undefined' && module.exports) module.exports = SnakeDuel;
+
+/* Grid Snake Duel: the match (MatchManager)
+ * Best of three: the first side to win two rounds wins. A drawn round gives nobody a point and is played
+ * again (a fresh round, new arena and event). After maxDraws drawn rounds the match is settled: more round
+ * wins, then more total points, else the match is a draw. So a match always ends, in at most 6 rounds.
+ * Each round gets its own arena, event and seed from the match seed. No DOM.
+ */
+var SnakeDuelMatch = (function () {
+  'use strict';
+
+  var node = typeof module !== 'undefined' && module.exports && typeof require === 'function';
+  var Duel = node ? require('./engine.js') : SnakeDuel;
+  var Maps = node ? require('./maps.js') : SnakeDuelMaps;
+  var Events = node ? require('./events.js') : SnakeDuelEvents;
+
+  var RULES = { winsNeeded: 2, maxDraws: 3 };
+  var MAX_ROUNDS = RULES.winsNeeded * 2 - 1 + RULES.maxDraws;
+
+  function create(opts) {
+    opts = opts || {};
+    var seed = (opts.seed == null ? Math.floor(Math.random() * 4294967296) : opts.seed) >>> 0;
+    var rng = Duel.seededRng(seed);
+    var maps = Maps.ids.slice();
+    for (var i = maps.length - 1; i > 0; i--) { var j = Math.floor(rng() * (i + 1)), t = maps[i]; maps[i] = maps[j]; maps[j] = t; }
+    var events = Events.order(rng, MAX_ROUNDS);
+    var seeds = [];
+    for (var k = 0; k < MAX_ROUNDS; k++) seeds.push(Math.floor(rng() * 4294967296) >>> 0);
+
+    var M = {
+      seed: seed, difficulty: opts.difficulty || 'medium',
+      phase: 'ready', wins: [0, 0], draws: 0, totals: [0, 0], rounds: [], current: null,
+      winner: null, settledBy: null
+    };
+
+    /* The next round. controllers: [player, rival] for this round (fresh ones each round). */
+    function nextRound(controllers, extra) {
+      if (M.phase === 'over') return null;
+      var n = M.rounds.length;
+      var spec = { number: n + 1, map: maps[n % maps.length], event: events[n], seed: seeds[n] };
+      var round = Duel.createRound(Object.assign({ map: spec.map, event: spec.event, seed: spec.seed, controllers: controllers }, extra || {}));
+      M.current = { spec: spec, round: round };
+      M.phase = 'round';
+      return round;
+    }
+
+    /* Book a finished round. Returns the match phase afterwards ('between' or 'over'). */
+    function record(result) {
+      if (!M.current || M.phase !== 'round') return M.phase;
+      var spec = M.current.spec;
+      M.rounds.push({ number: spec.number, map: spec.map, event: spec.event, winner: result.winner, draw: result.draw,
+                      reason: result.reason, scores: result.scores.slice(), overtime: !!result.overtime });
+      M.totals[0] += result.scores[0]; M.totals[1] += result.scores[1];
+      if (result.draw) M.draws++; else M.wins[result.winner]++;
+      M.current = null;
+      if (M.wins[0] >= RULES.winsNeeded || M.wins[1] >= RULES.winsNeeded) {
+        settle(M.wins[0] > M.wins[1] ? 0 : 1, 'rounds');
+      } else if (M.draws >= RULES.maxDraws || M.rounds.length >= MAX_ROUNDS) {
+        if (M.wins[0] !== M.wins[1]) settle(M.wins[0] > M.wins[1] ? 0 : 1, 'rounds');
+        else if (M.totals[0] !== M.totals[1]) settle(M.totals[0] > M.totals[1] ? 0 : 1, 'points');
+        else settle(-1, 'draw');
+      } else {
+        M.phase = 'between';
+      }
+      return M.phase;
+    }
+    function settle(winner, by) { M.phase = 'over'; M.winner = winner; M.settledBy = by; }
+
+    /* Leaving mid-match: the match ends with no winner and is not counted as played. */
+    function abandon() { if (M.phase !== 'over') { M.phase = 'over'; M.winner = null; M.settledBy = 'abandoned'; M.current = null; } }
+
+    function results() {
+      return { winner: M.winner, settledBy: M.settledBy, wins: M.wins.slice(), totals: M.totals.slice(), draws: M.draws,
+               rounds: M.rounds.map(function (r) { return Object.assign({}, r, { scores: r.scores.slice() }); }),
+               difficulty: M.difficulty, seed: M.seed };
+    }
+
+    function upcoming() { var n = M.rounds.length; return { number: n + 1, map: maps[n % maps.length], event: events[n] }; }
+
+    return { state: M, nextRound: nextRound, record: record, abandon: abandon, results: results, upcoming: upcoming };
+  }
+
+  return { RULES: RULES, MAX_ROUNDS: MAX_ROUNDS, create: create };
+})();
+if (typeof module !== 'undefined' && module.exports) module.exports = SnakeDuelMatch;
+
+/* Grid Snake Duel: the rival (AIController)
+ * The AI is just another controller: once per tick it returns a direction, and the engine checks that move
+ * exactly like the player's. Same speed, same rules. It reads only what the screen shows: walls, bodies, food,
+ * the Core, portals and hazard warnings (round.warn(x, y) is the countdown drawn on that cell). It never reads
+ * the round's random generator.
+ *
+ * How it decides (one picture of the board per tick):
+ *  1. Candidate moves: the three non-reversing directions. A move is dropped if it lands on a wall, a body, an
+ *     active hazard, a blocked portal, or a warned cell whose countdown runs out before the snake would leave.
+ *  2. Room check (flood fill, aware of tails moving away): a move that leaves less room than the snake needs is a
+ *     trap. A move that a rival head could also enter is a head-on risk.
+ *  3. A target: the food worth going for. Then the move that brings it closest.
+ *
+ * Levels differ only in how well they do this:
+ *  easy    a beginner. Aims at the food nearest in a straight line (not by path), changes its mind slowly, sees
+ *          warnings late, now and then dawdles or wanders, never tries to block you. Still never drives into
+ *          a wall or a body it can see.
+ *  medium  a solid player. Real path distances, skips food you will reach first, checks for traps, respects
+ *          every warning, does not chase you. Makes the odd poor choice of target.
+ *  hard    looks ahead over both snakes' moves (two ticks when you are close, one otherwise). Points come first:
+ *          it races for food it can win, takes the Core, and adapts to the score and the clock (behind late:
+ *          calculated risks; ahead late: bigger safety margins, still eating). It cuts you off when a move
+ *          would leave you no room, and keeps its own escape routes.
+ */
+var SnakeDuelAI = (function () {
+  'use strict';
+
+  var node = typeof module !== 'undefined' && module.exports && typeof require === 'function';
+  var Duel = node ? require('./engine.js') : SnakeDuel;
+  var DIRS = Duel.DIRS;
+  var LEVELS = ['easy', 'medium', 'hard'];
+
+  /* react: how many ticks ahead a warning is taken seriously. margin: room the snake wants beyond its length.
+     retarget: ticks before a chosen target is reconsidered. dawdle: chance to keep going straight instead of
+     turning toward the target. slip: chance of a random (safe) move. misjudge: chance to pick a worse target.
+     avoidHeadon: chance it notices that the rival's head could enter the same cell. */
+  var CONF = {
+    easy:   { react: 3, margin: 0, retarget: 14, dawdle: 0.18, slip: 0.07, misjudge: 0.25, avoidHeadon: 0.85, depth: 0 },
+    medium: { react: 99, margin: 2, retarget: 1, dawdle: 0, slip: 0.015, misjudge: 0.06, avoidHeadon: 1, depth: 0 },
+    hard:   { react: 99, margin: 3, retarget: 1, dawdle: 0, slip: 0, misjudge: 0, avoidHeadon: 1, depth: 2 }
+  };
+
+  /* ---------- a picture of the board for one decision ---------- */
+  function readBoard(round, me) {
+    var S = round.state, N = round.size, n2 = N * N;
+    var wall = new Uint8Array(n2), warnT = new Int16Array(n2), portal = new Int32Array(n2).fill(-1), value = new Int8Array(n2);
+    for (var y = 0; y < N; y++) for (var x = 0; x < N; x++) {
+      var i = y * N + x;
+      if (round.isWall(x, y) || round.lethal(x, y)) wall[i] = 1;
+      warnT[i] = round.warn(x, y) || 0;
+      var p = round.portalAt(x, y);
+      if (p) portal[i] = p.open ? p.exit.y * N + p.exit.x : -2;
+      if (round.coreAt(x, y)) value[i] = 3;
+    }
+    var foods = [];
+    S.foods.forEach(function (f) { value[f.y * N + f.x] = 1; });
+    for (var c = 0; c < n2; c++) if (value[c]) foods.push(c);
+    function snake(s) { return { body: s.body.map(function (q) { return q.y * N + q.x; }), dir: s.dir, grow: s.grow, score: s.score }; }
+    return {
+      N: N, wall: wall, warnT: warnT, portal: portal, value: value, foods: foods,
+      me: snake(S.snakes[me]), op: snake(S.snakes[1 - me]),
+      timeLeft: round.timeLeft(), overtime: S.overtime
+    };
+  }
+
+  function xy(B, c) { var x = c % B.N; return { x: x, y: (c - x) / B.N }; }
+  function manhattan(B, a, b) { var p = xy(B, a), q = xy(B, b); return Math.abs(p.x - q.x) + Math.abs(p.y - q.y); }
+  function nextCell(B, from, d) {
+    var p = xy(B, from), x = p.x + d.x, y = p.y + d.y;
+    if (x < 0 || y < 0 || x >= B.N || y >= B.N) return -1;
+    return y * B.N + x;
+  }
+  function moves(dir) { return DIRS.filter(function (d) { return !(d.x === -dir.x && d.y === -dir.y); }); }
+  function same(a, b) { return a && b && a.x === b.x && a.y === b.y; }
+
+  /* Where a head moving d from `from` lands `k` ticks from now; -1 = a crash on the board itself. */
+  function landing(B, from, d, k, react) {
+    var c = nextCell(B, from, d);
+    if (c < 0 || B.wall[c] || B.portal[c] === -2) return -1;
+    if (B.portal[c] >= 0) c = B.portal[c];
+    if (B.wall[c]) return -1;
+    var w = B.warnT[c];
+    if (w > 0 && w <= react && w <= k + 2) return -1;                   // the warning runs out while we are there
+    return c;
+  }
+
+  /* One simultaneous tick on a copy, with the engine's rules. dop null = the rival is left where it is. */
+  function simulate(B, me, op, dm, dop, k, react, taken) {
+    var lm = landing(B, me.body[0], dm, k, react), lo = dop ? landing(B, op.body[0], dop, k, react) : -1;
+    var val = function (c) { return c >= 0 && !taken[c] ? B.value[c] : 0; };
+    var gm = me.grow > 0 || val(lm) > 0, go = op.grow > 0 || val(lo) > 0;
+    function hits(c) {
+      if (c < 0) return true;
+      var nm = gm ? me.body.length : me.body.length - 1, no = go ? op.body.length : op.body.length - 1, i;
+      for (i = 0; i < nm; i++) if (me.body[i] === c) return true;
+      for (i = 0; i < no; i++) if (op.body[i] === c) return true;
+      return false;
+    }
+    var deadM = hits(lm), deadO = dop ? hits(lo) : false;
+    if (dop && !deadM && !deadO && lm === lo) deadM = deadO = true;
+    function moved(s, l, dir) {
+      var b = [l].concat(s.body), grow = s.grow, v = val(l);
+      if (v === 3) grow += 2; else if (!v) { if (grow > 0) grow--; else b.pop(); }
+      return { body: b, dir: dir, grow: grow, score: s.score + v };
+    }
+    var t2 = taken;
+    if ((!deadM && val(lm)) || (!deadO && dop && val(lo))) {
+      t2 = Object.assign({}, taken);
+      if (!deadM && val(lm)) t2[lm] = 1;
+      if (!deadO && dop && val(lo)) t2[lo] = 1;
+    }
+    return { me: deadM ? me : moved(me, lm, dm), op: deadO || !dop ? op : moved(op, lo, dop), deadM: deadM, deadO: deadO, taken: t2, lm: lm };
+  }
+
+  /* Steps from a head to every cell, round walls and bodies (each segment frees up as its tail passes) and
+     warnings that will have run out by the time we get there. */
+  function distances(B, s, other, react) {
+    var N = B.N, d = new Int16Array(N * N).fill(-1), freeAt = new Int16Array(N * N);
+    var i, L = s.body.length;
+    for (i = 0; i < L; i++) freeAt[s.body[i]] = L - i;
+    for (i = 0; i < other.body.length; i++) freeAt[other.body[i]] = Math.max(freeAt[other.body[i]], other.body.length - i);
+    var q = [s.body[0]];
+    d[s.body[0]] = 0;
+    for (var qi = 0; qi < q.length; qi++) {
+      var c = q[qi], dc = d[c];
+      for (var k = 0; k < 4; k++) {
+        var n = nextCell(B, c, DIRS[k]);
+        if (n < 0 || B.wall[n] || B.portal[n] === -2) continue;
+        if (B.portal[n] >= 0) n = B.portal[n];
+        if (d[n] >= 0 || B.wall[n] || freeAt[n] > dc + 1) continue;
+        var w = B.warnT[n];
+        if (w > 0 && w <= react && w <= dc + 3) continue;
+        d[n] = dc + 1;
+        q.push(n);
+      }
+    }
+    return d;
+  }
+  /* Steps to the nearest cell that is not warned (0 = already safe). Used to leave a warned zone in time. */
+  function escape(B, d) {
+    var best = 999;
+    for (var i = 0; i < d.length; i++) if (d[i] >= 0 && d[i] < best && B.warnT[i] === 0) best = d[i];
+    return best;
+  }
+  function area(d, cap) { var a = 0; for (var i = 0; i < d.length; i++) if (d[i] >= 0 && ++a >= cap) break; return a; }
+
+  /* ---------- candidates: safe moves, with their room and head-on risk ---------- */
+  function candidates(B, st, C, k) {
+    var me = st.me, op = st.op, out = [];
+    var opCells = moves(op.dir).map(function (m) { return landing(B, op.body[0], m, k, 99); }).filter(function (c) { return c >= 0; });
+    moves(me.dir).forEach(function (m) {
+      var nx = simulate(B, me, op, m, null, k, C.react, st.taken);
+      if (nx.deadM) return;
+      var D = distances(B, nx.me, op, C.react), need = me.body.length + C.margin + 1;
+      var room = area(D, need + 40);
+      var w = B.warnT[nx.lm], esc = w > 0 ? escape(B, D) : 0;
+      out.push({ m: m, cell: nx.lm, D: D, room: room, trap: room < need, headon: opCells.indexOf(nx.lm) >= 0, warn: w, esc: esc,
+                 caught: w > 0 && w <= C.react && esc + 1 >= w });             // it would still be in the zone when it fires
+    });
+    return out;
+  }
+  function filterSafe(cands, C, rng) {
+    var avoidHeadon = rng() < C.avoidHeadon;
+    var tiers = [
+      cands.filter(function (c) { return !c.trap && !c.caught && !(avoidHeadon && c.headon); }),
+      cands.filter(function (c) { return !c.trap && !c.caught; }),
+      cands.filter(function (c) { return !c.trap; }),
+      cands.filter(function (c) { return !(avoidHeadon && c.headon); })
+    ];
+    for (var i = 0; i < tiers.length; i++) if (tiers[i].length) return tiers[i];
+    return cands.slice().sort(function (a, b) { return b.room - a.room; }).slice(0, 1);
+  }
+
+  /* ---------- targets ---------- */
+  /* What a food is worth to us now: points, shrunk by distance and by who gets there first; with `chain`, a food
+     close to another one is worth a little more, so pick-ups follow each other instead of zig-zagging. */
+  function targetScores(B, st, Dme, Dop, mode) {
+    var out = [];
+    B.foods.forEach(function (c) {
+      if (st.taken[c]) return;
+      var dm = Dme[c];
+      if (dm < 0) return;
+      var dop = Dop[c], pts = B.value[c], contest = 1;
+      if (dop >= 0) {
+        if (dop < dm) contest = mode.urgent ? 0.45 : 0.18;               // the rival is nearer: most likely lost
+        else if (dop === dm) contest = mode.urgent ? 0.8 : 0.5;            // a race to the same cell
+      }
+      var v = pts * contest / (dm + 2);
+      if (mode.chain) {
+        var best = 1e9;
+        B.foods.forEach(function (o) { if (o !== c) { var dd = manhattan(B, c, o); if (dd < best) best = dd; } });
+        if (best < 1e9) v += 0.25 / (best + 4);
+      }
+      out.push({ c: c, v: v, dm: dm, dop: dop });
+    });
+    out.sort(function (a, b) { return b.v - a.v; });
+    return out;
+  }
+
+  /* ---------- easy and medium: follow a target ---------- */
+  function planner(B, st, C, mem, rng, level) {
+    var cands = candidates(B, st, C, 0);
+    if (!cands.length) {                                              // nothing safe: at least not a wall or a body
+      var open = moves(st.me.dir).filter(function (m) { var c = nextCell(B, st.me.body[0], m); return c >= 0 && !B.wall[c] && st.me.body.indexOf(c) < 0 && st.op.body.indexOf(c) < 0; });
+      return open[0] || null;
+    }
+    var pool = filterSafe(cands, C, rng), straight = null;
+    pool.forEach(function (c) { if (same(c.m, st.me.dir)) straight = c; });
+    if (C.slip && rng() < C.slip) return pool[Math.floor(rng() * pool.length)].m;
+
+    // choose (or keep) a target
+    var head = st.me.body[0], t = mem.target;
+    if (t != null && (!B.value[t] || mem.age >= C.retarget)) t = null;
+    if (t == null) {
+      if (level === 'easy') {                                         // nearest in a straight line, sometimes the second
+        var byLine = B.foods.slice().sort(function (a, b) { return manhattan(B, head, a) - manhattan(B, head, b); });
+        t = byLine.length > 1 && rng() < C.misjudge ? byLine[1] : byLine[0];
+      } else {
+        var Dme = distances(B, st.me, st.op, C.react), Dop = distances(B, st.op, st.me, C.react);
+        var ts = targetScores(B, st, Dme, Dop, { urgent: false, chain: false });
+        if (ts.length) t = (ts.length > 1 && rng() < C.misjudge ? ts[1] : ts[0]).c;
+      }
+      mem.target = t; mem.age = 0;
+    }
+    mem.age++;
+    if (t == null) return (straight || pool.sort(function (a, b) { return b.room - a.room; })[0]).m;
+
+    var inZone = pool.filter(function (c) { return c.warn > 0 && c.warn <= C.react; });
+    if (inZone.length === pool.length && pool.length) {                  // every way is warned: take the quickest way out
+      return pool.slice().sort(function (a, b) { return a.esc - b.esc || b.room - a.room; })[0].m;
+    }
+    var eat = pool.filter(function (c) { return c.cell === t; });
+    if (eat.length) return eat[0].m;
+    if (straight && C.dawdle && rng() < C.dawdle) return straight.m;
+    var best = null, bestV = Infinity;
+    pool.forEach(function (c) {
+      var d = level === 'easy' ? manhattan(B, c.cell, t) : (c.D[t] >= 0 ? c.D[t] : 999);
+      var v = d * 10 - (level === 'easy' ? 0 : Math.min(c.room, 60) * 0.05) - (c === straight ? 1 : 0);
+      if (v < bestV) { bestV = v; best = c; }
+    });
+    return best.m;
+  }
+
+  /* ---------- hard: look ahead, points first ---------- */
+  function mood(B) {
+    var lead = B.me.score - B.op.score, late = B.overtime || B.timeLeft < 25000;
+    return { urgent: late && lead <= 0, guard: late && lead > 0, chain: true };
+  }
+  function evaluate(B, st, C, M) {
+    var me = st.me, op = st.op;
+    var Dm = distances(B, me, op, C.react), Do = distances(B, op, me, C.react);
+    var need = me.body.length + (M.guard ? C.margin + 4 : C.margin) + 1;
+    var room = area(Dm, need + 40), oroom = area(Do, op.body.length + 44), v = 0;
+    if (room < need) v -= (M.urgent ? 1800 : 3200) * (need - room) / need;           // boxed in
+    if (oroom < op.body.length + 3) v += 900 * (op.body.length + 3 - oroom) / (op.body.length + 3);   // rival boxed in
+    var hw = B.warnT[me.body[0]];
+    if (hw > 0) { var e = escape(B, Dm); if (e + 1 >= hw) v -= 6000; else v -= 40 * e; }   // still in a warned zone
+    var ts = targetScores(B, st, Dm, Do, M);
+    if (ts.length) v += 900 * ts[0].v + (ts[1] ? 250 * ts[1].v : 0);
+    v += (me.score - op.score) * 1000;                                // a point eaten always beats being near one (max 300)
+    // a little territory: cells we reach first (a Voronoi split), capped so it never outweighs food
+    var t = 0;
+    for (var j = 0; j < Dm.length; j++) {
+      if (Dm[j] < 0 && Do[j] < 0) continue;
+      if (Do[j] < 0 || (Dm[j] >= 0 && Dm[j] < Do[j])) t++; else if (Dm[j] < 0 || Do[j] < Dm[j]) t--;
+    }
+    v += Math.max(-60, Math.min(60, t * 0.25));
+    return v;
+  }
+  function crashValue(n) {
+    if (n.deadM && n.deadO) return n.me.score > n.op.score ? -4000 : n.me.score < n.op.score ? -60000 : -30000;
+    if (n.deadM) return -100000;
+    if (n.deadO) return 100000;
+    return null;
+  }
+  /* The rival's likely move: toward its best food by path. */
+  function predict(B, st, C) {
+    var flip = { me: st.op, op: st.me, taken: st.taken };
+    var Do = distances(B, st.op, st.me, C.react), Dm = distances(B, st.me, st.op, C.react);
+    var ts = targetScores(B, flip, Do, Dm, { urgent: false, chain: false });
+    var goal = ts.length ? ts[0].c : -1, best = null, bestD = 1e9;
+    moves(st.op.dir).forEach(function (m) {
+      var l = landing(B, st.op.body[0], m, 0, C.react);
+      if (l < 0 || st.me.body.indexOf(l) >= 0 || st.op.body.slice(0, -1).indexOf(l) >= 0) return;
+      var dd = goal < 0 ? 0 : manhattan(B, l, goal);
+      if (dd < bestD) { bestD = dd; best = m; }
+    });
+    return best;
+  }
+  function search(B, st, dm, depth, k, C, M, guess) {
+    var replies = moves(st.op.dir), worst = Infinity, sum = 0, n = 0, pv = null;
+    for (var r = 0; r < replies.length; r++) {
+      var nx = simulate(B, st.me, st.op, dm, replies[r], k, C.react, st.taken);
+      var v = crashValue(nx);
+      if (v === null) {
+        var child = { me: nx.me, op: nx.op, taken: nx.taken };
+        if (depth <= 1) v = evaluate(B, child, C, M);
+        else {
+          var best = -Infinity;
+          moves(nx.me.dir).forEach(function (m2) { var v2 = search(B, child, m2, depth - 1, k + 1, C, M, null); if (v2 > best) best = v2; });
+          v = best;
+        }
+      }
+      if (v < worst) worst = v;
+      sum += v; n++;
+      if (guess && same(replies[r], guess)) pv = v;
+    }
+    var avg = n ? sum / n : 0, w = M.guard ? 0.5 : M.urgent ? 0.2 : 0.35;     // how much it fears the worst reply
+    return w * worst + (0.8 - w) * (pv === null ? avg : pv) + 0.2 * avg;
+  }
+  function hardMove(B, st, C, depth) {
+    var M = mood(B);
+    if (manhattan(B, st.me.body[0], st.op.body[0]) > 7) depth = Math.min(depth, 1);   // far apart: one tick is enough
+    var guess = predict(B, st, C), best = null, bestV = -Infinity;
+    moves(st.me.dir).forEach(function (m) {
+      var v = search(B, st, m, depth, 0, C, M, guess);
+      if (same(m, st.me.dir)) v += 0.5;
+      if (v > bestV) { bestV = v; best = m; }
+    });
+    return best;
+  }
+
+  /* opts.budgetMs (the page sets it): when a decision takes longer than this on a slow device, the next ones look one
+     tick ahead instead of two for a while, so the game never stutters. Without it (tests) the AI is fully deterministic. */
+  function create(level, seed, opts) {
+    if (LEVELS.indexOf(level) < 0) level = 'medium';
+    var C = CONF[level], rng = Duel.seededRng((seed == null ? 99 : seed) ^ 0x5bd1e995);
+    var budget = opts && opts.budgetMs, easeOff = 0, mem = { target: null, age: 0 };
+    var stats = { decisions: 0, maxMs: 0, totalMs: 0 };
+    var clock = (typeof performance !== 'undefined' && performance.now) ? function () { return performance.now(); } : function () { return Date.now(); };
+    return {
+      kind: 'ai', level: level, stats: stats,
+      bind: function () { mem = { target: null, age: 0 }; },
+      next: function (round, me) {
+        var t0 = clock();
+        var B = readBoard(round, me), st = { me: B.me, op: B.op, taken: {} }, choice;
+        if (C.depth === 0) choice = planner(B, st, C, mem, rng, level);
+        else {
+          var depth = C.depth;
+          if (easeOff > 0) { easeOff--; depth = 1; }
+          choice = hardMove(B, st, C, depth);
+        }
+        var ms = clock() - t0;
+        if (budget && ms > budget && C.depth > 1) easeOff = 25;
+        stats.decisions++; stats.totalMs += ms; if (ms > stats.maxMs) stats.maxMs = ms;
+        return choice || null;
+      }
+    };
+  }
+
+  return { LEVELS: LEVELS, CONF: CONF, create: create };
+})();
+if (typeof module !== 'undefined' && module.exports) module.exports = SnakeDuelAI;
+
+/* Grid Snake Duel: local statistics
+ * Kept under their own key, apart from the game's profile, so nothing else is ever overwritten. The key
+ * starts with "gridsnake-", so on the website it travels with the signed-in account's data on this device
+ * like the rest of the game's local data (it is not uploaded). Storage is injected; anything unreadable or
+ * odd in it is replaced with clean numbers instead of breaking the game.
+ */
+var SnakeDuelStats = (function () {
+  'use strict';
+
+  var KEY = 'gridsnake-duel-stats-v1';
+  var LEVELS = ['easy', 'medium', 'hard'];
+
+  function count(v) { return typeof v === 'number' && isFinite(v) && v > 0 ? Math.floor(v) : 0; }
+  function blank() {
+    return { played: 0, won: 0, lost: 0, drawn: 0, roundsWon: 0, roundsLost: 0, roundsDrawn: 0,
+             streak: 0, bestStreak: 0, winsBy: { easy: 0, medium: 0, hard: 0 }, points: 0, cores: 0 };
+  }
+  function sanitize(d) {
+    var out = blank();
+    if (!d || typeof d !== 'object') return out;
+    ['played', 'won', 'lost', 'drawn', 'roundsWon', 'roundsLost', 'roundsDrawn', 'streak', 'bestStreak', 'points', 'cores'].forEach(function (k) { out[k] = count(d[k]); });
+    if (d.winsBy && typeof d.winsBy === 'object') LEVELS.forEach(function (l) { out.winsBy[l] = count(d.winsBy[l]); });
+    if (out.bestStreak < out.streak) out.bestStreak = out.streak;
+    return out;
+  }
+
+  function create(storage) {
+    var mem = null, data;
+    function read() { try { var v = storage && storage.getItem(KEY); if (v !== null && v !== undefined) return v; } catch (e) {} return mem; }
+    function write() {
+      var text = JSON.stringify(data);
+      mem = text;
+      try { if (storage) storage.setItem(KEY, text); } catch (e) {}
+    }
+    try { data = sanitize(JSON.parse(read())); } catch (e) { data = blank(); }
+
+    /* results: SnakeDuelMatch results(). The human is side 0. An abandoned match is not counted. */
+    function recordMatch(results, extra) {
+      if (!results || results.winner === null || results.winner === undefined) return false;
+      data.played++;
+      if (results.winner === 0) {
+        data.won++; data.streak++;
+        if (data.streak > data.bestStreak) data.bestStreak = data.streak;
+        if (LEVELS.indexOf(results.difficulty) >= 0) data.winsBy[results.difficulty]++;
+      } else if (results.winner === 1) { data.lost++; data.streak = 0; }
+      else { data.drawn++; data.streak = 0; }
+      (results.rounds || []).forEach(function (r) {
+        if (r.draw) data.roundsDrawn++; else if (r.winner === 0) data.roundsWon++; else data.roundsLost++;
+        data.points += count(r.scores && r.scores[0]);
+      });
+      data.cores += count(extra && extra.cores);
+      write();
+      return true;
+    }
+    function get() { return JSON.parse(JSON.stringify(data)); }
+    function reset() { data = blank(); write(); }
+
+    return { recordMatch: recordMatch, get: get, reset: reset };
+  }
+
+  return { KEY: KEY, create: create, sanitize: sanitize };
+})();
+if (typeof module !== 'undefined' && module.exports) module.exports = SnakeDuelStats;
+
 
 /* ===================== Page: wires the pure modules to the DOM ===================== */
 (function () {
@@ -3284,8 +4879,10 @@ if (typeof module !== 'undefined' && module.exports) module.exports = SnakeChase
   function setView(v) {
     view = v;
     document.documentElement.classList.toggle('in-game', v === 'game');
+    document.documentElement.classList.toggle('in-duel', v === 'duel');
     $('home').hidden = v !== 'home';
     $('game').hidden = v !== 'game';
+    $('duel').hidden = v !== 'duel';
     if (v === 'game') resize(); else updateHome();
   }
   function play() {
@@ -4699,6 +6296,7 @@ if (typeof module !== 'undefined' && module.exports) module.exports = SnakeChase
     if (game) {
       game.update(dt);
       if (view === 'game') { draw(); syncHud(); }
+      if (view === 'duel') duelFrame(dt);
       checkAcc += dt;
       if (checkAcc >= 500) { checkAcc = 0; tracker.tick(); }
     }
@@ -4721,6 +6319,7 @@ if (typeof module !== 'undefined' && module.exports) module.exports = SnakeChase
   });
   document.addEventListener('keydown', function (e) {
     if (e.metaKey || e.ctrlKey || e.altKey) return;
+    if (view === 'duel') { if (!dialogOpen()) duelKey(e); return; }      // the Duel has its own keys (src/duel/ui.js)
     if (view !== 'game' || dialogOpen()) return;
     if (KEYS[e.key]) { e.preventDefault(); steer(KEYS[e.key][0], KEYS[e.key][1]); }
     else if (e.key === ' ' || e.code === 'Space') { e.preventDefault(); toggleRun(); }
@@ -4848,6 +6447,862 @@ if (typeof module !== 'undefined' && module.exports) module.exports = SnakeChase
   document.addEventListener('visibilitychange', function () {
     if (document.hidden && game && game.state.phase === 'running') pauseRun();
   });
+
+  /* ===================== Grid Snake Duel: the page side =====================
+   * Included inside the page script (index.template.html), so it reuses the page's sound, looks, settings and storage
+   * helpers. It owns its view (#duel) and canvas, and does nothing unless that view is open. Every name here starts
+   * with duel/Duel/DD so it can never replace one of the page's own (tests/duel.test.js checks).
+   *
+   * The rules live in src/duel/*.js. Everything below only SHOWS the round: snakes slide between the cells the engine
+   * already decided, effects start from the engine's events, and nothing here can change a move or a result. */
+  var Duel = SnakeDuel, DuelMatch = SnakeDuelMatch, DuelAI = SnakeDuelAI, DuelEvents = SnakeDuelEvents, DuelMaps = SnakeDuelMaps;
+  var duelStats = SnakeDuelStats.create(storage());
+  var DUEL_LEVEL_KEY = 'gridsnake-duel-level-v1';
+  var DUEL_LEVELS = { easy: { name: 'Easy' }, medium: { name: 'Medium' }, hard: { name: 'Hard' } };
+  var DUEL_REASON = {
+    wall: 'hit a wall', tail: 'ran into its own body', body: 'ran into the other snake', headon: 'met head-on',
+    void: 'fell into the void', laser: 'was caught by a laser', portal: 'took a blocked portal'
+  };
+  /* Each event's look and the one-line "what to do". */
+  var DUEL_EV = {
+    vanish: { color: '#FF5C7A', ico: 'M4 4h6v6H4zM14 14h6v6h-6zM14 4h6v6M4 14v6h6', tip: 'The edges fall away ring by ring. Pulsing cells are next: get off them and hold the middle.' },
+    portal: { color: '#4FD6E3', ico: 'M12 4a8 8 0 1 0 8 8M12 8a4 4 0 1 0 4 4M20 4l-4 4', tip: 'Enter one portal, come out of the other. A red cross means its exit is blocked: do not go in.' },
+    laser:  { color: '#FF4678', ico: 'M3 12h4M17 12h4M9 12h6M12 3v4M12 17v4', tip: 'Red bands charge up, then fire. Leave them in time, or wait in a clear lane.' },
+    walls:  { color: '#FFB547', ico: 'M4 6h16M4 12h10M4 18h16M17 9l3 3-3 3', tip: 'Walls slide along the dashed tracks. The glowing cells are where they go next.' },
+    core:   { color: '#FFD76E', ico: 'M12 3l7 9-7 9-7-9zM12 8l3 4-3 4-3-4z', tip: 'The Core in the centre is worth 3 points. Get there first: it comes back after a while.' }
+  };
+  var DUEL_ROUND_WHY = { crash: 'Crash · ', headon: 'Head-on · ', double: 'Double crash · ', time: 'On points · ', overtime: 'Sudden death · ' };
+  var DUEL_IDLE_TIP = 'Eat food to score. Keep clear of the walls and of both bodies.';
+  var duelLevel = (function () { try { var v = window.localStorage.getItem(DUEL_LEVEL_KEY); return DUEL_LEVELS[v] ? v : 'medium'; } catch (e) { return 'medium'; } })();
+  var DD = {
+    screen: 'menu', match: null, round: null, human: null, ai: null, prev: null, flow: null, flowT: 0, paused: false,
+    cores: 0, foods: 0, size: 0, cell: 0, t: 0, rival: { snake: '#9B7BFF', head: '#CBB9FF' },
+    fx: { parts: [], rings: [], texts: [], flash: 0, flashCol: '#885CFF', shake: 0 },
+    an: null, layer: null, layerKey: '', shown: [0, 0], lastCount: 0
+  };
+  var dCanvas = $('duelBoard'), dctx = dCanvas.getContext('2d');
+  var DUEL_MAX_PARTS = 220;
+
+  function duelSaveLevel(l) { duelLevel = l; try { window.localStorage.setItem(DUEL_LEVEL_KEY, l); } catch (e) {} }
+  function duelIcon(id) { return '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="' + DUEL_EV[id].ico + '"/></svg>'; }
+  function duelAlpha(hex, a) { var c = hexRgb(hex); return 'rgba(' + c[0] + ',' + c[1] + ',' + c[2] + ',' + a + ')'; }
+  function duelEase(k) { return 1 - Math.pow(1 - Math.max(0, Math.min(1, k)), 3); }
+  function duelBack3(k) { k = Math.max(0, Math.min(1, k)); var s = 1.7; return Math.max(0, 1 + (s + 1) * Math.pow(k - 1, 3) + s * Math.pow(k - 1, 2)); }   // never below 0 (a canvas radius)
+
+  /* The rival's colours: violet, unless the player's own snake is violet-ish, then amber. */
+  function duelColours() {
+    var c = hexRgb(PAL.snake), violet = c[2] > 150 && c[0] > 90 && c[1] < 140;
+    DD.rival = violet ? { snake: '#E8A33D', head: '#FFD08A' } : { snake: '#9B7BFF', head: '#CBB9FF' };
+    $('duel').style.setProperty('--dz-you', PAL.snake);
+    $('duel').style.setProperty('--dz-rival', DD.rival.snake);
+  }
+
+  /* ---------- screens ---------- */
+  function duelShow(screen) {
+    DD.screen = screen;
+    $('duelMenu').hidden = screen !== 'menu';
+    $('duelPlay').hidden = screen === 'menu';
+    if (screen === 'menu') renderDuelMenu(); else duelResize();
+  }
+  function openDuel() {
+    if (!appReady) return;
+    setView('duel');
+    duelColours();
+    duelShow('menu');
+    try { $('duelStart').focus({ preventScroll: true }); } catch (e) {}
+  }
+  function leaveDuel() {
+    if (DD.match && DD.match.state.phase !== 'over') DD.match.abandon();
+    DD.match = DD.round = null; DD.flow = null;
+    setView('home');
+    try { $('duelEntry').focus({ preventScroll: true }); } catch (e) {}
+  }
+  function duelToMenu() {
+    if (DD.flow !== 'results' && DD.match && DD.match.state.phase !== 'over') DD.match.abandon();
+    DD.round = null; DD.flow = null; DD.paused = false;
+    duelOverlay(null);
+    duelShow('menu');
+  }
+
+  function renderDuelMenu() {
+    document.querySelectorAll('#duelLevels .dz-level').forEach(function (b) {
+      b.setAttribute('aria-checked', b.getAttribute('data-level') === duelLevel ? 'true' : 'false');
+      b.tabIndex = b.getAttribute('data-level') === duelLevel ? 0 : -1;
+    });
+    var s = duelStats.get(), rate = s.played ? Math.round(s.won / s.played * 100) : 0;
+    setText($('duelW'), s.won); setText($('duelL'), s.lost); setText($('duelD'), s.drawn);
+    setText($('duelWinRate'), s.played ? rate + '%' : '–');
+    $('duelWinRing').style.setProperty('--p', rate);
+    $('duelStatEmpty').hidden = s.played > 0;
+    var rows = [['Matches', s.played], ['Best streak', s.bestStreak], ['Rounds won', s.roundsWon], ['Cores taken', s.cores],
+      ['Wins on Easy', s.winsBy.easy], ['Wins on Medium', s.winsBy.medium], ['Wins on Hard', s.winsBy.hard], ['Current streak', s.streak]];
+    var dl = $('duelStatList');
+    dl.textContent = '';
+    rows.forEach(function (r) {
+      var d = document.createElement('div'), dt = document.createElement('dt'), dd = document.createElement('dd');
+      dt.textContent = r[0]; dd.textContent = r[1];
+      d.appendChild(dt); d.appendChild(dd); dl.appendChild(d);
+    });
+  }
+  function buildDuelEventList() {
+    var ul = $('duelEventList');
+    DuelEvents.IDS.forEach(function (id) {
+      var li = document.createElement('li'), b = document.createElement('b');
+      b.style.color = DUEL_EV[id].color;
+      b.innerHTML = duelIcon(id);
+      var n = document.createElement('span'); n.textContent = DuelEvents.INFO[id].name; n.style.color = 'var(--dz-text)';
+      b.appendChild(n);
+      li.appendChild(b);
+      li.appendChild(document.createTextNode(DuelEvents.INFO[id].tag));
+      ul.appendChild(li);
+    });
+  }
+
+  /* ---------- a match ---------- */
+  function startMatch() {
+    duelColours();
+    DD.match = DuelMatch.create({ difficulty: duelLevel });
+    DD.cores = 0; DD.foods = 0;
+    setText($('duelRivalName'), DUEL_LEVELS[duelLevel].name + ' AI');
+    duelShow('play');
+    beginRound();
+  }
+  function duelResetAnim() {
+    DD.an = { born: {}, head: [0, 0], death: [null, null], gone: {}, falling: [], portalKey: '', portalAt: -1e9, coreAt: -1e9,
+              bars: [], wallsLive: false, entry: [null, null], marks: [] };
+    DD.fx.parts = []; DD.fx.rings = []; DD.fx.texts = []; DD.fx.flash = 0; DD.fx.shake = 0;
+    DD.shown = [0, 0]; DD.prev = null;
+  }
+  function beginRound() {
+    var M = DD.match, up = M.upcoming();
+    DD.human = Duel.humanController();
+    DD.ai = DuelAI.create(duelLevel, (M.state.seed ^ (up.number * 2654435761)) >>> 0, { budgetMs: 8 });
+    DD.round = M.nextRound([DD.human, DD.ai]);
+    DD.round.on(onDuelEvent);
+    DD.paused = false;
+    duelResetAnim();
+    DD.layerKey = '';
+    var map = DuelMaps.build(up.map), ev = DuelEvents.INFO[up.event];
+    duelOverlay('countdown', { kicker: 'Round ' + up.number + (up.number > 3 ? ' · decider' : '') + ' · ' + map.name, title: 'Get ready', text: 'This round: ' + ev.name + '. ' + map.desc, count: 3 });
+    DD.flow = 'countdown'; DD.flowT = 3000; DD.lastCount = 0;
+    $('duelEvent').setAttribute('data-event', up.event);
+    $('duelEvent').classList.remove('live');
+    $('duelEventIco').innerHTML = duelIcon(up.event);
+    setText($('duelHowtoText'), DUEL_IDLE_TIP);
+    syncDuelHud();
+  }
+  function onDuelEvent(e) {
+    var you = e.who === 0, col = you ? PAL.snake : DD.rival.snake;
+    if (e.type === 'food') {
+      duelBurst(e.x, e.y, col, 12, 1);
+      duelBurst(e.x, e.y, PAL.food, 6, 0.7);
+      duelRing(e.x, e.y, PAL.food, 1.4, 380, 2);
+      duelFloat(e.x, e.y, '+' + e.points, col, false);
+      DD.an.head[e.who] = 1;
+      if (you) { DD.foods++; sfx.play('food'); buzz(8); }
+    } else if (e.type === 'core') {
+      duelRing(e.x, e.y, '#B79CFF', 5, 700, 4);
+      duelRing(e.x, e.y, '#FFD76E', 3, 520, 3);
+      duelBurst(e.x, e.y, '#9B7BFF', 22, 1.6);
+      duelBurst(e.x, e.y, '#FFD76E', 12, 1.2);
+      duelFloat(e.x, e.y, '+' + e.points, '#FFD76E', true);
+      DD.fx.flash = 1; DD.fx.flashCol = '#885CFF';
+      DD.an.head[e.who] = 1.6;
+      if (you) DD.cores++;
+      sfx.play('gold'); buzz(24);
+    } else if (e.type === 'coreSpawn') {
+      DD.an.coreAt = DD.t;
+      duelRing(e.x, e.y, '#FFD76E', 2.6, 500, 2);
+      duelBurst(e.x, e.y, '#B79CFF', 10, 0.8);
+      sfx.play('goldSpawn');
+    } else if (e.type === 'announce') {
+      duelBanner(e.event);
+      announceDuel(e.name + '. ' + DUEL_EV[e.event].tip);
+      sfx.play('achievement');
+    } else if (e.type === 'eventStart') {
+      $('duelEvent').classList.add('live');
+      setText($('duelHowtoText'), DUEL_EV[e.event].tip);
+    } else if (e.type === 'portal') {
+      var en = DD.an.entry[e.who];
+      if (en) duelRing(en.x, en.y, '#4FD6E3', 1.6, 300, 3, true);
+      duelRing(e.x, e.y, col, 2.2, 420, 3);
+      duelBurst(e.x, e.y, '#4FD6E3', 10, 1.1);
+      if (you) sfx.play('shield');
+    } else if (e.type === 'portalShift') {
+      sfx.play('slow');
+    } else if (e.type === 'overtime') {
+      duelBannerText('Overtime', 'Sudden death: the first point wins the round.', '#FFD76E', 'core');
+      announceDuel('Overtime. The first point wins the round.');
+      sfx.play('timeUp');
+    } else if (e.type === 'crash') {
+      duelRing(e.x, e.y, '#FFFFFF', 2.2, 360, 3);
+      duelBurst(e.x, e.y, col, 26, 1.8);
+      DD.an.death[e.who] = DD.t;
+      DD.an.marks.push({ x: e.x, y: e.y, c: e.reason === 'headon' ? '#FFFFFF' : col });
+      DD.fx.shake = motionOk() ? 1 : 0;
+      if (you) { DD.fx.flash = 0.8; DD.fx.flashCol = '#FF5C7A'; buzz(60); }
+      sfx.play('crunch');
+    } else if (e.type === 'over') {
+      roundOver(e);
+    }
+    syncDuelHud();
+  }
+  function roundOver(res) {
+    var M = DD.match, phase = M.record(res), crashes = res.crashes || [];
+    var title, text, tone = res.draw ? 'draw' : res.winner === 0 ? 'win' : 'loss';
+    title = res.draw ? 'Draw' : res.winner === 0 ? 'Round won' : 'Round lost';
+    if (res.draw) text = 'Nobody takes the round' + (phase === 'over' ? '.' : '. A fresh round decides it.');
+    else if (res.reason === 'time') text = 'On points at the bell, ' + res.scores[0] + ' to ' + res.scores[1] + '.';
+    else if (res.reason === 'overtime') text = 'First point in sudden death.';
+    else text = duelCrashText(res);
+    sfx.play(res.draw ? 'timeUp' : res.winner === 0 ? 'level' : 'over');
+    $('duelEvent').classList.remove('live');
+    DD.flow = phase === 'over' ? 'toResults' : 'toNext';
+    DD.flowT = 2700;
+    var wins = M.state.wins.slice(), n = M.state.rounds.length;
+    setTimeout(function () {                                     // let the crash play out first
+      if (DD.flow === 'toResults' || DD.flow === 'toNext') duelOverlay('round', { kicker: 'Round ' + n + ' · rounds ' + wins[0] + ' – ' + wins[1], title: title, text: text, tone: tone });
+    }, motionOk() ? 650 : 0);
+  }
+  /* Exactly what happened, from the engine's own record: whose head went where. */
+  function duelCrashText(res) {
+    var c = res.crashes || [], into = res.into || [-1, -1], sc = res.scores[0] + ' to ' + res.scores[1];
+    function one(i) {
+      var who = i === 0 ? 'You' : 'The rival', other = i === 0 ? "the rival's" : 'your';
+      if (c[i] === 'body') return who + ' ran into ' + other + ' body';
+      if (c[i] === 'tail') return who + (i === 0 ? ' ran into your own body' : ' ran into its own body');
+      return who + ' ' + (DUEL_REASON[c[i]] || 'crashed');
+    }
+    var ahead = res.winner === 0 ? 'You were ahead (' + sc + '), so the round is yours.' : res.winner === 1 ? 'The rival was ahead (' + sc + '), so it takes the round.' : 'Scores level (' + sc + '): a draw.';
+    if (res.reason === 'headon') return 'Head-on: both heads entered the same cell at the same moment. ' + ahead;
+    if (res.reason === 'double') return (c[0] === 'body' && c[1] === 'body' && into[0] === 1 && into[1] === 0 ? 'You swapped cells head to head: both crash. ' : one(0) + ', and ' + one(1).charAt(0).toLowerCase() + one(1).slice(1) + ' on the same move. ') + ahead;
+    return (c[0] ? one(0) : one(1)) + '.';
+  }
+
+  function showResults() {
+    var R = DD.match.results();
+    duelStats.recordMatch(R, { cores: DD.cores });
+    var won = R.winner === 0, drawn = R.winner === -1;
+    var by = R.settledBy === 'points' ? 'Settled on total points · ' : '';
+    duelOverlay('results', {
+      kicker: by + DUEL_LEVELS[R.difficulty].name + ' rival', title: won ? 'Victory' : drawn ? 'Match drawn' : 'Defeat',
+      text: won ? 'You outplayed your rival.' : drawn ? 'Nothing between you this time.' : 'Your rival had the better plan. Try again?',
+      tone: won ? 'win' : drawn ? 'draw' : 'loss', final: R.wins,
+      rounds: R.rounds.map(function (r) {
+        return { n: r.number, tone: r.draw ? 'draw' : r.winner === 0 ? 'win' : 'loss', mark: r.draw ? '=' : r.winner === 0 ? 'W' : 'L',
+                 score: r.scores[0] + ' – ' + r.scores[1], sub: (DUEL_ROUND_WHY[r.reason] || '') + DuelEvents.INFO[r.event].name + ' · ' + DuelMaps.build(r.map).name };
+      }),
+      stats: [['Points', R.totals[0] + ' – ' + R.totals[1]], ['Food eaten', DD.foods], ['Cores', DD.cores]]
+    });
+    DD.flow = 'results';
+    if (won && motionOk()) duelConfetti();
+    sfx.play(won ? 'achievement' : 'over');
+    if (won) setTimeout(function () { if (DD.flow === 'results') sfx.play('gold'); }, 380);
+  }
+
+  function duelPause() {
+    if (!DD.round || DD.flow || DD.round.state.phase !== 'running') return;
+    DD.round.pause(); DD.paused = true;
+    duelOverlay('paused', { kicker: 'Paused', title: 'Take a breath', text: 'The round waits for you. Leaving ends the match without counting it.' });
+  }
+  function duelResume() {
+    if (!DD.round || !DD.paused) return;
+    DD.paused = false;
+    duelOverlay(null);
+    DD.round.resume();
+  }
+  function duelBack() {                                       // Esc and the Android Back button
+    if (DD.screen === 'menu') { leaveDuel(); return true; }
+    if (DD.flow === 'results') { duelToMenu(); return true; }
+    if (DD.paused) { duelResume(); return true; }
+    if (DD.round && DD.round.state.phase === 'running' && !DD.flow) { duelPause(); return true; }
+    return true;
+  }
+  function duelSteer(dx, dy) {
+    if (!DD.human || !DD.round || DD.flow === 'results') return;
+    if (DD.paused) duelResume();
+    DD.human.turn(dx, dy);
+  }
+  function duelTurnSide(side) {
+    if (!DD.human || !DD.round) return;
+    var h = DD.human.heading();
+    if (side < 0) duelSteer(h.y, 0 - h.x); else duelSteer(0 - h.y, h.x);
+  }
+
+  /* ---------- overlay, banner and HUD ---------- */
+  function duelOverlay(kind, o) {
+    var ov = $('duelOv');
+    ov.hidden = !kind;
+    if (!kind) return;
+    ov.className = 'dz-ov dz-ov--' + kind + (o.tone ? ' tone-' + o.tone : '');
+    setText($('duelOvKicker'), o.kicker || '');
+    setText($('duelOvTitle'), o.title || '');
+    setText($('duelOvText'), o.text || '');
+    $('duelOvCount').hidden = kind !== 'countdown';
+    if (kind === 'countdown') setText($('duelOvCount'), o.count);
+    $('duelOvFinal').hidden = !o.final;
+    if (o.final) { setText($('duelOvYou'), o.final[0]); setText($('duelOvRival'), o.final[1]); }
+    var ol = $('duelOvRounds');
+    ol.hidden = !o.rounds; ol.textContent = '';
+    (o.rounds || []).forEach(function (r, i) {
+      var li = document.createElement('li'); li.className = 'tone-' + r.tone; li.style.setProperty('--i', i);
+      var m = document.createElement('i'); m.textContent = r.mark;
+      var tx = document.createElement('span'); tx.textContent = 'Round ' + r.n;
+      var s = document.createElement('small'); s.textContent = r.sub; tx.appendChild(s);
+      var b = document.createElement('b'); b.textContent = r.score;
+      li.appendChild(m); li.appendChild(tx); li.appendChild(b); ol.appendChild(li);
+    });
+    var dl = $('duelOvStats');
+    dl.hidden = !o.stats; dl.textContent = '';
+    (o.stats || []).forEach(function (s) {
+      var d = document.createElement('div'), dt = document.createElement('dt'), dd = document.createElement('dd');
+      dt.textContent = s[0]; dd.textContent = s[1]; d.appendChild(dt); d.appendChild(dd); dl.appendChild(d);
+    });
+    var actions = kind === 'results' || kind === 'paused';
+    $('duelOvActions').hidden = !actions;
+    setText($('duelOvMain'), kind === 'results' ? 'Rematch' : 'Resume');
+    setText($('duelOvSec'), kind === 'results' ? 'Duel menu' : 'Leave match');
+    $('duelOvRestart').hidden = kind !== 'paused';
+    if (actions) { try { $('duelOvMain').focus({ preventScroll: true }); } catch (e) {} }
+  }
+  function duelBannerText(name, tip, color, icoId) {
+    var b = $('duelBanner');
+    b.style.setProperty('--ev', color);
+    $('duelBannerIco').innerHTML = duelIcon(icoId);
+    setText($('duelBannerName'), name); setText($('duelBannerTip'), tip);
+    b.hidden = false;
+    b.classList.remove('show'); void b.offsetWidth; b.classList.add('show');
+    clearTimeout(DD.bannerTimer);
+    DD.bannerTimer = setTimeout(function () { b.hidden = true; b.classList.remove('show'); }, 2700);
+  }
+  function duelBanner(id) { duelBannerText(DuelEvents.INFO[id].name, DUEL_EV[id].tip, DUEL_EV[id].color, id); }
+  function announceDuel(t) { var n = $('duelLive'); n.textContent = ''; setTimeout(function () { n.textContent = t; }, 30); }
+
+  function duelEventCharge(R) {                               // 0..1: how close the nearest danger is (the strip's bar)
+    var v = R.eventView(), S = R.state, T = DuelEvents.TUNING;
+    if (!v) return S.eventPhase === 'none' ? 0 : Math.min(1, S.elapsed / R.tuning.eventMs);
+    var best = 0;
+    if (v.kind === 'vanish') Object.keys(v.warned).forEach(function (k) { var p = k.split(','), w = R.warn(+p[0], +p[1]); if (w) best = Math.max(best, 1 - w / T.vanish.warn); });
+    else if (v.kind === 'laser') v.cells.forEach(function (c) { best = Math.max(best, c.fire ? 1 : 1 - c.warn / T.laser.warn); });
+    else if (v.kind === 'core') best = v.live ? 1 : v.spot ? 1 - v.warn / T.core.warn : 0;
+    else if (v.kind === 'walls') best = v.live ? 1 : 0.5;
+    else if (v.kind === 'portal') best = v.cur ? 1 : 0.3;
+    return best;
+  }
+  function syncDuelHud() {
+    var M = DD.match, R = DD.round;
+    if (!M || !R) return;
+    var S = R.state, num = M.state.rounds.length + (M.state.phase === 'round' ? 1 : 0);
+    [['duelScoreYou', 0], ['duelScoreRival', 1]].forEach(function (p) {
+      var v = S.snakes[p[1]].score, el2 = $(p[0]);
+      if (v !== DD.shown[p[1]]) {
+        if (v > DD.shown[p[1]]) { el2.classList.remove('bump'); void el2.offsetWidth; el2.classList.add('bump'); }
+        DD.shown[p[1]] = v;
+      }
+      setText(el2, v);
+    });
+    setText($('duelRound'), 'Round ' + Math.max(1, num) + (num > 3 ? ' · decider' : ' of 3'));
+    ['You', 'Rival'].forEach(function (who, i) {
+      var pips = $('duelPips' + who).children;
+      for (var k = 0; k < pips.length; k++) pips[k].classList.toggle('on', M.state.wins[i] > k);
+    });
+    var ms = R.timeLeft(), secs = Math.ceil(ms / 1000), clock = $('duelClock');
+    setText(clock, (S.overtime ? 'OT ' : '') + Math.floor(secs / 60) + ':' + ('0' + secs % 60).slice(-2));
+    clock.classList.toggle('urgent', !S.overtime && ms <= 10000);
+    clock.classList.toggle('ot', S.overtime);
+    var full = S.overtime ? R.tuning.overtimeMs : R.tuning.roundMs;
+    $('duelTimeBar').style.transform = 'scaleX(' + Math.max(0, ms / full).toFixed(3) + ')';
+    if (S.eventId) {
+      setText($('duelEventName'), DuelEvents.INFO[S.eventId].name);
+      var inS = Math.max(0, Math.ceil((R.tuning.eventMs - S.elapsed) / 1000));
+      setText($('duelEventStatus'), S.eventPhase === 'live' ? R.eventStatus() : S.eventPhase === 'announce' ? 'Get ready…' : 'Arrives in ' + inS + ' s');
+      $('duelEventBar').style.transform = 'scaleX(' + duelEventCharge(R).toFixed(3) + ')';
+    }
+  }
+
+  /* ---------- effects (drawing only) ---------- */
+  function duelBurst(x, y, color, n, speed) {
+    if (!motionOk()) return;
+    var P = DD.fx.parts;
+    for (var i = 0; i < n && P.length < DUEL_MAX_PARTS; i++) {
+      var a = Math.random() * Math.PI * 2, v = (0.6 + Math.random()) * speed * 0.006;
+      P.push({ x: x + 0.5, y: y + 0.5, vx: Math.cos(a) * v, vy: Math.sin(a) * v, life: 420 + Math.random() * 380, t: 0, r: 0.07 + Math.random() * 0.09, c: color });
+    }
+  }
+  function duelRing(x, y, color, maxR, life, w, implode) {
+    DD.fx.rings.push({ x: x + 0.5, y: y + 0.5, c: color, r: maxR, life: motionOk() ? life : 1, t: 0, w: w || 2, implode: !!implode });
+  }
+  function duelFloat(x, y, text, color, big) { DD.fx.texts.push({ x: x, y: y, text: text, color: color, big: !!big, t: 0 }); }
+  function duelConfetti() {
+    var P = DD.fx.parts, cols = ['#885CFF', '#B79CFF', '#FFD76E', '#D66BFF', '#FFFFFF'], N = DuelMaps.SIZE;
+    for (var i = 0; i < 70 && P.length < DUEL_MAX_PARTS; i++) {
+      P.push({ x: Math.random() * N, y: -1 - Math.random() * 6, vx: (Math.random() - 0.5) * 0.004, vy: 0.006 + Math.random() * 0.006, life: 2600 + Math.random() * 1400, t: 0, r: 0.12 + Math.random() * 0.1, c: cols[i % cols.length], confetti: true, spin: Math.random() * 6 });
+    }
+  }
+  function duelFxStep(dt) {
+    var F = DD.fx;
+    F.parts = F.parts.filter(function (p) {
+      p.t += dt; p.x += p.vx * dt; p.y += p.vy * dt;
+      if (!p.confetti) { p.vx *= 0.94; p.vy *= 0.94; } else p.spin += dt * 0.006;
+      return p.t < p.life;
+    });
+    F.rings = F.rings.filter(function (r) { r.t += dt; return r.t < r.life; });
+    F.texts = F.texts.filter(function (t) { t.t += dt; return t.t < 1100; });
+    F.flash = Math.max(0, F.flash - dt / 380);
+    F.shake = Math.max(0, F.shake - dt / 260);
+    DD.an.head[0] = Math.max(0, DD.an.head[0] - dt / 260);
+    DD.an.head[1] = Math.max(0, DD.an.head[1] - dt / 260);
+  }
+
+  /* ---------- the frame ---------- */
+  function duelFrame(dt) {
+    if (DD.screen === 'menu' || !DD.round) return;
+    DD.t += dt;
+    if (DD.flow) {
+      DD.flowT -= dt;
+      if (DD.flow === 'countdown') {
+        var n = Math.max(1, Math.ceil(DD.flowT / 1000)), cnt = $('duelOvCount');
+        if (n !== DD.lastCount) { DD.lastCount = n; setText(cnt, n); cnt.classList.remove('tick'); void cnt.offsetWidth; cnt.classList.add('tick'); sfx.play(n === 1 ? 'goldSpawn' : 'food'); }
+        if (DD.flowT <= 0) { DD.flow = null; duelOverlay(null); DD.round.start(); sfx.play('start'); }
+      } else if (DD.flowT <= 0 && DD.flow === 'toNext') { DD.flow = null; beginRound(); }
+      else if (DD.flowT <= 0 && DD.flow === 'toResults') { showResults(); }
+    }
+    if (!DD.round) return;
+    var R = DD.round, S = R.state, before = S.tick;
+    if (S.phase === 'running') {
+      var pre = S.snakes.map(function (s) { return s.body.map(function (c) { return { x: c.x, y: c.y }; }); });
+      DD.an.entry = S.snakes.map(function (s) { return { x: s.body[0].x + s.dir.x, y: s.body[0].y + s.dir.y }; });
+      R.update(dt);
+      if (S.tick !== before) DD.prev = pre;
+      syncDuelHud();
+    }
+    duelFxStep(dt);
+    drawDuel();
+  }
+
+  function duelResize() {
+    var wrapEl = $('duelBoardWrap');
+    if (!wrapEl || !wrapEl.offsetParent) return;
+    var w = wrapEl.clientWidth, top = wrapEl.getBoundingClientRect().top;
+    var below = isTouch() ? (controlsKind() === 'swipe' ? 20 : 128) : 20;
+    var h = window.innerHeight - Math.max(0, top) - below;
+    var side = Math.max(240, Math.min(w, h > 240 ? h : w, 780));
+    var N = DuelMaps.SIZE, c = Math.floor(side / N);
+    side = c * N;
+    var dpr = Math.min(window.devicePixelRatio || 1, 2);
+    dCanvas.style.width = side + 'px'; dCanvas.style.height = side + 'px';
+    dCanvas.width = side * dpr; dCanvas.height = side * dpr;
+    dctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    DD.size = side; DD.cell = c; DD.dpr = dpr; DD.layerKey = '';
+  }
+
+  /* The floor and the arena walls never change during a round: drawn once into a layer, then copied each frame. */
+  function duelLayer(S) {
+    var key = S.map.id + ':' + DD.size + ':' + DD.dpr;
+    if (DD.layerKey === key && DD.layer) return DD.layer;
+    var cv = DD.layer || document.createElement('canvas'), N = S.size, c = DD.cell, W = DD.size;
+    cv.width = W * DD.dpr; cv.height = W * DD.dpr;
+    var g = cv.getContext('2d');
+    g.setTransform(DD.dpr, 0, 0, DD.dpr, 0, 0);
+    var bg = g.createRadialGradient(W / 2, W / 2, W * 0.1, W / 2, W / 2, W * 0.75);
+    bg.addColorStop(0, '#15141F'); bg.addColorStop(1, '#0C0C12');
+    g.fillStyle = bg; g.fillRect(0, 0, W, W);
+    g.fillStyle = 'rgba(255,255,255,0.022)';
+    for (var gy = 0; gy < N; gy++) for (var gx = (gy % 2); gx < N; gx += 2) g.fillRect(gx * c, gy * c, c, c);
+    g.fillStyle = 'rgba(183,156,255,0.05)';
+    for (var dy = 1; dy < N; dy++) for (var dx = 1; dx < N; dx++) g.fillRect(dx * c - 0.5, dy * c - 0.5, 1, 1);
+    for (var y = 0; y < N; y++) for (var x = 0; x < N; x++) {
+      if (!S.map.walls[y * N + x]) continue;
+      var up = y > 0 && S.map.walls[(y - 1) * N + x], dn = y < N - 1 && S.map.walls[(y + 1) * N + x];
+      var lf = x > 0 && S.map.walls[y * N + x - 1], rt = x < N - 1 && S.map.walls[y * N + x + 1];
+      var grd = g.createLinearGradient(0, y * c, 0, (y + 1) * c);
+      grd.addColorStop(0, '#2E2947'); grd.addColorStop(1, '#221F35');
+      g.fillStyle = grd; g.fillRect(x * c, y * c, c, c);
+      g.fillStyle = 'rgba(183,156,255,0.22)';
+      if (!up) g.fillRect(x * c, y * c, c, Math.max(1, c * 0.12));
+      g.fillStyle = 'rgba(0,0,0,0.35)';
+      if (!dn) g.fillRect(x * c, (y + 1) * c - Math.max(1, c * 0.1), c, Math.max(1, c * 0.1));
+      g.fillStyle = 'rgba(183,156,255,0.08)';
+      if (!lf) g.fillRect(x * c, y * c, 1, c);
+      if (!rt) g.fillRect((x + 1) * c - 1, y * c, 1, c);
+    }
+    g.strokeStyle = 'rgba(136,92,255,0.35)'; g.lineWidth = 1; g.strokeRect(0.5, 0.5, W - 1, W - 1);
+    DD.layer = cv; DD.layerKey = key;
+    return cv;
+  }
+
+  function duelRoundRect(x, y, w, h, r) {
+    dctx.beginPath();
+    dctx.moveTo(x + r, y); dctx.arcTo(x + w, y, x + w, y + h, r); dctx.arcTo(x + w, y + h, x, y + h, r);
+    dctx.arcTo(x, y + h, x, y, r); dctx.arcTo(x, y, x + w, y, r); dctx.closePath();
+  }
+
+  function drawDuel() {
+    var R = DD.round;
+    if (!R || !DD.cell) return;
+    var S = R.state, c = DD.cell, W = DD.size, t = DD.t, moving = motionOk();
+    dctx.save();
+    if (DD.fx.shake > 0) dctx.translate((Math.random() - 0.5) * 4 * DD.fx.shake, (Math.random() - 0.5) * 4 * DD.fx.shake);
+    dctx.drawImage(duelLayer(S), 0, 0, W, W);
+    var ev = R.eventView();
+    if (ev && ev.kind === 'vanish') drawDuelVanish(ev, R, c, t, moving);
+    if (ev && ev.kind === 'laser') drawDuelLaser(ev, R, c, t, moving);
+    if (ev && ev.kind === 'walls') drawDuelWalls(ev, c, t, moving);
+    if (ev && ev.kind === 'portal') drawDuelPortals(ev, c, t, moving);
+    if (ev && ev.kind === 'core') drawDuelCore(ev, c, t, moving);
+    drawDuelFood(S, c, t, moving);
+    var a = S.phase === 'running' && moving ? Math.min(1, S.acc / R.tuning.stepMs) : 1;
+    drawDuelSnake(S.snakes[1], DD.prev && DD.prev[1], a, c, DD.rival.snake, DD.rival.head, 1, t);
+    drawDuelSnake(S.snakes[0], DD.prev && DD.prev[0], a, c, PAL.snake, PAL.head, 0, t);
+    drawDuelMarks(c);
+    if (S.tick < 22 && S.snakes[0].alive) drawDuelYou(S.snakes[0], c, t);
+    drawDuelFx(c, moving);
+    dctx.restore();
+    if (DD.fx.flash > 0) {
+      var g = dctx.createRadialGradient(W / 2, W / 2, W * 0.25, W / 2, W / 2, W * 0.75);
+      g.addColorStop(0, duelAlpha(DD.fx.flashCol, 0)); g.addColorStop(1, duelAlpha(DD.fx.flashCol, 0.35 * DD.fx.flash));
+      dctx.fillStyle = g; dctx.fillRect(0, 0, W, W);
+    }
+  }
+
+  /* Vanishing Grid: warned cells pulse faster as their time runs out and crack near the end; a cell that drops
+     shrinks into the dark; dropped cells are holes. */
+  function drawDuelVanish(v, R, c, t, moving) {
+    var T = DuelEvents.TUNING.vanish, an = DD.an;
+    Object.keys(v.gone).forEach(function (k) {
+      var q = k.split(','), x = +q[0] * c, y = +q[1] * c;
+      if (!an.gone[k]) { an.gone[k] = 1; an.falling.push({ x: +q[0], y: +q[1], t: t }); }
+      dctx.fillStyle = '#040406'; dctx.fillRect(x, y, c, c);
+      dctx.fillStyle = 'rgba(255,92,122,0.10)'; dctx.fillRect(x, y, c, 1);
+    });
+    an.falling = an.falling.filter(function (f) {
+      var k = (t - f.t) / 520;
+      if (k >= 1 || !moving) return false;
+      var s = (1 - duelEase(k)) * c;
+      dctx.save(); dctx.translate((f.x + 0.5) * c, (f.y + 0.5) * c); dctx.rotate(k * 0.9);
+      dctx.fillStyle = 'rgba(64,58,90,' + (1 - k) + ')'; dctx.fillRect(-s / 2, -s / 2, s, s);
+      dctx.restore();
+      return true;
+    });
+    Object.keys(v.warned).forEach(function (k) {
+      var p = k.split(','), x = +p[0], y = +p[1], w = R.warn(x, y), prog = 1 - Math.min(1, w / T.warn);
+      var pulse = moving ? 0.5 + 0.5 * Math.sin(t * (0.004 + prog * 0.012)) : 0.7;
+      dctx.fillStyle = 'rgba(255,92,122,' + (0.08 + prog * 0.22 + pulse * 0.08 * prog) + ')';
+      dctx.fillRect(x * c + 1, y * c + 1, c - 2, c - 2);
+      dctx.strokeStyle = 'rgba(255,92,122,' + (0.25 + 0.5 * pulse * prog) + ')'; dctx.lineWidth = 1;
+      dctx.strokeRect(x * c + 1.5, y * c + 1.5, c - 3, c - 3);
+      if (prog > 0.65) {
+        dctx.strokeStyle = 'rgba(255,200,210,' + (prog - 0.6) + ')';
+        dctx.beginPath(); dctx.moveTo(x * c + c * 0.2, y * c + c * 0.3); dctx.lineTo(x * c + c * 0.55, y * c + c * 0.5); dctx.lineTo(x * c + c * 0.8, y * c + c * 0.75); dctx.stroke();
+      }
+    });
+  }
+
+  /* Laser Sweep: emitters glow on the edge for every charging band, stripes fill as the charge builds, a fired band
+     is a hot beam; the safe lanes are framed. */
+  function drawDuelLaser(v, R, c, t, moving) {
+    var N = R.size, T = DuelEvents.TUNING.laser, rows = {};
+    if (v.active) {
+      dctx.save(); dctx.setLineDash([3, 5]); dctx.strokeStyle = 'rgba(255,255,255,0.2)'; dctx.lineWidth = 1;
+      v.lanes.forEach(function (L) {
+        var a = L[0] * c, b = (L[1] + 1) * c;
+        if (v.axis === 'row') dctx.strokeRect(a + 0.5, 0.5, b - a - 1, N * c - 1); else dctx.strokeRect(0.5, a + 0.5, N * c - 1, b - a - 1);
+      });
+      dctx.restore();
+    }
+    v.cells.forEach(function (p) {
+      var x = p.x * c, y = p.y * c;
+      if (p.fire) {
+        var flick = moving ? 0.85 + 0.15 * Math.sin(t * 0.06 + p.x + p.y) : 1;
+        dctx.fillStyle = 'rgba(255,40,100,' + (0.55 * flick) + ')'; dctx.fillRect(x, y, c, c);
+        dctx.fillStyle = 'rgba(255,190,215,' + (0.85 * flick) + ')';
+        if (v.axis === 'row') dctx.fillRect(x, y + c * 0.38, c, c * 0.24); else dctx.fillRect(x + c * 0.38, y, c * 0.24, c);
+      } else {
+        var prog = 1 - Math.min(1, p.warn / T.warn), shimmer = moving ? 0.5 + 0.5 * Math.sin(t * (0.006 + prog * 0.02)) : 0.6;
+        dctx.fillStyle = 'rgba(255,70,120,' + (0.05 + prog * 0.2) + ')'; dctx.fillRect(x, y, c, c);
+        dctx.strokeStyle = 'rgba(255,70,120,' + (0.12 + prog * 0.35 * shimmer) + ')'; dctx.lineWidth = 1;
+        dctx.beginPath();
+        var o = moving ? (t * 0.02) % (c * 0.6) : 0;
+        for (var s = -c + o; s < c; s += c * 0.6) { dctx.moveTo(x + s, y + c); dctx.lineTo(x + s + c, y); }
+        dctx.stroke();
+      }
+      var key = v.axis === 'row' ? p.y : p.x;
+      if (!rows[key] || p.fire) rows[key] = p;
+    });
+    Object.keys(rows).forEach(function (k) {
+      var p = rows[k], i = +k, glow = p.fire ? 1 : 0.3 + 0.5 * (1 - Math.min(1, p.warn / T.warn));
+      dctx.fillStyle = 'rgba(255,90,140,' + glow + ')';
+      if (v.axis === 'row') { dctx.fillRect(0, i * c + c * 0.25, 3, c * 0.5); dctx.fillRect(N * c - 3, i * c + c * 0.25, 3, c * 0.5); }
+      else { dctx.fillRect(i * c + c * 0.25, 0, c * 0.5, 3); dctx.fillRect(i * c + c * 0.25, N * c - 3, c * 0.5, 3); }
+    });
+  }
+
+  /* Moving Walls: dashed tracks, the next cells glow amber, bars slide smoothly and point the way they move. */
+  function drawDuelWalls(v, c, t, moving) {
+    var an = DD.an;
+    if (v.live && !an.wallsLive) { an.wallsLive = true; v.bars.forEach(function (b) { b.cells.forEach(function (q) { duelBurst(q.x, q.y, '#FFB547', 2, 0.6); }); }); }
+    v.bars.forEach(function (b, i) {
+      var tr = b.track;
+      dctx.save(); dctx.setLineDash([2, 4]); dctx.strokeStyle = 'rgba(255,181,71,0.22)'; dctx.lineWidth = 1;
+      if (tr.axis === 'x') dctx.strokeRect(tr.min * c + 0.5, tr.fixed * c + 0.5, (tr.max - tr.min + 1) * c - 1, tr.len * c - 1);
+      else dctx.strokeRect(tr.fixed * c + 0.5, tr.min * c + 0.5, tr.len * c - 1, (tr.max - tr.min + 1) * c - 1);
+      dctx.restore();
+      var head = b.cells[0], st = an.bars[i];
+      if (!st || st.x !== head.x || st.y !== head.y) an.bars[i] = st = { x: head.x, y: head.y, fx: st ? st.x : head.x, fy: st ? st.y : head.y, at: t };
+      if (!v.live) {
+        var k = moving ? 0.5 + 0.5 * Math.sin(t * 0.012) : 0.7;
+        b.cells.forEach(function (q) { dctx.strokeStyle = 'rgba(255,181,71,' + (0.3 + 0.5 * k) + ')'; dctx.lineWidth = 1.5; dctx.strokeRect(q.x * c + 2, q.y * c + 2, c - 4, c - 4); });
+        return;
+      }
+      b.next.forEach(function (q) {
+        if (!b.cells.some(function (z) { return z.x === q.x && z.y === q.y; })) { dctx.fillStyle = 'rgba(255,181,71,0.18)'; dctx.fillRect(q.x * c, q.y * c, c, c); }
+      });
+      var e = moving ? duelEase((t - st.at) / 170) : 1, ox = (st.x - st.fx) * (1 - e) * c, oy = (st.y - st.fy) * (1 - e) * c;
+      var dirX = b.next[0].x - head.x, dirY = b.next[0].y - head.y;
+      b.cells.forEach(function (q) {
+        var x = q.x * c - ox, y = q.y * c - oy;
+        var g = dctx.createLinearGradient(x, y, x, y + c);
+        g.addColorStop(0, '#E1A043'); g.addColorStop(1, '#A86A1E');
+        dctx.fillStyle = g; duelRoundRect(x + 1, y + 1, c - 2, c - 2, Math.max(2, c * 0.22)); dctx.fill();
+        dctx.fillStyle = 'rgba(255,240,210,0.35)'; dctx.fillRect(x + 2, y + 2, c - 4, Math.max(1, c * 0.14));
+        if (dirX || dirY) {                                         // a chevron pointing the way it moves
+          var cx = x + c / 2, cy = y + c / 2, s = c * 0.18;
+          dctx.strokeStyle = 'rgba(40,24,6,0.7)'; dctx.lineWidth = Math.max(1.2, c * 0.08);
+          dctx.beginPath();
+          dctx.moveTo(cx - dirX * s - dirY * s, cy - dirY * s - dirX * s); dctx.lineTo(cx + dirX * s, cy + dirY * s); dctx.lineTo(cx - dirX * s + dirY * s, cy - dirY * s + dirX * s);
+          dctx.stroke();
+        }
+      });
+    });
+  }
+
+  /* Portal Shift: portals open with a flash, swirl while open; the next pair is shown as dashed rings; a blocked
+     exit turns its entry red with a cross. */
+  function drawDuelPortals(v, c, t, moving) {
+    var an = DD.an, cols = ['#7C5CFF', '#36C9E0'];
+    var key = v.cur ? v.cur.map(function (p) { return p.x + ',' + p.y; }).join('|') : '';
+    if (key && key !== an.portalKey) {
+      an.portalKey = key; an.portalAt = t;
+      v.cur.forEach(function (p, i) { duelRing(p.x, p.y, cols[i], 2.4, 520, 3); duelBurst(p.x, p.y, cols[i], 8, 0.9); });
+    }
+    if (v.next) v.next.forEach(function (p, i) {
+      dctx.save(); dctx.setLineDash([3, 3]); dctx.strokeStyle = duelAlpha(cols[i], 0.75); dctx.lineWidth = 1.5;
+      dctx.beginPath(); dctx.arc((p.x + 0.5) * c, (p.y + 0.5) * c, c * 0.42, 0, Math.PI * 2); dctx.stroke(); dctx.restore();
+    });
+    if (!v.cur) return;
+    var sc = moving ? duelBack3((t - an.portalAt) / 450) : 1;
+    v.cur.forEach(function (p, i) {
+      var cx = (p.x + 0.5) * c, cy = (p.y + 0.5) * c, blocked = v.open && !v.open[i], col = blocked ? '#FF5C7A' : cols[i];
+      var g = dctx.createRadialGradient(cx, cy, 0, cx, cy, c * 0.95 * sc);
+      g.addColorStop(0, duelAlpha(col, 0.55)); g.addColorStop(0.5, duelAlpha(col, 0.18)); g.addColorStop(1, duelAlpha(col, 0));
+      dctx.fillStyle = g; dctx.beginPath(); dctx.arc(cx, cy, Math.max(0.5, c * 0.95 * sc), 0, Math.PI * 2); dctx.fill();
+      var ang = moving ? t / 260 * (i ? -1 : 1) : 0;
+      dctx.strokeStyle = col; dctx.lineWidth = Math.max(1.6, c * 0.12);
+      for (var k = 0; k < 2; k++) { dctx.beginPath(); dctx.arc(cx, cy, Math.max(0.5, c * (0.42 - k * 0.16) * sc), ang + k * 2, ang + k * 2 + Math.PI * 1.25); dctx.stroke(); }
+      if (moving) for (var d = 0; d < 3; d++) {
+        var aa = ang * 1.6 + d * 2.094;
+        dctx.fillStyle = 'rgba(255,255,255,0.7)'; dctx.beginPath(); dctx.arc(cx + Math.cos(aa) * c * 0.5, cy + Math.sin(aa) * c * 0.5, Math.max(1, c * 0.05), 0, Math.PI * 2); dctx.fill();
+      }
+      if (blocked) {
+        dctx.strokeStyle = '#FF5C7A'; dctx.lineWidth = 2.2;
+        dctx.beginPath(); dctx.moveTo(cx - c * 0.24, cy - c * 0.24); dctx.lineTo(cx + c * 0.24, cy + c * 0.24);
+        dctx.moveTo(cx + c * 0.24, cy - c * 0.24); dctx.lineTo(cx - c * 0.24, cy + c * 0.24); dctx.stroke();
+      }
+    });
+  }
+
+  /* The Core: a closing reticle counts down to it; it pops in, then spins and pulses with orbiting sparks. */
+  function drawDuelCore(v, c, t, moving) {
+    if (!v.spot) return;
+    var cx = (v.spot.x + 0.5) * c, cy = (v.spot.y + 0.5) * c, T = DuelEvents.TUNING.core;
+    if (!v.live) {
+      var k = 1 - Math.min(1, v.warn / T.warn), r = c * (2.2 - 1.6 * k);
+      dctx.strokeStyle = 'rgba(255,215,110,' + (0.3 + 0.5 * k) + ')'; dctx.lineWidth = 1.5;
+      dctx.beginPath(); dctx.arc(cx, cy, r, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * k); dctx.stroke();
+      for (var q = 0; q < 4; q++) {
+        var a = q * Math.PI / 2 + (moving ? t / 900 : 0);
+        dctx.beginPath(); dctx.moveTo(cx + Math.cos(a) * r * 0.75, cy + Math.sin(a) * r * 0.75); dctx.lineTo(cx + Math.cos(a) * r * 1.1, cy + Math.sin(a) * r * 1.1); dctx.stroke();
+      }
+      if (moving && k > 0.7 && Math.random() < 0.3) duelBurst(v.spot.x + (Math.random() - 0.5) * 3, v.spot.y + (Math.random() - 0.5) * 3, '#B79CFF', 1, 0.3);
+      return;
+    }
+    var born = moving ? duelBack3((t - DD.an.coreAt) / 420) : 1, pulse = moving ? 0.5 + 0.5 * Math.sin(t / 220) : 0.6;
+    var g = dctx.createRadialGradient(cx, cy, 0, cx, cy, c * 1.8);
+    g.addColorStop(0, 'rgba(183,156,255,' + (0.4 + 0.2 * pulse) + ')'); g.addColorStop(0.5, 'rgba(136,92,255,0.15)'); g.addColorStop(1, 'rgba(136,92,255,0)');
+    dctx.fillStyle = g; dctx.beginPath(); dctx.arc(cx, cy, c * 1.8, 0, Math.PI * 2); dctx.fill();
+    dctx.save(); dctx.translate(cx, cy); dctx.rotate(moving ? t / 1400 : 0); dctx.scale(Math.max(0.01, born), Math.max(0.01, born));
+    var s = c * (0.46 + 0.05 * pulse);
+    dctx.fillStyle = '#FFD76E'; dctx.beginPath(); dctx.moveTo(0, -s); dctx.lineTo(s, 0); dctx.lineTo(0, s); dctx.lineTo(-s, 0); dctx.closePath(); dctx.fill();
+    dctx.fillStyle = '#885CFF'; dctx.beginPath(); dctx.moveTo(0, -s * 0.5); dctx.lineTo(s * 0.5, 0); dctx.lineTo(0, s * 0.5); dctx.lineTo(-s * 0.5, 0); dctx.closePath(); dctx.fill();
+    dctx.restore();
+    if (moving) for (var d = 0; d < 4; d++) {
+      var aa = t / 500 + d * Math.PI / 2;
+      dctx.fillStyle = 'rgba(214,107,255,0.8)'; dctx.beginPath(); dctx.arc(cx + Math.cos(aa) * c * 0.9, cy + Math.sin(aa) * c * 0.55, Math.max(1, c * 0.06), 0, Math.PI * 2); dctx.fill();
+    }
+  }
+
+  /* Food pops in, then breathes gently. */
+  function drawDuelFood(S, c, t, moving) {
+    var born = DD.an.born, keep = {};
+    S.foods.forEach(function (f, i) {
+      var k = f.x + ',' + f.y;
+      keep[k] = 1;
+      if (born[k] === undefined) born[k] = t;
+      var s = moving ? duelBack3((t - born[k]) / 340) : 1, bob = moving ? 1 + 0.06 * Math.sin(t / 260 + i * 2) : 1;
+      var cx = (f.x + 0.5) * c, cy = (f.y + 0.5) * c, r = Math.max(0.5, c * 0.3 * s * bob), gr = Math.max(0.5, c * 0.75 * s);
+      var g = dctx.createRadialGradient(cx, cy, 0, cx, cy, gr);
+      g.addColorStop(0, duelAlpha(PAL.food, 0.35)); g.addColorStop(1, duelAlpha(PAL.food, 0));
+      dctx.fillStyle = g; dctx.beginPath(); dctx.arc(cx, cy, gr, 0, Math.PI * 2); dctx.fill();
+      dctx.fillStyle = PAL.food; dctx.beginPath(); dctx.arc(cx, cy, r, 0, Math.PI * 2); dctx.fill();
+      dctx.fillStyle = 'rgba(255,255,255,0.55)'; dctx.beginPath(); dctx.arc(cx - r * 0.3, cy - r * 0.35, r * 0.28, 0, Math.PI * 2); dctx.fill();
+    });
+    Object.keys(born).forEach(function (k) { if (!keep[k]) delete born[k]; });
+  }
+
+  /* A snake: each segment slides from its last cell to the new one, so turns round off; the body tapers to the tail
+     with an outline and a soft highlight; the head swells when it eats; a portal jump is drawn as a break.
+     When it crashes it flashes, then greys out from the head down. */
+  function drawDuelSnake(s, prev, a, c, col, headCol, who, t) {
+    var pts = s.body.map(function (p, i) {
+      var q = prev && prev[i] ? prev[i] : (prev && prev.length ? prev[prev.length - 1] : p);
+      if (Math.abs(q.x - p.x) + Math.abs(q.y - p.y) !== 1) q = p;
+      return { x: (q.x + (p.x - q.x) * a + 0.5) * c, y: (q.y + (p.y - q.y) * a + 0.5) * c };
+    });
+    var died = DD.an.death[who], dk = died !== null ? Math.min(1, (t - died) / 700) : 0, n = pts.length;
+    function tint(base, i) {
+      if (died === null) return base;
+      if (dk < 0.25 && Math.floor(dk * 16) % 2 === 0) return mix(base, '#FFFFFF', 0.6);
+      var front = dk * (n + 4) - i;
+      return front > 0 ? mix(base, '#4A4A5C', Math.min(0.75, front / 3)) : base;
+    }
+    dctx.lineCap = 'round';
+    for (var pass = 0; pass < 3; pass++) {
+      for (var i = n - 1; i > 0; i--) {
+        var p = pts[i], q = pts[i - 1];
+        if (Math.abs(p.x - q.x) + Math.abs(p.y - q.y) > c * 1.05) continue;   // a portal jump
+        var w = c * (0.5 + 0.3 * (1 - i / Math.max(1, n - 1)));
+        if (pass === 0) { dctx.strokeStyle = 'rgba(0,0,0,0.45)'; dctx.lineWidth = w + 3; }
+        else if (pass === 1) { dctx.strokeStyle = tint(col, i); dctx.lineWidth = w; }
+        else { dctx.strokeStyle = 'rgba(255,255,255,0.13)'; dctx.lineWidth = w * 0.32; }
+        dctx.beginPath(); dctx.moveTo(p.x, p.y); dctx.lineTo(q.x, q.y); dctx.stroke();
+      }
+    }
+    var h = pts[0], d = s.dir, R = c * 0.46 * (1 + 0.2 * DD.an.head[who]);
+    if (s.alive) {
+      var g = dctx.createRadialGradient(h.x, h.y, 0, h.x, h.y, c * 1.3);
+      g.addColorStop(0, duelAlpha(col, 0.28)); g.addColorStop(1, duelAlpha(col, 0));
+      dctx.fillStyle = g; dctx.beginPath(); dctx.arc(h.x, h.y, c * 1.3, 0, Math.PI * 2); dctx.fill();
+    }
+    dctx.fillStyle = tint(headCol, 0);
+    dctx.beginPath(); dctx.arc(h.x, h.y, R, 0, Math.PI * 2); dctx.fill();
+    var ex = -d.y, ey = d.x;
+    [-1, 1].forEach(function (k) {
+      var x = h.x + d.x * c * 0.13 + ex * k * c * 0.2, y = h.y + d.y * c * 0.13 + ey * k * c * 0.2;
+      dctx.fillStyle = '#FFFFFF'; dctx.beginPath(); dctx.arc(x, y, Math.max(1.6, c * 0.12), 0, Math.PI * 2); dctx.fill();
+      dctx.fillStyle = '#0B0B0F';
+      if (s.alive) { dctx.beginPath(); dctx.arc(x + d.x * c * 0.04, y + d.y * c * 0.04, Math.max(1, c * 0.07), 0, Math.PI * 2); dctx.fill(); }
+      else { dctx.lineWidth = 1.2; dctx.strokeStyle = '#0B0B0F'; var z = c * 0.06; dctx.beginPath(); dctx.moveTo(x - z, y - z); dctx.lineTo(x + z, y + z); dctx.moveTo(x + z, y - z); dctx.lineTo(x - z, y + z); dctx.stroke(); }
+    });
+  }
+
+  /* Where a crash happened: the cell the head tried to enter, ringed and crossed in the colour of the snake that crashed. */
+  function drawDuelMarks(c) {
+    DD.an.marks.forEach(function (m) {
+      var cx = (m.x + 0.5) * c, cy = (m.y + 0.5) * c, z = c * 0.28;
+      dctx.strokeStyle = m.c; dctx.lineWidth = 2;
+      dctx.beginPath(); dctx.arc(cx, cy, c * 0.55, 0, Math.PI * 2); dctx.stroke();
+      dctx.beginPath(); dctx.moveTo(cx - z, cy - z); dctx.lineTo(cx + z, cy + z); dctx.moveTo(cx + z, cy - z); dctx.lineTo(cx - z, cy + z); dctx.stroke();
+    });
+  }
+  /* "YOU" over the player's head for the first seconds of a round, so the colours are never in doubt. */
+  function drawDuelYou(s, c, t) {
+    var h = s.body[0], x = (h.x + 0.5) * c, y = (h.y + 0.5) * c - c * 1.3;
+    dctx.font = '700 ' + Math.max(9, Math.round(c * 0.75)) + 'px Sora, sans-serif'; dctx.textAlign = 'center'; dctx.textBaseline = 'middle';
+    var w = dctx.measureText('YOU').width + c * 0.6;
+    dctx.fillStyle = 'rgba(10,10,14,0.85)'; duelRoundRect(x - w / 2, y - c * 0.5, w, c, c * 0.3); dctx.fill();
+    dctx.strokeStyle = PAL.snake; dctx.lineWidth = 1.5; dctx.stroke();
+    dctx.fillStyle = PAL.snake; dctx.fillText('YOU', x, y + 0.5);
+  }
+
+  function drawDuelFx(c, moving) {
+    var F = DD.fx;
+    F.rings.forEach(function (r) {
+      var k = r.t / r.life, e = duelEase(k), rad = (r.implode ? (1 - e) * r.r : 0.4 + e * r.r) * c;
+      dctx.strokeStyle = duelAlpha(r.c, (1 - k) * 0.9); dctx.lineWidth = r.w * (1 - k * 0.6);
+      dctx.beginPath(); dctx.arc(r.x * c, r.y * c, Math.max(0.5, rad), 0, Math.PI * 2); dctx.stroke();
+    });
+    F.parts.forEach(function (p) {
+      var k = p.t / p.life;
+      dctx.globalAlpha = p.confetti ? Math.min(1, (1 - k) * 2) : 1 - k;
+      dctx.fillStyle = p.c;
+      if (p.confetti) { dctx.save(); dctx.translate(p.x * c, p.y * c); dctx.rotate(p.spin); dctx.fillRect(-p.r * c, -p.r * c * 0.4, p.r * c * 2, p.r * c * 0.8); dctx.restore(); }
+      else { dctx.beginPath(); dctx.arc(p.x * c, p.y * c, Math.max(0.6, p.r * c * (1 - k * 0.5)), 0, Math.PI * 2); dctx.fill(); }
+    });
+    dctx.globalAlpha = 1;
+    F.texts.forEach(function (tx) {
+      var k = tx.t / 1100, pop = moving ? duelBack3(Math.min(1, tx.t / 220)) : 1;
+      dctx.globalAlpha = 1 - k * k;
+      dctx.font = '700 ' + Math.max(8, Math.round(c * (tx.big ? 1.6 : 1.05) * pop)) + 'px Sora, sans-serif';
+      dctx.textAlign = 'center'; dctx.textBaseline = 'middle';
+      var x = (tx.x + 0.5) * c, y = (tx.y + 0.5) * c - (moving ? duelEase(k) * c * 1.8 : c * 0.6);
+      dctx.lineWidth = 3; dctx.strokeStyle = 'rgba(10,10,14,0.85)'; dctx.strokeText(tx.text, x, y);
+      dctx.fillStyle = tx.color; dctx.fillText(tx.text, x, y);
+      dctx.globalAlpha = 1;
+    });
+  }
+
+  /* ---------- wiring ---------- */
+  buildDuelEventList();
+  $('duelEntry').addEventListener('click', openDuel);
+  $('duelBack').addEventListener('click', leaveDuel);
+  $('duelStart').addEventListener('click', startMatch);
+  document.querySelectorAll('#duelLevels .dz-level').forEach(function (b) {
+    b.addEventListener('click', function () { duelSaveLevel(b.getAttribute('data-level')); renderDuelMenu(); sfx.play('food'); });
+    b.addEventListener('keydown', function (e) {                // a radio group: the arrows move the choice
+      var order = ['easy', 'medium', 'hard'], i = order.indexOf(duelLevel);
+      if (e.key === 'ArrowRight' || e.key === 'ArrowDown') i = Math.min(2, i + 1); else if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') i = Math.max(0, i - 1); else return;
+      e.preventDefault(); duelSaveLevel(order[i]); renderDuelMenu();
+      document.querySelector('#duelLevels [data-level="' + order[i] + '"]').focus();
+    });
+  });
+  $('duelPauseBtn').addEventListener('click', function () { if (DD.paused) duelResume(); else duelPause(); });
+  $('duelLeaveBtn').addEventListener('click', duelToMenu);
+  $('duelMuteBtn').addEventListener('click', function () { setSound(!soundOn); syncDuelMute(); });
+  function syncDuelMute() { setText($('duelMuteBtn'), soundOn ? 'Sound on' : 'Sound off'); $('duelMuteBtn').setAttribute('aria-pressed', soundOn ? 'false' : 'true'); }
+  syncDuelMute();
+  $('duelOvMain').addEventListener('click', function () { if (DD.flow === 'results') startMatch(); else duelResume(); });
+  $('duelOvSec').addEventListener('click', duelToMenu);
+  $('duelOvRestart').addEventListener('click', function () { if (DD.match) DD.match.abandon(); duelOverlay(null); startMatch(); });
+  document.querySelectorAll('#duelPad button').forEach(function (b) {
+    b.addEventListener('pointerdown', function (e) { e.preventDefault(); duelSteer(parseInt(b.getAttribute('data-dx'), 10), parseInt(b.getAttribute('data-dy'), 10)); });
+  });
+  [['duelTurnLeft', -1], ['duelTurnRight', 1]].forEach(function (p) {
+    $(p[0]).addEventListener('pointerdown', function (e) { e.preventDefault(); duelTurnSide(p[1]); });
+  });
+  function duelKey(e) {
+    if (DD.screen === 'menu') { if (e.key === 'Escape') { e.preventDefault(); leaveDuel(); } return; }
+    if (KEYS[e.key]) { e.preventDefault(); duelSteer(KEYS[e.key][0], KEYS[e.key][1]); }
+    else if (e.key === ' ' || e.code === 'Space' || e.key === 'p' || e.key === 'P') { e.preventDefault(); if (DD.paused) duelResume(); else duelPause(); }
+    else if (e.key === 'Escape') { e.preventDefault(); duelBack(); }
+  }
+  (function () {
+    var area = $('duel'), sx = 0, sy = 0, on = false;
+    area.addEventListener('touchstart', function (e) {
+      if (e.target.closest && e.target.closest('button')) return;
+      var t = e.changedTouches[0]; sx = t.clientX; sy = t.clientY; on = true;
+    }, { passive: true });
+    area.addEventListener('touchmove', function (e) {
+      if (!on || DD.screen === 'menu') return;
+      var t = e.changedTouches[0], dx = t.clientX - sx, dy = t.clientY - sy;
+      if (Math.max(Math.abs(dx), Math.abs(dy)) < 12) return;
+      if (Math.abs(dx) > Math.abs(dy)) duelSteer(dx > 0 ? 1 : -1, 0); else duelSteer(0, dy > 0 ? 1 : -1);
+      sx = t.clientX; sy = t.clientY;
+    }, { passive: true });
+    area.addEventListener('touchend', function () { on = false; }, { passive: true });
+  })();
+  window.addEventListener('resize', function () { if (view === 'duel' && DD.screen !== 'menu') duelResize(); });
+  document.addEventListener('visibilitychange', function () { if (document.hidden && view === 'duel') duelPause(); });
+
 
   /* ---------- start-up: loading state until the fonts are ready ---------- */
   function markReady() {

@@ -35,6 +35,7 @@ swap('/*TEST_HOOK*/', `/* Android Back button: close the open dialog, or leave t
     if (w.open) return true;                                  // the name box is required: Back cannot skip it
     var ds = [pfDlg, shopDlg, achDlg, dlg];
     for (var i = 0; i < ds.length; i++) if (ds[i].open) { closeDialog(ds[i]); return true; }
+    if (view === 'duel') return duelBack();                    // Duel: pause, then its menu, then the game's menu
     if (view === 'game') { if (game.state.phase === 'running') pauseRun(); goMenu(); return true; }
     return false;                                              // already on the menu: let the app go to the background
   };
